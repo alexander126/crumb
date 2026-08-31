@@ -1,11 +1,30 @@
-# Crumb Android proof of concept
+# Crumb for Android
 
-This Gradle project contains:
+Crumb's native Android SDK owns reporter presentation, foreground shake
+detection, privacy-safe screenshot capture, one-time diagnostics, durable local
+storage, and report upload.
 
-- `crumb-core`: inert configuration and the shared diagnostic models;
-- `crumb-ui`: screenshot masking, one-time diagnostics, native reporter, local
-  draft, and foreground shake detection;
-- `demo`: a small native Kotlin host application.
+## Install in an application
+
+The current public preview is `0.0.1-rc.3`. Add Maven Central and the UI
+artifact; Core is included transitively:
+
+```kotlin
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    implementation("com.crumbsdk:crumb-ui:0.0.1-rc.3")
+}
+```
+
+Crumb requires Android API 26 or newer and Java 17 bytecode. Follow the
+[native Android installation guide](../../docs/getting-started.md#native-android)
+for the complete Gradle, `Application`, and manifest setup.
+
+## Configure
 
 Explicitly submitted reports are persisted in an app-private, size-bounded
 queue and survive restart. With an ingestion URL configured, foreground
@@ -58,8 +77,9 @@ accountNumberView.maskInCrumbScreenshots()
 ```
 
 The same interface can mask a whole `ComposeView` or `WebView`; Crumb does not
-inspect individual composables or DOM elements in `0.0.1`. See
-`docs/contracts/screenshot-artifacts.md` for the complete boundary.
+inspect individual composables or DOM elements in `0.0.1-rc.3`. See the
+[screenshot artifact contract](../../docs/contracts/screenshot-artifacts.md)
+for the complete boundary.
 
 Android applications can provide recent logs without granting system-log
 access:
@@ -79,7 +99,16 @@ The provider is invoked on the diagnostics worker only after a report opens.
 It should return a prompt in-memory snapshot; Crumb applies time, count, byte,
 and sanitization limits.
 
-Build it with:
+## Develop the SDK
+
+This Gradle project contains:
+
+- `crumb-core`: inert configuration and the shared diagnostic models;
+- `crumb-ui`: screenshot masking, one-time diagnostics, native reporter, local
+  draft, and foreground shake detection;
+- `demo`: a small native Kotlin host application.
+
+Build the demo with:
 
 ```bash
 ./gradlew :demo:assembleDebug

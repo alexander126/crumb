@@ -15,24 +15,71 @@ Crumb contains native code and therefore does not run in Expo Go.
 
 ## Install
 
+Install the public package and its required Nitro runtime as direct
+dependencies:
+
 ```sh
-yarn add @crumbsdk/react-native react-native-nitro-modules
-cd ios && pod install
+npm install @crumbsdk/react-native@0.0.1-rc.3 \
+  react-native-nitro-modules@0.37.1
 ```
 
-Expo apps should create a development build after installation:
+### Expo
+
+Crumb contains native code and does not run in Expo Go. Add a development
+client and configure the native minimum targets:
 
 ```sh
-npx expo prebuild
+npx expo install expo-dev-client expo-build-properties
+```
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": { "minSdkVersion": 26 },
+          "ios": { "deploymentTarget": "15.1" }
+        }
+      ]
+    ]
+  }
+}
+```
+
+Create or rebuild the native development client:
+
+```sh
 npx expo run:ios
 # or
 npx expo run:android
 ```
 
-No Crumb-specific Expo config plugin is required. React Native autolinking installs
-`CrumbSDKCore` and `CrumbSDKUI` from CocoaPods on iOS and `crumb-ui` from Maven
-Central on Android. The package uses
+No Crumb-specific Expo config plugin is required. Expo Prebuild and React
+Native autolinking install `CrumbSDKCore` and `CrumbSDKUI` from CocoaPods on
+iOS and `crumb-ui` from Maven Central on Android.
+
+### Bare React Native
+
+React Native autolinking discovers Crumb after installation. Install iOS pods,
+then rebuild the applications:
+
+```sh
+npx pod-install
+npm run ios
+# or
+npm run android
+```
+
+No manual `AppDelegate`, `MainApplication`, or package-list registration is
+needed. Set `platform :ios, "15.1"` in a manually maintained Podfile and
+`minSdk = 26` in the Android app module. The package uses
 [`react-native-nitro-modules`](https://nitro.margelo.com/) for its JSI bridge.
+
+The [complete all-platform guide](../../docs/getting-started.md) covers Expo,
+bare React Native, native iOS, and native Android from installation through a
+submitted test report.
 
 ## Configure
 

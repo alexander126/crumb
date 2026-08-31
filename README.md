@@ -4,6 +4,22 @@ Crumb is a native-first mobile issue-reporting SDK. Its first production slice
 turns an explicit user report into a privacy-safe diagnostic packet that an
 engineer can inspect without asking the reporter to recreate basic context.
 
+## Install Crumb
+
+The current public preview is `0.0.1-rc.3`.
+
+| Application | Install | Guide |
+| --- | --- | --- |
+| Native iOS | Swift Package Manager or `pod "CrumbSDK", "0.0.1-rc.3"` | [iOS setup](docs/getting-started.md#native-ios) |
+| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.3` from Maven Central | [Android setup](docs/getting-started.md#native-android) |
+| Expo | `@crumbsdk/react-native` in a development build | [Expo setup](docs/getting-started.md#expo-development-builds) |
+| Bare React Native | `@crumbsdk/react-native` with autolinking | [Bare setup](docs/getting-started.md#bare-react-native) |
+
+The [complete installation guide](docs/getting-started.md) includes minimum
+platform versions, copy-paste configuration, privacy masking, and a verification
+checklist for all four paths. Expo Go is not supported because Crumb includes
+native Swift, Kotlin, and Nitro Module code.
+
 ## Current status
 
 This repository owns the distributable native SDKs and their public report
@@ -58,31 +74,12 @@ npm install
 npm test
 ```
 
-The native integration shape is deliberately small:
-
-```swift
-try Crumb.start(configuration)
-Crumb.installReporter()
-Crumb.show() // optional programmatic invocation
-```
-
-```kotlin
-Crumb.start(configuration)
-CrumbReporter.install(application)
-CrumbReporter.show(activity) // optional programmatic invocation
-```
-
-Set `CrumbUploadOptions.ingestionURL` on iOS or `ingestionUrl` on Android to
-enable delivery. Leaving it unset keeps the durable queue local-only.
-Hosts may separately opt in to report-time Crumb API reachability by setting
-the diagnostics health URL to the ingestion service's public `/health` route.
+## Integration references
 
 Run the native demos from [examples/ios](examples/ios/README.md) and
-[packages/android](packages/android/README.md).
-
-React Native and Expo development-build setup is documented in
-[packages/react-native](packages/react-native/README.md). Expo Go is not
-supported because the adapter links the native Crumb SDKs.
+[packages/android](packages/android/README.md). The React Native API and its
+JavaScript log boundary are documented in
+[packages/react-native](packages/react-native/README.md).
 
 The standalone [Expo consumer example](examples/react-native/README.md)
 installs the published npm package, rather than linking the adapter source, and
