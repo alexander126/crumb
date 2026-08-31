@@ -36,10 +36,20 @@ for (const [name, podspec] of pods) {
     continue;
   }
 
-  execFileSync("pod", ["trunk", "push", podspec, "--synchronous"], {
-    cwd: root,
-    stdio: "inherit",
-  });
+  try {
+    execFileSync("pod", ["trunk", "push", podspec, "--synchronous"], {
+      cwd: root,
+      stdio: "inherit",
+    });
+  } catch (error) {
+    if (alreadyPublished(name)) {
+      console.warn(
+        `${name} ${version} was accepted before CocoaPods reported a post-publication error; continuing.`,
+      );
+      continue;
+    }
+    throw error;
+  }
 }
 
 console.log(`CocoaPods published Crumb ${version}.`);

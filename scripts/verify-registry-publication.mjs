@@ -45,10 +45,6 @@ if (verifyCocoaPods) {
   for (const pod of ["CrumbSDKCore", "CrumbSDKUI", "CrumbSDK"]) {
     await waitFor(`CocoaPods ${pod} ${version}`, () => cocoaPodsHasVersion(pod));
   }
-  execFileSync("pod", ["spec", "cat", "CrumbSDK", `--version=${version}`], {
-    cwd: root,
-    stdio: "inherit",
-  });
 }
 
 if (verifyMaven) {

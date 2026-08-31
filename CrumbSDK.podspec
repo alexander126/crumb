@@ -17,6 +17,7 @@ Pod::Spec.new do |spec|
   }
 
   spec.ios.deployment_target = "15.0"
+  spec.swift_version = "6.0"
   spec.dependency "CrumbSDKCore", spec.version.to_s
   spec.dependency "CrumbSDKUI", spec.version.to_s
 end

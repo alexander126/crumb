@@ -5,6 +5,12 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Fixed
+
+- Made CocoaPods publication resilient to post-publication service errors and
+  removed ambiguous fuzzy package lookup from the public verification gate.
+- Declared the Swift language version on the dependency-only umbrella pod.
+
 ## [0.0.1-rc.3] - 2026-08-31
 
 ### Added
