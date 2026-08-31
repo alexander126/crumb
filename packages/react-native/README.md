@@ -107,3 +107,23 @@ corepack yarn quality
 corepack yarn example ios
 corepack yarn example android
 ```
+
+## Publishing
+
+Releases publish from the immutable `react-native-v<version>` Git tag through
+the `react-native-npm-publish.yml` GitHub Actions workflow. The workflow uses
+npm trusted publishing (OIDC), so no long-lived npm write token is stored in
+GitHub.
+
+Configure the package's npm trusted publisher with these exact values:
+
+- Provider: GitHub Actions
+- Organization or user: `alexander126`
+- Repository: `crumb`
+- Workflow: `react-native-npm-publish.yml`
+- Environment: leave empty
+- Allowed action: `npm publish`
+
+Use the `next` distribution tag for prereleases and `latest` for stable
+versions. The workflow verifies the package version, immutable Git tag,
+distribution tag, and explicit publication confirmation before it publishes.
