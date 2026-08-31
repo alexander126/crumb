@@ -1,0 +1,5 @@
+// Copy this file to Dogfood.xcconfig. The real file is ignored by Git.
+// Keep the SDK key write-only and revoke it after the dogfood run.
+CRUMB_DOGFOOD_PROJECT_KEY =
+CRUMB_DOGFOOD_INGESTION_URL = https:/$()/api.staging.crumbsdk.com
+CRUMB_DOGFOOD_ENVIRONMENT = staging

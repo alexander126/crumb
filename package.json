@@ -1,0 +1,42 @@
+{
+  "name": "crumb-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Native-first mobile issue reporting SDK",
+  "type": "module",
+  "scripts": {
+    "contracts:check": "node scripts/validate-contracts.mjs",
+    "test:ios": "swift test --package-path .",
+    "test:android": "./packages/android/gradlew -p packages/android :crumb-core:testDebugUnitTest :crumb-ui:testDebugUnitTest :demo:testDebugUnitTest",
+    "version:sync": "node scripts/sync-sdk-version.mjs",
+    "version:check": "node scripts/sync-sdk-version.mjs --check",
+    "distribution:verify": "node scripts/verify-native-distribution.mjs",
+    "distribution:verify:remote": "node scripts/verify-native-distribution.mjs --remote-revision",
+    "quality:verify": "npm run test:ios && npm run test:android && ./packages/android/gradlew -p packages/android :crumb-core:assembleRelease :crumb-ui:assembleRelease && node scripts/verify-quality-boundaries.mjs",
+    "quality:verify:ios-size": "node scripts/measure-ios-link-contribution.mjs",
+    "browserstack:prepare": "node scripts/browserstack.mjs prepare",
+    "browserstack:prepare:ios": "node scripts/browserstack.mjs prepare-ios",
+    "browserstack:prepare:android": "node scripts/browserstack.mjs prepare-android",
+    "browserstack:devices": "node scripts/browserstack.mjs devices",
+    "browserstack:run": "node scripts/browserstack.mjs run",
+    "browserstack:run:ios": "node scripts/browserstack.mjs run-ios",
+    "browserstack:run:ios:current": "node scripts/browserstack.mjs run-ios-current",
+    "browserstack:run:ios:legacy": "node scripts/browserstack.mjs run-ios-legacy",
+    "browserstack:run:android": "node scripts/browserstack.mjs run-android",
+    "release:check": "npm run contracts:check && npm run version:check && npm run quality:verify && npm run distribution:verify",
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "release:verify": "node scripts/verify-release.mjs",
+    "release:tag-check": "node scripts/check-release-tag.mjs",
+    "test": "npm run contracts:check && npm run test:ios && npm run test:android"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

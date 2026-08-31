@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/mobile-report-envelope/1.0/schema.json",
+  "title": "Mobile report envelope",
+  "description": "A single, explicitly invoked mobile issue report with one on-demand diagnostic snapshot.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "trigger",
+    "triggered_at",
+    "submitted_at",
+    "release",
+    "sdk",
+    "runtime",
+    "user_input",
+    "diagnostics",
+    "privacy",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "report_id": {
+      "type": "string",
+      "pattern": "^rpt_[A-Za-z0-9_-]{16,80}$"
+    },
+    "trigger": {
+      "type": "string",
+      "enum": ["shake", "programmatic"]
+    },
+    "triggered_at": { "type": "string", "format": "date-time" },
+    "submitted_at": { "type": "string", "format": "date-time" },
+    "release": { "$ref": "#/$defs/release" },
+    "sdk": { "$ref": "#/$defs/sdk" },
+    "runtime": { "$ref": "#/$defs/runtime" },
+    "user_input": { "$ref": "#/$defs/userInput" },
+    "diagnostics": { "$ref": "#/$defs/diagnostics" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/artifact" }
+    }
+  },
+  "$defs": {
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "app_version", "native_build", "environment"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["ios", "android", "react_native"]
+        },
+        "app_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "native_build": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "js_bundle_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "environment": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "sdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "integration"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "integration": {
+          "type": "string",
+          "enum": ["native", "react_native"]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "os_version", "device_family", "locale", "timezone"],
+      "properties": {
+        "os": { "type": "string", "enum": ["ios", "android"] },
+        "os_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "device_family": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "locale": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "timezone": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "userInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "description"],
+      "properties": {
+        "category": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "contact": { "type": "string", "minLength": 1, "maxLength": 320 }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captured_at",
+        "location",
+        "process",
+        "thermal_state",
+        "threads",
+        "gpu",
+        "network",
+        "logs",
+        "stack_traces"
+      ],
+      "properties": {
+        "captured_at": { "type": "string", "format": "date-time" },
+        "location": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "process": { "$ref": "#/$defs/processDiagnostic" },
+        "cpu_usage_percent": { "type": "number", "minimum": 0, "maximum": 100000 },
+        "memory": { "$ref": "#/$defs/memoryDiagnostic" },
+        "thermal_state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "threads": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["count", "busiest"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "busiest": {
+              "type": "array",
+              "maxItems": 20,
+              "items": { "$ref": "#/$defs/threadDiagnostic" }
+            }
+          }
+        },
+        "gpu": { "$ref": "#/$defs/gpuDiagnostic" },
+        "network": { "$ref": "#/$defs/networkDiagnostic" },
+        "logs": { "$ref": "#/$defs/logDiagnostic" },
+        "stack_traces": { "$ref": "#/$defs/stackTraceDiagnostic" }
+      }
+    },
+    "processDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "id"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "id": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "memoryDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resident_bytes": { "type": "integer", "minimum": 0 },
+        "physical_footprint_bytes": { "type": "integer", "minimum": 0 }
+      },
+      "minProperties": 1
+    },
+    "threadDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "cpu_usage_percent": { "type": "number", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "gpuDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["captured", "unavailable_on_demand"]
+        },
+        "utilization_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "networkDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "transport", "is_expensive", "is_constrained"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["reachable", "limited", "unreachable", "unknown"]
+        },
+        "transport": {
+          "type": "string",
+          "enum": ["wifi", "cellular", "ethernet", "vpn", "bluetooth", "loopback", "other", "none", "unknown"]
+        },
+        "cellular_generation": {
+          "type": "string",
+          "enum": ["2g", "3g", "4g_lte", "5g", "unknown"]
+        },
+        "is_expensive": { "type": "boolean" },
+        "is_constrained": { "type": "boolean" },
+        "health_check": { "$ref": "#/$defs/healthCheckDiagnostic" }
+      }
+    },
+    "healthCheckDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "succeeded", "latency_ms"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1, "maxLength": 253 },
+        "succeeded": { "type": "boolean" },
+        "status_code": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "latency_ms": { "type": "integer", "minimum": 0, "maximum": 30000 },
+        "failure": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "logDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "sources",
+        "entries",
+        "truncated",
+        "dropped_entry_count",
+        "failures"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["captured", "empty", "unavailable", "disabled"]
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/logEntry" }
+        },
+        "truncated": { "type": "boolean" },
+        "dropped_entry_count": { "type": "integer", "minimum": 0 },
+        "failures": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        }
+      }
+    },
+    "logEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timestamp", "level", "source", "category", "message"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "level": {
+          "type": "string",
+          "enum": ["debug", "info", "notice", "warning", "error", "fault"]
+        },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "category": { "type": "string", "maxLength": 256 },
+        "message": { "type": "string", "maxLength": 65536 }
+      }
+    },
+    "stackTraceDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "scope", "threads", "truncated"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["captured", "unavailable"]
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["managed_threads", "react_native", "none"]
+        },
+        "threads": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/threadStackDiagnostic" }
+        },
+        "truncated": { "type": "boolean" },
+        "unavailable_reason": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "threadStackDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "state", "frames"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "state": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "frames": {
+          "type": "array",
+          "maxItems": 40,
+          "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["screenshot_capture", "screenshot_masking", "diagnostics_capture", "log_capture"],
+      "properties": {
+        "screenshot_capture": {
+          "type": "string",
+          "enum": ["enabled", "disabled_by_configuration", "unavailable"]
+        },
+        "screenshot_masking": {
+          "type": "string",
+          "enum": ["applied", "not_applicable", "failed"]
+        },
+        "diagnostics_capture": { "const": "on_demand" },
+        "log_capture": {
+          "type": "string",
+          "enum": ["enabled", "disabled_by_configuration", "unavailable"]
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "mime_type",
+        "byte_size",
+        "sha256",
+        "redaction_state",
+        "upload_id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^art_[A-Za-z0-9_-]{12,80}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["screenshot", "annotated_screenshot", "other"]
+        },
+        "mime_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "byte_size": { "type": "integer", "minimum": 0, "maximum": 26214400 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "redaction_state": {
+          "type": "string",
+          "enum": ["sanitized", "masked", "not_applicable"]
+        },
+        "upload_id": {
+          "type": "string",
+          "pattern": "^upl_[A-Za-z0-9_-]{12,80}$"
+        }
+      }
+    }
+  }
+}

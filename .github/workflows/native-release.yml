@@ -1,0 +1,48 @@
+name: Native SDK release
+
+on:
+  push:
+    tags:
+      - "0.0.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci
+      - run: npm run release:tag-check -- "${GITHUB_REF_NAME}"
+      - run: npm run release:check
+      - run: npm run release:prepare && npm run release:verify
+      - name: Publish immutable GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME}"
+          prerelease=()
+          if [[ "${version}" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "${version}" \
+            "dist/release/${version}/crumb-android-maven-${version}.zip" \
+            "dist/release/${version}/crumb-apple-metadata-${version}.zip" \
+            "dist/release/${version}/crumb-release-${version}.json" \
+            "dist/release/${version}/SHA256SUMS" \
+            --verify-tag \
+            --generate-notes \
+            --title "Crumb ${version}" \
+            "${prerelease[@]}"

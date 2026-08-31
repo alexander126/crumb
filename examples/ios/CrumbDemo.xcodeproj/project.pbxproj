@@ -1,0 +1,486 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2873D5DA71C4D44CAA4662C8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34F2EFCAE67E82B80F3B22A5 /* Foundation.framework */; };
+		634F016E9D78E28EBD7258DB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34F2EFCAE67E82B80F3B22A5 /* Foundation.framework */; };
+		6E7EF1A9F1ABA1C67B455F1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCDC5D69883C67CD9B9D3A1 /* AppDelegate.swift */; };
+		796064CB5D87F0116FF86CF0 /* CrumbUI in Frameworks */ = {isa = PBXBuildFile; productRef = A447FF3FF1B8D82D1DB1BFFC /* CrumbUI */; };
+		B4B687EE787FD7387F5AD465 /* DemoCrumbConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB65626E52677F601498A559 /* DemoCrumbConfiguration.swift */; };
+		C2DB5B477FCBB7B22AE56038 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01008A07679F101F30E3CE2 /* MainViewController.swift */; };
+		D2DC3E2413E54104FBAD6BCA /* CrumbDemoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE0C94303D333F8017F0A16 /* CrumbDemoUITests.swift */; };
+		E21D349288C2B66ADC8CBDB0 /* CrumbCore in Frameworks */ = {isa = PBXBuildFile; productRef = 367024D0AFF62825DD7650BC /* CrumbCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DDD279D409E11B82F5A01CEF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D3FD5FE8187DCBD37ECF711 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 343CBEB973FE8EF03C2CC226;
+			remoteInfo = CrumbDemo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1FAB6798AFD9A7B7BD5F7526 /* CrumbDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrumbDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2DCDC5D69883C67CD9B9D3A1 /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		3368105BDA1345CB7FDEE273 /* CrumbDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CrumbDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		34F2EFCAE67E82B80F3B22A5 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		BCE0C94303D333F8017F0A16 /* CrumbDemoUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CrumbDemoUITests.swift; sourceTree = "<group>"; };
+		C01008A07679F101F30E3CE2 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		DB65626E52677F601498A559 /* DemoCrumbConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DemoCrumbConfiguration.swift; sourceTree = "<group>"; };
+		E6CAB2D4F543165461FDA858 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		646AE6FF7C69EEFD8DBEE36C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2873D5DA71C4D44CAA4662C8 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		845105ADA071315CABF7B824 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				634F016E9D78E28EBD7258DB /* Foundation.framework in Frameworks */,
+				E21D349288C2B66ADC8CBDB0 /* CrumbCore in Frameworks */,
+				796064CB5D87F0116FF86CF0 /* CrumbUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		32A82F26E958D08DE18CF254 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				34F2EFCAE67E82B80F3B22A5 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		40ACE1D3510053F32FB258C7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				32A82F26E958D08DE18CF254 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		448B26092F5F29AAE8BAE984 /* CrumbDemo */ = {
+			isa = PBXGroup;
+			children = (
+				2DCDC5D69883C67CD9B9D3A1 /* AppDelegate.swift */,
+				DB65626E52677F601498A559 /* DemoCrumbConfiguration.swift */,
+				C01008A07679F101F30E3CE2 /* MainViewController.swift */,
+				E6CAB2D4F543165461FDA858 /* Info.plist */,
+			);
+			name = CrumbDemo;
+			path = CrumbDemo;
+			sourceTree = "<group>";
+		};
+		4CB7D1B72D79B500DE3F3C74 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1FAB6798AFD9A7B7BD5F7526 /* CrumbDemo.app */,
+				3368105BDA1345CB7FDEE273 /* CrumbDemoUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		51B3198CB630C5EAB276FE65 = {
+			isa = PBXGroup;
+			children = (
+				4CB7D1B72D79B500DE3F3C74 /* Products */,
+				40ACE1D3510053F32FB258C7 /* Frameworks */,
+				448B26092F5F29AAE8BAE984 /* CrumbDemo */,
+				88836540B01DD186FC013EE9 /* CrumbDemoUITests */,
+			);
+			sourceTree = "<group>";
+		};
+		88836540B01DD186FC013EE9 /* CrumbDemoUITests */ = {
+			isa = PBXGroup;
+			children = (
+				BCE0C94303D333F8017F0A16 /* CrumbDemoUITests.swift */,
+			);
+			name = CrumbDemoUITests;
+			path = CrumbDemoUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2ABB9C16E0CD147B5ED8D47C /* CrumbDemoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3A5D09A31BCEE35BC4025760 /* Build configuration list for PBXNativeTarget "CrumbDemoUITests" */;
+			buildPhases = (
+				A4ECB0E70478E23196F45A98 /* Sources */,
+				646AE6FF7C69EEFD8DBEE36C /* Frameworks */,
+				2C29EBAFB8C1357BAD09D9EF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C6A35BD7BB337FFCA68CFFAC /* PBXTargetDependency */,
+			);
+			name = CrumbDemoUITests;
+			productName = CrumbDemoUITests;
+			productReference = 3368105BDA1345CB7FDEE273 /* CrumbDemoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		343CBEB973FE8EF03C2CC226 /* CrumbDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F76E5E4A0ABE78D40691EC7C /* Build configuration list for PBXNativeTarget "CrumbDemo" */;
+			buildPhases = (
+				B16347A71001347CA67C7159 /* Sources */,
+				845105ADA071315CABF7B824 /* Frameworks */,
+				DC933074FADA932DCEE85F88 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CrumbDemo;
+			packageProductDependencies = (
+				367024D0AFF62825DD7650BC /* CrumbCore */,
+				A447FF3FF1B8D82D1DB1BFFC /* CrumbUI */,
+			);
+			productName = CrumbDemo;
+			productReference = 1FAB6798AFD9A7B7BD5F7526 /* CrumbDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7D3FD5FE8187DCBD37ECF711 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = 5A707B299A495AA84E8DB76E /* Build configuration list for PBXProject "CrumbDemo" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 51B3198CB630C5EAB276FE65;
+			packageReferences = (
+				36520681CCFD9C4FA77843C7 /* XCLocalSwiftPackageReference ".." */,
+			);
+			productRefGroup = 4CB7D1B72D79B500DE3F3C74 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				343CBEB973FE8EF03C2CC226 /* CrumbDemo */,
+				2ABB9C16E0CD147B5ED8D47C /* CrumbDemoUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2C29EBAFB8C1357BAD09D9EF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DC933074FADA932DCEE85F88 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A4ECB0E70478E23196F45A98 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D2DC3E2413E54104FBAD6BCA /* CrumbDemoUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B16347A71001347CA67C7159 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6E7EF1A9F1ABA1C67B455F1E /* AppDelegate.swift in Sources */,
+				B4B687EE787FD7387F5AD465 /* DemoCrumbConfiguration.swift in Sources */,
+				C2DB5B477FCBB7B22AE56038 /* MainViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C6A35BD7BB337FFCA68CFFAC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CrumbDemo;
+			target = 343CBEB973FE8EF03C2CC226 /* CrumbDemo */;
+			targetProxy = DDD279D409E11B82F5A01CEF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		145C34FAACF54C193C12CBE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CrumbDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.crumb.nativepoc.ios;
+				PRODUCT_NAME = CrumbDemo;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		368722913051E4D74B807DE2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		409067A416DDA2B9FBEEB844 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.crumb.nativepoc.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = CrumbDemo;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		7F480F7876381FB2921B2942 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.crumb.nativepoc.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = CrumbDemo;
+			};
+			name = Debug;
+		};
+		91DD4BA9660C950C87594BA4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CrumbDemo/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.crumb.nativepoc.ios;
+				PRODUCT_NAME = CrumbDemo;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BD6C1028E1F7DA88CFA1FCF8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3A5D09A31BCEE35BC4025760 /* Build configuration list for PBXNativeTarget "CrumbDemoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				409067A416DDA2B9FBEEB844 /* Release */,
+				7F480F7876381FB2921B2942 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5A707B299A495AA84E8DB76E /* Build configuration list for PBXProject "CrumbDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD6C1028E1F7DA88CFA1FCF8 /* Debug */,
+				368722913051E4D74B807DE2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F76E5E4A0ABE78D40691EC7C /* Build configuration list for PBXNativeTarget "CrumbDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				145C34FAACF54C193C12CBE6 /* Release */,
+				91DD4BA9660C950C87594BA4 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		36520681CCFD9C4FA77843C7 /* XCLocalSwiftPackageReference ".." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		367024D0AFF62825DD7650BC /* CrumbCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36520681CCFD9C4FA77843C7 /* XCLocalSwiftPackageReference ".." */;
+			productName = CrumbCore;
+		};
+		A447FF3FF1B8D82D1DB1BFFC /* CrumbUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36520681CCFD9C4FA77843C7 /* XCLocalSwiftPackageReference ".." */;
+			productName = CrumbUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 7D3FD5FE8187DCBD37ECF711 /* Project object */;
+}

@@ -1,0 +1,82 @@
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "maven-publish"
+
+android {
+    namespace "dev.crumb.ui"
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 26
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+dependencies {
+    api project(":crumb-core")
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.robolectric:robolectric:4.14.1"
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = "crumb-ui"
+
+                pom {
+                    name = "Crumb UI"
+                    description = "The native on-demand reporter, screenshot masking, and diagnostics UI for Crumb."
+                    url = "https://github.com/alexander126/crumb"
+
+                    licenses {
+                        license {
+                            name = "The Apache License, Version 2.0"
+                            url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                            distribution = "repo"
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            name = "Crumb contributors"
+                        }
+                    }
+
+                    scm {
+                        connection = "scm:git:https://github.com/alexander126/crumb.git"
+                        developerConnection = "scm:git:ssh://git@github.com/alexander126/crumb.git"
+                        url = "https://github.com/alexander126/crumb"
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                name = "staging"
+                url = uri(rootProject.findProperty("crumbRepository") ?: rootProject.layout.buildDirectory.dir("staged-maven"))
+            }
+        }
+    }
+}

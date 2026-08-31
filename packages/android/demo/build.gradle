@@ -1,0 +1,69 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def dogfoodProperty = { name ->
+    (project.findProperty(name) ?: localProperties.getProperty(name) ?: "").toString()
+}
+def javaStringLiteral = { value ->
+    value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+}
+
+android {
+    namespace "dev.crumb.demo"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "dev.crumb.nativepoc.android"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "String", "CRUMB_DOGFOOD_PROJECT_KEY", "\"${javaStringLiteral(dogfoodProperty("crumbDogfoodProjectKey"))}\""
+        buildConfigField "String", "CRUMB_DOGFOOD_INGESTION_URL", "\"${javaStringLiteral(dogfoodProperty("crumbDogfoodIngestionUrl"))}\""
+        buildConfigField "String", "CRUMB_DOGFOOD_ENVIRONMENT", "\"${javaStringLiteral(dogfoodProperty("crumbDogfoodEnvironment"))}\""
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            // The demo is never shipped. A deterministic debug signature lets the
+            // release-compiled app run on local and hosted QA devices.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+
+    if (project.hasProperty("crumbQualityRelease")) {
+        testBuildType "release"
+    }
+}
+
+dependencies {
+    implementation project(":crumb-core")
+    implementation project(":crumb-ui")
+
+    testImplementation "junit:junit:4.13.2"
+
+    androidTestImplementation "androidx.test:core-ktx:1.7.0"
+    androidTestImplementation "androidx.test:runner:1.7.0"
+    androidTestImplementation "androidx.test.ext:junit:1.3.0"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.7.0"
+}

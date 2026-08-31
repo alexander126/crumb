@@ -1,0 +1,5 @@
+# Copy this file to local.properties. The real file is ignored by Git.
+# Keep the SDK key write-only and revoke it after the dogfood run.
+crumbDogfoodProjectKey=
+crumbDogfoodIngestionUrl=https://api.staging.crumbsdk.com
+crumbDogfoodEnvironment=staging

@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0",
+  "report_id": "rpt_01J6R7R2VAYM5X4S9ACQ",
+  "trigger": "shake",
+  "triggered_at": "2026-08-19T08:30:00Z",
+  "submitted_at": "2026-08-19T08:30:12Z",
+  "release": {
+    "platform": "ios",
+    "app_version": "0.1.0",
+    "native_build": "1",
+    "environment": "development"
+  },
+  "sdk": {
+    "name": "crumb-ios",
+    "version": "0.0.1",
+    "integration": "native"
+  },
+  "runtime": {
+    "os": "ios",
+    "os_version": "26.0",
+    "device_family": "iPhone",
+    "locale": "en-BG",
+    "timezone": "Europe/Sofia"
+  },
+  "user_input": {
+    "category": "bug",
+    "description": "Payment spinner never finishes"
+  },
+  "diagnostics": {
+    "captured_at": "2026-08-19T08:30:01Z",
+    "location": "CheckoutViewController",
+    "process": {
+      "name": "MerchantApp",
+      "id": 4182
+    },
+    "cpu_usage_percent": 83.4,
+    "memory": {
+      "resident_bytes": 143220736,
+      "physical_footprint_bytes": 127401984
+    },
+    "thermal_state": "nominal",
+    "threads": {
+      "count": 19,
+      "busiest": [
+        {
+          "id": "84227",
+          "name": "com.apple.main-thread",
+          "state": "running",
+          "cpu_usage_percent": 61.2
+        },
+        {
+          "id": "84311",
+          "name": "payment-worker",
+          "state": "waiting",
+          "cpu_usage_percent": 20.1
+        }
+      ]
+    },
+    "gpu": {
+      "status": "unavailable_on_demand"
+    },
+    "network": {
+      "status": "reachable",
+      "transport": "wifi",
+      "is_expensive": false,
+      "is_constrained": false,
+      "health_check": {
+        "host": "api.crumb.dev",
+        "succeeded": true,
+        "status_code": 204,
+        "latency_ms": 87
+      }
+    },
+    "logs": {
+      "status": "captured",
+      "sources": ["os_log"],
+      "entries": [
+        {
+          "timestamp": "2026-08-19T08:29:54Z",
+          "level": "notice",
+          "source": "os_log",
+          "category": "com.example.merchant/checkout",
+          "message": "Payment request started"
+        },
+        {
+          "timestamp": "2026-08-19T08:29:59Z",
+          "level": "error",
+          "source": "os_log",
+          "category": "com.example.merchant/checkout",
+          "message": "Payment request timed out for [REDACTED_EMAIL]"
+        }
+      ],
+      "truncated": false,
+      "dropped_entry_count": 0,
+      "failures": []
+    },
+    "stack_traces": {
+      "status": "unavailable",
+      "scope": "none",
+      "threads": [],
+      "truncated": false,
+      "unavailable_reason": "all_thread_stacks_unavailable_without_sampling"
+    }
+  },
+  "privacy": {
+    "screenshot_capture": "enabled",
+    "screenshot_masking": "applied",
+    "diagnostics_capture": "on_demand",
+    "log_capture": "enabled"
+  },
+  "artifacts": [
+    {
+      "id": "art_01J6R7R4KJ79CP",
+      "kind": "screenshot",
+      "mime_type": "image/jpeg",
+      "byte_size": 184220,
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "redaction_state": "masked",
+      "upload_id": "upl_01J6R7R5WFE8QB"
+    }
+  ]
+}

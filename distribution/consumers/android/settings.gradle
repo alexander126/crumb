@@ -1,0 +1,29 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+def stagedRepository = providers.gradleProperty("crumbRepository").orNull
+if (stagedRepository == null || stagedRepository.trim().isEmpty()) {
+    throw new GradleException("Pass -PcrumbRepository with the staged Maven repository path")
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        maven {
+            url = uri(stagedRepository)
+            content {
+                includeGroup("dev.crumb")
+            }
+        }
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "crumb-distribution-consumer"
+include ":app"

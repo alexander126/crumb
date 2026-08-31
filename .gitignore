@@ -1,0 +1,17 @@
+.DS_Store
+.cache/
+.build/
+.gradle/
+**/build/
+DerivedData/
+Pods/
+local.properties
+node_modules/
+dist/
+.env
+!.env.example
+.browserstack/
+npm-debug.log*
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+examples/ios/Dogfood.xcconfig

@@ -1,0 +1,26 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.12.0"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0"
+    }
+}
+
+def sdkVersionFile = file("../../VERSION")
+if (!sdkVersionFile.isFile()) {
+    throw new GradleException("Missing repository VERSION file")
+}
+
+def sdkVersion = sdkVersionFile.getText("UTF-8").trim()
+if (!(sdkVersion ==~ /\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?/)) {
+    throw new GradleException("VERSION must contain a semantic version")
+}
+
+allprojects {
+    group = "dev.crumb"
+    version = sdkVersion
+}
