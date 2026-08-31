@@ -1,0 +1,87 @@
+name: Publish React Native SDK to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact immutable React Native release tag
+        required: true
+        type: string
+      dist_tag:
+        description: npm distribution channel
+        required: true
+        default: next
+        type: choice
+        options:
+          - next
+          - latest
+      confirmation:
+        description: Type "publish @crumbsdk/react-native@<version>"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: react-native-npm-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/react-native
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Install an OIDC-capable npm CLI
+        run: npm install --global npm@12.0.2
+      - run: corepack enable
+      - run: yarn install --immutable
+      - name: Validate immutable tag and explicit confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          expected_tag="react-native-v${version}"
+          expected_confirmation="publish @crumbsdk/react-native@${version}"
+
+          if [[ "${RELEASE_TAG}" != "${expected_tag}" ]]; then
+            echo "Tag must exactly match ${expected_tag}" >&2
+            exit 1
+          fi
+          if [[ "${CONFIRMATION}" != "${expected_confirmation}" ]]; then
+            echo "Confirmation must exactly match: ${expected_confirmation}" >&2
+            exit 1
+          fi
+          if [[ "$(git tag --points-at HEAD --list "${RELEASE_TAG}")" != "${RELEASE_TAG}" ]]; then
+            echo "Checked-out commit is not tagged ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+          if [[ "${version}" == *-* && "${DIST_TAG}" != "next" ]]; then
+            echo "Prerelease versions must publish to the next channel" >&2
+            exit 1
+          fi
+          if [[ "${version}" != *-* && "${DIST_TAG}" != "latest" ]]; then
+            echo "Stable versions must publish to the latest channel" >&2
+            exit 1
+          fi
+      - run: yarn quality
+      - run: yarn pack:check
+      - name: Publish with npm trusted publishing
+        env:
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: npm publish --access public --tag "${DIST_TAG}"

@@ -5,11 +5,13 @@ on:
     paths:
       - "packages/react-native/**"
       - ".github/workflows/react-native-ci.yml"
+      - ".github/workflows/react-native-npm-publish.yml"
   push:
     branches: [main]
     paths:
       - "packages/react-native/**"
       - ".github/workflows/react-native-ci.yml"
+      - ".github/workflows/react-native-npm-publish.yml"
 
 permissions:
   contents: read
