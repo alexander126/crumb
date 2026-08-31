@@ -57,27 +57,29 @@ This repeats the same gates and makes the Swift consumer clone the GitHub
 repository at the supplied revision. A branch name is intentionally not
 accepted because it can move during verification.
 
-## Final public installation
+## Current public installation
 
-These forms become available after Task 14 publishes the approved final release
-to CocoaPods and Maven Central. Swift Package Manager resolves the immutable
-GitHub release tags directly.
+Release candidate `0.0.1-rc.3` is public through Swift Package Manager,
+CocoaPods, and Maven Central. Pin the exact prerelease while the SDK is in
+preview; the eventual stable `0.0.1` release will use the same package names.
 
 ```swift
-.package(url: "https://github.com/alexander126/crumb.git", from: "0.0.1")
+.package(
+    url: "https://github.com/alexander126/crumb.git",
+    exact: "0.0.1-rc.3"
+)
 ```
 
 ```ruby
-pod "CrumbSDK", "0.0.1"
+pod "CrumbSDK", "0.0.1-rc.3"
 ```
 
 ```kotlin
-implementation("com.crumbsdk:crumb-ui:0.0.1")
+implementation("com.crumbsdk:crumb-ui:0.0.1-rc.3")
 ```
 
-Do not create a tag, push a podspec, or target a public Maven repository as
-part of Task 9. The SDK source and artifacts are licensed under Apache-2.0;
-the hosted `crumb-cloud` product remains private and proprietary.
+The SDK source and artifacts are licensed under Apache-2.0; the hosted
+`crumb-cloud` product remains private and proprietary.
 
 The separately confirmed public publication workflow and its credential
 boundary are documented in [Native registry publication](registries.md).
