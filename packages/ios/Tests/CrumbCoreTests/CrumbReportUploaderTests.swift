@@ -190,6 +190,8 @@ private actor ConnectivityTransport: CrumbUploadTransport {
         if request.url?.path.hasSuffix("/complete") == true {
             completions += 1
             #expect(request.value(forHTTPHeaderField: "Idempotency-Key") == "\(reportID):complete")
+            #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+            #expect(request.httpBody == Data("{}".utf8))
             return CrumbUploadHTTPResponse(statusCode: 200)
         }
         return CrumbUploadHTTPResponse(statusCode: 404)

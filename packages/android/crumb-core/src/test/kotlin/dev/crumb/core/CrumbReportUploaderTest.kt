@@ -158,6 +158,8 @@ class CrumbReportUploaderTest {
                 request.url.endsWith("/complete") -> {
                     completions += 1
                     assertEquals("$reportId:complete", request.headers["Idempotency-Key"])
+                    assertEquals("application/json", request.headers["Content-Type"])
+                    assertEquals("{}", String(checkNotNull(request.body)))
                     CrumbUploadHttpResponse(200)
                 }
                 else -> CrumbUploadHttpResponse(404)
