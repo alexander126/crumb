@@ -1,7 +1,7 @@
 version = File.read(File.expand_path("VERSION", __dir__)).strip
 
 Pod::Spec.new do |spec|
-  spec.name = "CrumbCore"
+  spec.name = "CrumbSDKCore"
   spec.version = version
   spec.summary = "Configuration, reports, queues, and upload transport for Crumb"
   spec.description = <<-DESC

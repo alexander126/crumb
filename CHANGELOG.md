@@ -5,6 +5,15 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+## [0.0.1-rc.2] - 2026-08-31
+
+### Changed
+
+- Reserved collision-free CocoaPods identities under `CrumbSDK` and aligned
+  Maven Central coordinates with the verified `com.crumbsdk` domain namespace.
+- Made the clean Swift consumer check independent of the local checkout folder
+  name and verified the final package identities inside release archives.
+
 ## [0.0.1-rc.1] - 2026-08-31
 
 ### Added

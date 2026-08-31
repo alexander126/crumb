@@ -21,6 +21,6 @@ if (!(sdkVersion ==~ /\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?/)) {
 }
 
 allprojects {
-    group = "dev.crumb"
+    group = "com.crumbsdk"
     version = sdkVersion
 }

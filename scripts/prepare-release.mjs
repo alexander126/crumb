@@ -53,9 +53,9 @@ run(join(root, "packages/android/gradlew"), [
 
 for (const path of [
   "Package.swift",
-  "Crumb.podspec",
-  "CrumbCore.podspec",
-  "CrumbUI.podspec",
+  "CrumbSDK.podspec",
+  "CrumbSDKCore.podspec",
+  "CrumbSDKUI.podspec",
   "README.md",
   "CHANGELOG.md",
   "PRIVACY.md",

@@ -32,5 +32,5 @@ layout.buildDirectory = providers.gradleProperty("crumbConsumerBuildDir").map { 
 
 dependencies {
     // Core must arrive transitively through the published UI POM.
-    implementation "dev.crumb:crumb-ui:${sdkVersion}"
+    implementation "com.crumbsdk:crumb-ui:${sdkVersion}"
 }
