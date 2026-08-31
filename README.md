@@ -84,6 +84,10 @@ React Native and Expo development-build setup is documented in
 [packages/react-native](packages/react-native/README.md). Expo Go is not
 supported because the adapter links the native Crumb SDKs.
 
+The standalone [Expo consumer example](examples/react-native/README.md)
+installs the published npm package, rather than linking the adapter source, and
+is compiled independently on both platforms in CI.
+
 The native package identities and their clean-consumer rehearsal are
 documented in [docs/distribution/native.md](docs/distribution/native.md).
 

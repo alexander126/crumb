@@ -1,0 +1,31 @@
+{
+  "name": "crumb-react-native-consumer-example",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild --clean",
+    "prebuild:android": "expo prebuild --platform android --clean",
+    "prebuild:ios": "expo prebuild --platform ios --clean",
+    "typecheck": "tsc --noEmit",
+    "build:android": "cd android && ./gradlew assembleDebug -Dorg.gradle.jvmargs=-Xmx4g",
+    "build:ios": "xcodebuild ONLY_ACTIVE_ARCH=YES ARCHS=arm64 -workspace ios/CrumbSDKExample.xcworkspace -scheme CrumbSDKExample -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build -quiet"
+  },
+  "dependencies": {
+    "@crumbsdk/react-native": "0.0.1-rc.3",
+    "expo": "55.0.31",
+    "expo-build-properties": "55.0.18",
+    "expo-status-bar": "55.0.6",
+    "react": "19.2.0",
+    "react-native": "0.83.10",
+    "react-native-nitro-modules": "0.37.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "expo-dev-client": "55.0.40",
+    "typescript": "5.9.3"
+  }
+}
