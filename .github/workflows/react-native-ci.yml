@@ -60,7 +60,7 @@ jobs:
       - run: yarn example build:android
 
   ios-example:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     defaults:
       run:
