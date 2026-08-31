@@ -140,7 +140,7 @@ package actor CrumbReportUploadWorker {
             path: ["sdk", "v1", "reports", reportID, "complete"],
             reportID: reportID,
             operation: "complete",
-            body: nil
+            body: Data("{}".utf8)
         )
     }
 

@@ -132,7 +132,7 @@ class CrumbReportUploadWorker internal constructor(
             components = listOf("sdk", "v1", "reports", reportId, "complete"),
             reportId = reportId,
             operation = "complete",
-            body = null,
+            body = EMPTY_OPERATION_BODY,
         )
     }
 
@@ -264,6 +264,8 @@ class CrumbReportUploadWorker internal constructor(
     }
 
     companion object {
+        private val EMPTY_OPERATION_BODY = "{}".toByteArray()
+
         private const val HEADER_CHARACTERS =
             "!#\$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
