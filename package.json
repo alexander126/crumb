@@ -27,6 +27,10 @@
     "release:prepare": "node scripts/prepare-release.mjs",
     "release:verify": "node scripts/verify-release.mjs",
     "release:tag-check": "node scripts/check-release-tag.mjs",
+    "registry:verify": "node scripts/verify-registry-publication.mjs",
+    "registry:bundle:maven": "node scripts/prepare-maven-central-bundle.mjs",
+    "registry:publish:maven": "node scripts/publish-maven-central.mjs",
+    "registry:publish:cocoapods": "node scripts/publish-cocoapods.mjs",
     "test": "npm run contracts:check && npm run test:ios && npm run test:android"
   },
   "devDependencies": {

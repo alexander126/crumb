@@ -78,3 +78,6 @@ implementation("com.crumbsdk:crumb-ui:0.0.1")
 Do not create a tag, push a podspec, or target a public Maven repository as
 part of Task 9. The SDK source and artifacts are licensed under Apache-2.0;
 the hosted `crumb-cloud` product remains private and proprietary.
+
+The separately confirmed public publication workflow and its credential
+boundary are documented in [Native registry publication](registries.md).

@@ -1,6 +1,7 @@
 apply plugin: "com.android.library"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "maven-publish"
+apply plugin: "signing"
 
 android {
     namespace "dev.crumb.ui"
@@ -37,12 +38,20 @@ dependencies {
     testImplementation "org.robolectric:robolectric:4.14.1"
 }
 
+def centralJavadocJar = tasks.register("centralJavadocJar", Jar) {
+    archiveClassifier = "javadoc"
+    from(rootProject.file("../../README.md")) {
+        into "docs"
+    }
+}
+
 afterEvaluate {
     publishing {
         publications {
             release(MavenPublication) {
                 from components.release
                 artifactId = "crumb-ui"
+                artifact centralJavadocJar
 
                 pom {
                     name = "Crumb UI"
@@ -59,7 +68,11 @@ afterEvaluate {
 
                     developers {
                         developer {
+                            id = "alexander126"
                             name = "Crumb contributors"
+                            organization = "Crumb"
+                            organizationUrl = "https://crumbsdk.com"
+                            url = "https://github.com/alexander126"
                         }
                     }
 
@@ -78,5 +91,15 @@ afterEvaluate {
                 url = uri(rootProject.findProperty("crumbRepository") ?: rootProject.layout.buildDirectory.dir("staged-maven"))
             }
         }
+    }
+
+    signing {
+        def privateKey = providers.gradleProperty("signingInMemoryKey").orNull
+        def privateKeyPassword = providers.gradleProperty("signingInMemoryKeyPassword").orNull
+        if (privateKey) {
+            useInMemoryPgpKeys(privateKey, privateKeyPassword)
+        }
+        required { privateKey != null }
+        sign publishing.publications.release
     }
 }
