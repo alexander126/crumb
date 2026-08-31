@@ -5,6 +5,16 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+## [0.0.1-rc.3] - 2026-08-31
+
+### Added
+
+- Manual, immutable publication workflows for `CrumbSDK`, `CrumbSDKCore`, and
+  `CrumbSDKUI` on CocoaPods.
+- Signed Maven Central bundles for `com.crumbsdk:crumb-core` and
+  `com.crumbsdk:crumb-ui`, including sources, documentation, POM metadata,
+  checksums, and clean-consumer verification.
+
 ## [0.0.1-rc.2] - 2026-08-31
 
 ### Changed

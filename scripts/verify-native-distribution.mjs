@@ -90,7 +90,9 @@ function verifyAndroidArtifacts() {
 
   for (const [artifact, label] of [
     [join(coreBase, `crumb-core-${version}-sources.jar`), "Core sources JAR"],
+    [join(coreBase, `crumb-core-${version}-javadoc.jar`), "Core Javadoc JAR"],
     [join(uiBase, `crumb-ui-${version}-sources.jar`), "UI sources JAR"],
+    [join(uiBase, `crumb-ui-${version}-javadoc.jar`), "UI Javadoc JAR"],
   ]) {
     readFileSync(artifact);
     console.log(`Verified ${label}.`);
