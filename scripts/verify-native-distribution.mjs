@@ -38,9 +38,9 @@ function requireText(path, expected, label) {
 
 function verifyPackageMetadata() {
   const metadataFiles = [
-    "Crumb.podspec",
-    "CrumbCore.podspec",
-    "CrumbUI.podspec",
+    "CrumbSDK.podspec",
+    "CrumbSDKCore.podspec",
+    "CrumbSDKUI.podspec",
     "packages/android/crumb-core/build.gradle",
     "packages/android/crumb-ui/build.gradle",
   ];
@@ -64,7 +64,7 @@ function verifyPackageMetadata() {
 }
 
 function verifyAndroidArtifacts() {
-  const versionPath = join("dev", "crumb");
+  const versionPath = join("com", "crumbsdk");
   const coreBase = join(mavenRepository, versionPath, "crumb-core", version);
   const uiBase = join(mavenRepository, versionPath, "crumb-ui", version);
   const coreAar = join(coreBase, `crumb-core-${version}.aar`);
@@ -72,7 +72,7 @@ function verifyAndroidArtifacts() {
 
   const corePom = requireText(
     join(coreBase, `crumb-core-${version}.pom`),
-    "<groupId>dev.crumb</groupId>",
+    "<groupId>com.crumbsdk</groupId>",
     "Core POM",
   );
   const uiPom = requireText(join(uiBase, `crumb-ui-${version}.pom`), "<artifactId>crumb-core</artifactId>", "UI POM");
@@ -112,7 +112,7 @@ function verifySwiftConsumer() {
 
   const dependency = remoteRevision
     ? `.package(url: "https://github.com/alexander126/crumb.git", revision: "${remoteRevision}")`
-    : `.package(path: ${JSON.stringify(root)})`;
+    : `.package(name: "crumb", path: ${JSON.stringify(root)})`;
 
   writeFileSync(
     join(consumer, "Package.swift"),
@@ -167,9 +167,9 @@ try {
     ":app:assembleDebug",
   ]);
 
-  lintPodspec("CrumbCore.podspec");
-  lintPodspec("CrumbUI.podspec", "CrumbCore.podspec");
-  lintPodspec("Crumb.podspec", "Crumb{Core,UI}.podspec");
+  lintPodspec("CrumbSDKCore.podspec");
+  lintPodspec("CrumbSDKUI.podspec", "CrumbSDKCore.podspec");
+  lintPodspec("CrumbSDK.podspec", "CrumbSDK{Core,UI}.podspec");
 
   verifySwiftConsumer();
   console.log(`Native distribution rehearsal passed for Crumb ${version}${remoteRevision ? ` at ${remoteRevision}` : " using the local package"}.`);

@@ -79,7 +79,7 @@ the diagnostics health URL to the ingestion service's public `/health` route.
 Run the native demos from [examples/ios](examples/ios/README.md) and
 [packages/android](packages/android/README.md).
 
-The unpublished native package shapes and their clean-consumer rehearsal are
+The native package identities and their clean-consumer rehearsal are
 documented in [docs/distribution/native.md](docs/distribution/native.md).
 
 The T10 hosted physical-device pass is documented in

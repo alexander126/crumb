@@ -1,7 +1,7 @@
 version = File.read(File.expand_path("VERSION", __dir__)).strip
 
 Pod::Spec.new do |spec|
-  spec.name = "Crumb"
+  spec.name = "CrumbSDK"
   spec.version = version
   spec.summary = "The complete Crumb native issue-reporting SDK for iOS"
   spec.description = <<-DESC
@@ -17,6 +17,6 @@ Pod::Spec.new do |spec|
   }
 
   spec.ios.deployment_target = "15.0"
-  spec.dependency "CrumbCore", spec.version.to_s
-  spec.dependency "CrumbUI", spec.version.to_s
+  spec.dependency "CrumbSDKCore", spec.version.to_s
+  spec.dependency "CrumbSDKUI", spec.version.to_s
 end

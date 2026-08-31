@@ -1,8 +1,12 @@
 # Native distribution preparation
 
-Task 9 prepares and tests Crumb's native package shapes without publishing a
-public release. The first registry publication, release candidate, license and
-privacy documents, checksums, and public tag remain Task 14 work.
+Task 9 prepared and tested Crumb's native package shapes without publishing a
+public release. Task 14 owns immutable release candidates, final registry
+publication, license and privacy documents, checksums, and public tags.
+
+`0.0.1-rc.1` established the reproducible GitHub release path. The package
+identities below are finalized in `0.0.1-rc.2` after the unscoped `Crumb`
+CocoaPods name was found to be owned by another publisher.
 
 ## Package identities
 
@@ -11,8 +15,14 @@ The repository `VERSION` file is the SDK version source of truth. Running
 envelopes:
 
 - Swift Package products: `CrumbCore` and `CrumbUI`;
-- CocoaPods: `CrumbCore`, `CrumbUI`, and the `Crumb` convenience pod;
-- Maven: `dev.crumb:crumb-core` and `dev.crumb:crumb-ui`.
+- CocoaPods: `CrumbSDKCore`, `CrumbSDKUI`, and the `CrumbSDK` convenience pod;
+- Maven: `com.crumbsdk:crumb-core` and `com.crumbsdk:crumb-ui`.
+
+The CocoaPods distribution names are registry-safe package identities. Their
+Swift module names remain `CrumbCore` and `CrumbUI`, so installation through
+CocoaPods or Swift Package Manager exposes the same imports. The Maven group is
+owned through `crumbsdk.com`; Android source packages remain under `dev.crumb`
+to preserve the native API.
 
 The Android UI artifact exposes Core as an API dependency, so an application
 that installs `crumb-ui` receives `crumb-core` transitively. Both AARs include
@@ -47,22 +57,22 @@ This repeats the same gates and makes the Swift consumer clone the GitHub
 repository at the supplied revision. A branch name is intentionally not
 accepted because it can move during verification.
 
-## Future public installation
+## Final public installation
 
-These forms become public only after Task 14 creates and publishes the approved
-release. They document the prepared consumer interface; they are not a claim
-that the registries contain `0.0.1` today.
+These forms become available after Task 14 publishes the approved final release
+to CocoaPods and Maven Central. Swift Package Manager resolves the immutable
+GitHub release tags directly.
 
 ```swift
 .package(url: "https://github.com/alexander126/crumb.git", from: "0.0.1")
 ```
 
 ```ruby
-pod "Crumb", "0.0.1"
+pod "CrumbSDK", "0.0.1"
 ```
 
 ```kotlin
-implementation("dev.crumb:crumb-ui:0.0.1")
+implementation("com.crumbsdk:crumb-ui:0.0.1")
 ```
 
 Do not create a tag, push a podspec, or target a public Maven repository as

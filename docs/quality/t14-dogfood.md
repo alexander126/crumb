@@ -1,6 +1,6 @@
 # T14 release-candidate dogfood
 
-This runbook validates the `0.0.1-rc.1` native SDKs against the isolated Crumb
+This runbook validates the latest `0.0.1` release candidate against the isolated Crumb
 staging control plane before any public `0.0.1` tag or package publication.
 
 ## Safety boundary
@@ -95,4 +95,4 @@ T14 is not complete until:
 - release artifacts and `SHA256SUMS` verify independently;
 - this flow passes on iOS and Android against staging;
 - the product name, package metadata, privacy text, and license are approved;
-- `0.0.1-rc.1` is accepted before the final `0.0.1` tag.
+- the latest release candidate is accepted before the final `0.0.1` tag.

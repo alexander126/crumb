@@ -1,7 +1,7 @@
 version = File.read(File.expand_path("VERSION", __dir__)).strip
 
 Pod::Spec.new do |spec|
-  spec.name = "CrumbUI"
+  spec.name = "CrumbSDKUI"
   spec.version = version
   spec.summary = "The native, on-demand issue reporter interface for Crumb"
   spec.description = <<-DESC
@@ -23,7 +23,7 @@ Pod::Spec.new do |spec|
   spec.resource_bundles = {
     "CrumbUI" => "packages/ios/Sources/CrumbUI/Resources/**/*"
   }
-  spec.dependency "CrumbCore", spec.version.to_s
+  spec.dependency "CrumbSDKCore", spec.version.to_s
   spec.frameworks = [
     "CoreMotion",
     "CoreTelephony",

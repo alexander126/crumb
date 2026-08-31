@@ -49,9 +49,30 @@ const appleArchive = join(releaseRoot, `crumb-apple-metadata-${version}.zip`);
 const appleEntries = execFileSync("unzip", ["-Z1", appleArchive], { encoding: "utf8" })
   .trim()
   .split("\n");
-for (const requiredEntry of ["LICENSE", "PRIVACY.md", "CHANGELOG.md", "README.md"]) {
+for (const requiredEntry of [
+  "LICENSE",
+  "PRIVACY.md",
+  "CHANGELOG.md",
+  "README.md",
+  "CrumbSDK.podspec",
+  "CrumbSDKCore.podspec",
+  "CrumbSDKUI.podspec",
+]) {
   if (!appleEntries.includes(requiredEntry)) {
     throw new Error(`Apple metadata archive is missing ${requiredEntry}`);
+  }
+}
+
+const androidArchive = join(releaseRoot, `crumb-android-maven-${version}.zip`);
+const androidEntries = new Set(execFileSync("unzip", ["-Z1", androidArchive], { encoding: "utf8" })
+  .trim()
+  .split("\n"));
+for (const artifact of ["crumb-core", "crumb-ui"]) {
+  for (const extension of ["aar", "pom"]) {
+    const requiredEntry = `com/crumbsdk/${artifact}/${version}/${artifact}-${version}.${extension}`;
+    if (!androidEntries.has(requiredEntry)) {
+      throw new Error(`Android Maven archive is missing ${requiredEntry}`);
+    }
   }
 }
 
