@@ -1,0 +1,138 @@
+{
+  "name": "@crumbsdk/react-native",
+  "version": "0.0.1-rc.3",
+  "description": "React Native adapter for the native Crumb issue-reporting SDK",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "crumbsdk-react-native-source": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "cpp",
+    "nitrogen",
+    "nitro.json",
+    "CrumbReactNative.podspec",
+    "README.md",
+    "LICENSE",
+    "!ios/build",
+    "!android/build",
+    "!android/.cxx",
+    "!**/__tests__"
+  ],
+  "scripts": {
+    "example": "yarn workspace @crumbsdk/react-native-example",
+    "clean": "del-cli lib",
+    "prepare": "bob build",
+    "nitrogen": "nitrogen",
+    "typecheck": "tsc",
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "test": "jest --runInBand",
+    "quality": "yarn lint && yarn typecheck && yarn test && yarn prepare",
+    "pack:check": "yarn pack --dry-run"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "ios",
+    "android",
+    "bug-reporting",
+    "issue-reporting"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexander126/crumb.git",
+    "directory": "packages/react-native"
+  },
+  "author": "Crumb contributors <hellalex951@gmail.com> (https://github.com/alexander126)",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/alexander126/crumb/issues"
+  },
+  "homepage": "https://crumbsdk.com",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "crumbNativeVersion": "0.0.1-rc.3",
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@eslint/compat": "2.1.0",
+    "@eslint/eslintrc": "3.3.5",
+    "@eslint/js": "9.39.4",
+    "@react-native/babel-preset": "0.83.10",
+    "@react-native/eslint-config": "0.83.10",
+    "@types/jest": "30.0.0",
+    "@types/react": "19.2.14",
+    "babel-jest": "30.2.0",
+    "del-cli": "7.0.0",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.6",
+    "jest": "30.2.0",
+    "nitrogen": "0.37.1",
+    "prettier": "3.8.3",
+    "react": "19.2.0",
+    "react-native": "0.83.10",
+    "react-native-builder-bob": "0.43.0",
+    "react-native-nitro-modules": "0.37.1",
+    "typescript": "6.0.3"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.79.0",
+    "react-native-nitro-modules": ">=0.37.1 <0.38.0"
+  },
+  "workspaces": [
+    "example"
+  ],
+  "packageManager": "yarn@4.11.0",
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "custom",
+        {
+          "script": "nitrogen",
+          "clean": "nitrogen/"
+        }
+      ],
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "prettier": {
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "useTabs": false
+  },
+  "create-react-native-library": {
+    "type": "nitro-module",
+    "languages": "kotlin-swift",
+    "tools": [
+      "eslint",
+      "jest"
+    ],
+    "version": "0.63.0"
+  }
+}

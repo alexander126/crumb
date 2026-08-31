@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Crumb React Native Example",
+    "slug": "crumb-react-native-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.crumbsdk.reactnative.example"
+    },
+    "android": {
+      "package": "com.crumbsdk.reactnative.example"
+    }
+  }
+}
