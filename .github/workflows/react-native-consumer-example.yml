@@ -1,0 +1,75 @@
+name: React Native consumer example
+
+on:
+  pull_request:
+    paths:
+      - "examples/react-native/**"
+      - ".github/workflows/react-native-consumer-example.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/react-native/**"
+      - ".github/workflows/react-native-consumer-example.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: react-native-consumer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: examples/react-native
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/react-native/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: examples/react-native
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/react-native/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci
+      - run: npm run build:android
+
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: examples/react-native
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: examples/react-native/package-lock.json
+      - run: npm ci
+      - run: npm run build:ios

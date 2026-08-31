@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Crumb SDK Example",
+    "slug": "crumb-sdk-example",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.crumbsdk.example"
+    },
+    "android": {
+      "package": "com.crumbsdk.example"
+    }
+  }
+}
