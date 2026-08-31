@@ -5,6 +5,17 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Added
+
+- Added the strict-TypeScript `@crumbsdk/react-native` Nitro Module with
+  autolinked CocoaPods and Maven dependencies, native reporter invocation,
+  inferred native release identity, OTA bundle identity, and an Expo
+  development-build example.
+- Added bounded structured JavaScript logs and opt-in `console.warn` and
+  `console.error` capture. Entries are mirrored into native memory as they are
+  written, so native report presentation never waits on a blocked JavaScript
+  thread.
+
 ### Fixed
 
 - Made CocoaPods publication resilient to post-publication service errors and

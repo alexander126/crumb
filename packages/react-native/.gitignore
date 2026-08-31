@@ -1,0 +1,16 @@
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.expo/
+android/.cxx/
+android/build/
+example/android/
+example/ios/
+ios/build/
+lib/
+nitrogen/generated/
+node_modules/
+package.tgz

@@ -12,7 +12,8 @@ protocol. The hosted API and customer dashboard live in the separate private
 move independently.
 
 - iOS and Android are the product implementations.
-- React Native will be a thin adapter over the proven native SDKs.
+- React Native is a thin Nitro Module adapter over the proven native SDKs, with
+  an Expo development-build example and bounded JavaScript log capture.
 - Both native demos stay idle until a button or foreground shake opens the
   reporter. They then mask text inputs in a screenshot and collect a one-time
   CPU, memory, thread, thermal, network, and bounded recent-log snapshot for a
@@ -78,6 +79,10 @@ the diagnostics health URL to the ingestion service's public `/health` route.
 
 Run the native demos from [examples/ios](examples/ios/README.md) and
 [packages/android](packages/android/README.md).
+
+React Native and Expo development-build setup is documented in
+[packages/react-native](packages/react-native/README.md). Expo Go is not
+supported because the adapter links the native Crumb SDKs.
 
 The native package identities and their clean-consumer rehearsal are
 documented in [docs/distribution/native.md](docs/distribution/native.md).

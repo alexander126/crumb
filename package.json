@@ -8,6 +8,8 @@
     "contracts:check": "node scripts/validate-contracts.mjs",
     "test:ios": "swift test --package-path .",
     "test:android": "./packages/android/gradlew -p packages/android :crumb-core:testDebugUnitTest :crumb-ui:testDebugUnitTest :demo:testDebugUnitTest",
+    "test:react-native": "corepack yarn --cwd packages/react-native test",
+    "quality:react-native": "corepack yarn --cwd packages/react-native quality",
     "version:sync": "node scripts/sync-sdk-version.mjs",
     "version:check": "node scripts/sync-sdk-version.mjs --check",
     "distribution:verify": "node scripts/verify-native-distribution.mjs",
