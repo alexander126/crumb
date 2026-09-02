@@ -13,6 +13,11 @@ enum OnDemandDiagnosticsCollector {
     ) -> CrumbDiagnosticsSnapshot {
         let capturesPerformance = evidence.contains(.performance)
         let threads = capturesPerformance ? threadDiagnostics() : []
+        let cpuUsagePercent: Double? = if !capturesPerformance || threads.isEmpty {
+            nil
+        } else {
+            threads.compactMap(\.cpuUsagePercent).reduce(0, +)
+        }
         let memory = capturesPerformance ? memoryDiagnostics() : nil
         let network = evidence.contains(.network)
             ? networkDiagnostics(
@@ -64,7 +69,7 @@ enum OnDemandDiagnosticsCollector {
             location: location,
             processName: ProcessInfo.processInfo.processName,
             processID: getpid(),
-            cpuUsagePercent: threads.compactMap(\.cpuUsagePercent).reduce(0, +),
+            cpuUsagePercent: cpuUsagePercent,
             residentMemoryBytes: memory?.resident,
             physicalFootprintBytes: memory?.footprint,
             thermalState: capturesPerformance ? thermalState() : "unavailable_by_policy",

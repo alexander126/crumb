@@ -96,7 +96,11 @@ internal object OnDemandDiagnosticsCollector {
                 OnDemandLogCollector.capture(options.logs)
             } else {
                 CrumbLogDiagnostic(
-                    status = CrumbLogCaptureStatus.DISABLED_BY_POLICY,
+                    status = if (options.logs.enabled) {
+                        CrumbLogCaptureStatus.DISABLED_BY_POLICY
+                    } else {
+                        CrumbLogCaptureStatus.DISABLED
+                    },
                     sources = emptyList(),
                     entries = emptyList(),
                     truncated = false,

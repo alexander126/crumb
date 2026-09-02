@@ -96,9 +96,9 @@ object CrumbReporter {
         if (Looper.myLooper() != Looper.getMainLooper()) return false
         if (activity.isFinishing || activity.isDestroyed || activeSession != null) return false
 
+        ensureInstalled(activity.application)
         val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
         if (trigger !in settings.invocation) return false
-        ensureInstalled(activity.application)
         CrumbUploadCoordinator.resume(activity.application)
         resumedActivity = WeakReference(activity)
 
