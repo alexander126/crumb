@@ -1,0 +1,118 @@
+name: SDK implementation
+description: Propose one focused, reviewable change to the public Crumb SDK repository
+title: "[SDK] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for one implementation issue in the public SDK repository.
+        GitHub issues, pull requests, comments, logs, and screenshots are public.
+        Never include private service details, credentials, customer information,
+        provider configuration, or internal operational content.
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the user or maintainer outcome this issue must deliver.
+      placeholder: A developer can ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: exact-scope
+    attributes:
+      label: Exact scope
+      description: List the files, packages, contracts, workflows, or public docs that may change.
+      placeholder: |
+        - packages/...
+        - docs/...
+        - .github/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: Name tempting adjacent work that this issue explicitly does not include.
+      placeholder: |
+        - Do not change ...
+        - Do not publish ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Provide observable, testable checks. Use one checkbox per criterion.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: List the exact package scripts, workflow checks, fixtures, device flows, or manual review required.
+      placeholder: |
+        - npm run ...
+        - Manual review of ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and sequencing
+      description: Link every blocked-by or blocking issue/PR, state whether it is ready, and say whether this work is independent. Do not paste private issue content.
+      placeholder: "None; independent branch."
+    validations:
+      required: true
+
+  - type: textarea
+    id: resource-locks
+    attributes:
+      label: Resource locks
+      description: Identify any shared device, hosted test session, registry, release, production, billing, domain, or migration resource. Use None when no exclusive resource is needed.
+      placeholder: "None; local checks only."
+    validations:
+      required: true
+
+  - type: textarea
+    id: security-privacy
+    attributes:
+      label: Security and privacy requirements
+      description: Explain data minimization, sanitization, credential handling, public/private boundaries, and coexistence with host applications.
+      placeholder: |
+        - No credentials or customer data in source or evidence.
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: stop-conditions
+    attributes:
+      label: Stop conditions
+      description: State what should pause implementation rather than be guessed or worked around.
+      placeholder: |
+        Stop if ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Public-repository readiness
+      options:
+        - label: I have kept this issue within the public SDK repository boundary.
+          required: true
+        - label: This issue contains no credentials, tokens, customer data, provider configuration, internal URLs, or private operational details.
+          required: true
+        - label: I will use one focused pull request and will not ask the implementation worker to merge it.
+          required: true
