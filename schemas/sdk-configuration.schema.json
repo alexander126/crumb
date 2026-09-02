@@ -81,7 +81,17 @@
           "pattern": "^https?://[^/?#]+(?:/[^?#]*)?$"
         },
         "timeout_ms": { "type": "integer", "minimum": 250, "maximum": 5000 },
-        "logs": { "$ref": "#/$defs/logs" }
+        "logs": { "$ref": "#/$defs/logs" },
+        "javascript_crash_capture": { "$ref": "#/$defs/javascriptCrashCapture" }
+      }
+    },
+    "javascriptCrashCapture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "maximum_breadcrumbs": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "maximum_breadcrumb_bytes": { "type": "integer", "minimum": 1, "maximum": 65536 }
       }
     },
     "logs": {

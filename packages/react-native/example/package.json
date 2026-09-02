@@ -12,6 +12,7 @@
     "build:web": "expo export --platform web"
   },
   "dependencies": {
+    "@crumbsdk/react-native": "workspace:*",
     "@expo/metro-runtime": "55.0.12",
     "expo": "55.0.31",
     "expo-build-properties": "55.0.18",

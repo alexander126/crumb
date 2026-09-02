@@ -1,5 +1,9 @@
 import NativeCrumbReactNative from './NativeCrumbReactNative';
 import {
+  configureJavaScriptCrashCapture,
+  recoverJavaScriptCrashes,
+} from './javascript-crash-capture';
+import {
   clearLogs,
   configureLogBuffer,
   disableConsoleCapture,
@@ -9,6 +13,7 @@ import {
 } from './log-buffer';
 import type {
   CrumbConfiguration,
+  CrumbJavaScriptCrashCaptureOptions,
   CrumbLogLevel,
   CrumbLogMetadata,
 } from './types';
@@ -19,6 +24,7 @@ export type {
   CrumbConfiguration,
   CrumbCustomContextOptions,
   CrumbDiagnosticsOptions,
+  CrumbJavaScriptCrashCaptureOptions,
   CrumbEvidenceCategory,
   CrumbInvocation,
   CrumbLogLevel,
@@ -44,6 +50,14 @@ export async function start(configuration: CrumbConfiguration): Promise<void> {
     enableConsoleCapture();
   } else {
     disableConsoleCapture();
+  }
+
+  configureJavaScriptCrashCapture(
+    configuration.diagnostics?.javascriptCrashCapture,
+    configuration
+  );
+  if (configuration.diagnostics?.javascriptCrashCapture?.enabled) {
+    await recoverJavaScriptCrashes();
   }
 }
 
@@ -100,6 +114,9 @@ function validateConfiguration(configuration: CrumbConfiguration): void {
     configuration.diagnostics?.logs?.maximumBytes,
     'diagnostics.logs.maximumBytes'
   );
+  assertJavaScriptCrashCapture(
+    configuration.diagnostics?.javascriptCrashCapture
+  );
 
   if (
     configuration.reporter?.theme !== undefined &&
@@ -112,6 +129,33 @@ function validateConfiguration(configuration: CrumbConfiguration): void {
   assertApplicationMetadata(configuration.application?.name);
   assertCustomContext(configuration.customContext);
   assertWorkspacePolicy(configuration.workspacePolicy);
+}
+
+function assertJavaScriptCrashCapture(
+  value: CrumbJavaScriptCrashCaptureOptions | undefined
+): void {
+  if (value === undefined) return;
+  assertPositiveInteger(
+    value.maximumBreadcrumbs,
+    'diagnostics.javascriptCrashCapture.maximumBreadcrumbs'
+  );
+  assertPositiveInteger(
+    value.maximumBreadcrumbBytes,
+    'diagnostics.javascriptCrashCapture.maximumBreadcrumbBytes'
+  );
+  if (value.maximumBreadcrumbs !== undefined && value.maximumBreadcrumbs > 50) {
+    throw new TypeError(
+      'Crumb diagnostics.javascriptCrashCapture.maximumBreadcrumbs must be at most 50.'
+    );
+  }
+  if (
+    value.maximumBreadcrumbBytes !== undefined &&
+    value.maximumBreadcrumbBytes > 65_536
+  ) {
+    throw new TypeError(
+      'Crumb diagnostics.javascriptCrashCapture.maximumBreadcrumbBytes must be at most 65536.'
+    );
+  }
 }
 
 function assertReporterFields(value: readonly string[] | undefined): void {

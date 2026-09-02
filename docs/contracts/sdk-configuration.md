@@ -17,6 +17,7 @@ an extra required argument to native initializers or the React Native API.
 | App/release identity | `application`, `release` | `application`, `release` | `application`, `release` |
 | Custom context | `customContext` | `customContext` | `customContext` |
 | Workspace policy | `workspacePolicy` | `workspacePolicy` | `workspacePolicy` |
+| JavaScript crash capture | Native SDK does not install a crash hook | Native SDK does not install a crash hook | `diagnostics.javascriptCrashCapture` (disabled by default) |
 
 The required report text is the description. The optional category field can
 be hidden, but no configuration can remove the description or replace the
@@ -27,6 +28,12 @@ The default configuration preserves existing integrations: system appearance,
 category and description fields, locally enabled screenshot/performance/network/
 logs/thread-stack evidence, and no custom context. The health-check evidence is
 only locally eligible when a health-check URL is configured.
+
+React Native JavaScript crash capture is a separate opt-in event boundary. With
+`enabled: true`, the adapter records only fatal JavaScript exceptions and
+unhandled promise rejections. It synchronously hands off a bounded sanitized
+record, chains the host's existing handler, and asks native code to recover the
+record on a later launch. This option never enables native crash hooks.
 
 ## Effective policy
 

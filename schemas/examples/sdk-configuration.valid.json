@@ -21,6 +21,11 @@
       "lookback_ms": 60000,
       "maximum_entries": 200,
       "maximum_bytes": 65536
+    },
+    "javascript_crash_capture": {
+      "enabled": true,
+      "maximum_breadcrumbs": 32,
+      "maximum_breadcrumb_bytes": 16384
     }
   },
   "privacy": {

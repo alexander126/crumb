@@ -55,7 +55,9 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                         maximumEntries: logOptions.maximumEntries ?? 200,
                         maximumBytes: logOptions.maximumBytes ?? 65_536,
                         provider: logBuffer
-                    )
+                    ),
+                    javascriptCrashCaptureEnabled:
+                        payload.diagnostics?.javascriptCrashCapture?.enabled ?? false
                 ),
                 privacy: CrumbPrivacyOptions(
                     maskAllTextInputs: payload.privacy?.maskAllTextInputs ?? true,
@@ -114,6 +116,16 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
     func clearLogs() throws {
         logBuffer.clear()
     }
+
+    func recordJavaScriptCrash(recordJson: String) throws {
+        Crumb.recordJavaScriptCrash(recordJson)
+    }
+
+    func recoverJavaScriptCrashes() throws -> Promise<Bool> {
+        Promise.async {
+            await Crumb.recoverJavaScriptCrashes()
+        }
+    }
 }
 
 private struct ConfigurationPayload: Decodable {
@@ -160,6 +172,7 @@ private struct DiagnosticsPayload: Decodable {
     let healthCheckUrl: String?
     let timeoutMs: Int?
     let logs: LogOptionsPayload?
+    let javascriptCrashCapture: JavaScriptCrashCapturePayload?
 
     func healthCheckURL() throws -> URL? {
         guard let healthCheckUrl else { return nil }
@@ -168,6 +181,10 @@ private struct DiagnosticsPayload: Decodable {
         }
         return url
     }
+}
+
+private struct JavaScriptCrashCapturePayload: Decodable {
+    let enabled: Bool?
 }
 
 private struct LogOptionsPayload: Decodable {

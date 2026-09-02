@@ -108,6 +108,30 @@
     "diagnostics_capture": "on_demand",
     "log_capture": "enabled"
   },
+  "javascript_crash": {
+    "source": "javascript",
+    "kind": "exception",
+    "type": "TypeError",
+    "message": "Checkout state was unavailable",
+    "stack": "TypeError: Checkout state was unavailable\n    at checkout (bundle.js:10:4)",
+    "occurred_at": "2026-08-19T08:29:59Z",
+    "release": {
+      "app_version": "0.1.0",
+      "native_build": "1",
+      "bundle_version": "ota-17"
+    },
+    "breadcrumbs": [
+      {
+        "timestamp": "2026-08-19T08:29:54Z",
+        "source": "react-native",
+        "category": "javascript",
+        "message": "Checkout started"
+      }
+    ],
+    "context": { "account_tier": "trial" },
+    "is_fatal": true,
+    "native_termination_wrapper_observed": false
+  },
   "artifacts": [
     {
       "id": "art_01J6R7R4KJ79CP",

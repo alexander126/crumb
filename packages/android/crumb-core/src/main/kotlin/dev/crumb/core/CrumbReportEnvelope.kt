@@ -1,6 +1,7 @@
 package dev.crumb.core
 
 import java.time.Instant
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 data class CrumbReportRuntime(
@@ -48,6 +49,7 @@ data class CrumbReportBuildInput(
     val customContext: Map<String, String> = emptyMap(),
     val policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_CONFIGURED,
     val workspacePolicyVersion: Int? = null,
+    val javascriptCrash: CrumbJavaScriptCrash? = null,
 )
 
 data class CrumbSerializedReportEnvelope(
@@ -65,6 +67,7 @@ sealed class CrumbReportEnvelopeException(message: String) : IllegalArgumentExce
     class InvalidDescription : CrumbReportEnvelopeException("description must contain 1-4000 characters")
     class TooManyArtifacts : CrumbReportEnvelopeException("a report may contain at most 10 artifacts")
     class InvalidArtifact : CrumbReportEnvelopeException("artifact manifest is invalid")
+    class InvalidJavaScriptCrash : CrumbReportEnvelopeException("JavaScript crash metadata is invalid")
 }
 
 internal object CrumbReportEnvelopeBuilder {
@@ -124,7 +127,7 @@ internal object CrumbReportEnvelopeBuilder {
         val envelope = obj(
             "schema_version" to "1.0",
             "report_id" to input.reportId,
-            "trigger" to input.trigger.name.lowercase(),
+            "trigger" to if (input.javascriptCrash == null) input.trigger.name.lowercase() else "javascript_crash",
             "triggered_at" to instant(input.triggeredAtMillis),
             "submitted_at" to instant(input.submittedAtMillis),
             "release" to obj(
@@ -221,6 +224,7 @@ internal object CrumbReportEnvelopeBuilder {
                 "policy_version" to settings.workspacePolicyVersion,
             ),
             "custom_context" to settings.customContext.takeIf { it.isNotEmpty() },
+            "javascript_crash" to input.javascriptCrash?.let(::javascriptCrashObject),
             "artifacts" to artifacts.map {
                 obj(
                     "id" to it.id,
@@ -272,6 +276,19 @@ internal object CrumbReportEnvelopeBuilder {
         }
         if (input.artifacts.size > 10) {
             throw CrumbReportEnvelopeException.TooManyArtifacts()
+        }
+        input.javascriptCrash?.let { crash ->
+            if (
+                crash.source !in setOf("javascript", "native_termination_wrapper") ||
+                    crash.kind !in setOf("exception", "unhandled_rejection", "native_termination_wrapper") ||
+                    crash.type.isBlank() || crash.type.toByteArray(StandardCharsets.UTF_8).size > 128 ||
+                    crash.message.isBlank() || crash.message.toByteArray(StandardCharsets.UTF_8).size > 4_000 ||
+                    crash.stack?.toByteArray(StandardCharsets.UTF_8)?.size?.let { it > 16_384 } == true ||
+                    crash.breadcrumbs.size > 32 || crash.context.size > 16 ||
+                    crash.context.keys.any { !CrumbCustomContextSanitizer.isValidKey(it) }
+            ) {
+                throw CrumbReportEnvelopeException.InvalidJavaScriptCrash()
+            }
         }
         if (input.artifacts.any {
                 !it.id.matches(Regex("^art_[A-Za-z0-9_-]{12,80}$")) ||
@@ -367,6 +384,31 @@ internal object CrumbReportEnvelopeBuilder {
     }
 
     private fun Double?.finiteOrNull(): Double? = this?.takeIf(Double::isFinite)
+
+    private fun javascriptCrashObject(crash: CrumbJavaScriptCrash): Map<String, Any?> = obj(
+        "source" to crash.source,
+        "kind" to crash.kind,
+        "type" to crash.type,
+        "message" to crash.message,
+        "stack" to crash.stack,
+        "occurred_at" to crash.occurredAt.toString(),
+        "release" to obj(
+            "app_version" to crash.release.appVersion,
+            "native_build" to crash.release.nativeBuild,
+            "bundle_version" to crash.release.bundleVersion,
+        ),
+        "breadcrumbs" to crash.breadcrumbs.map {
+            obj(
+                "timestamp" to it.timestamp.toString(),
+                "source" to it.source,
+                "category" to it.category,
+                "message" to it.message,
+            )
+        },
+        "context" to crash.context,
+        "is_fatal" to crash.isFatal,
+        "native_termination_wrapper_observed" to crash.nativeTerminationWrapperObserved,
+    )
 
     private fun obj(vararg values: Pair<String, Any?>): Map<String, Any?> = buildMap {
         values.forEach { (key, value) -> if (value != null) put(key, value) }

@@ -10,4 +10,6 @@ export interface CrumbReactNative extends HybridObject<{
   show(): Promise<boolean>;
   addLog(entryJson: string): void;
   clearLogs(): void;
+  recordJavaScriptCrash(recordJson: string): void;
+  recoverJavaScriptCrashes(): Promise<boolean>;
 }

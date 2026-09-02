@@ -20,7 +20,11 @@ export default function App() {
         projectKey: 'replace-with-your-project-key',
         environment: 'development',
         release: { bundleVersion: 'expo-development-build' },
-        diagnostics: { logs: { captureConsole: true } },
+        diagnostics: {
+          logs: { captureConsole: true },
+          // Opt-in: the next launch recovers this JavaScript failure.
+          javascriptCrashCapture: { enabled: true },
+        },
       });
       const installed = await Crumb.installReporter();
       setIsStarted(installed);
@@ -43,6 +47,16 @@ export default function App() {
       occurredAt: new Date().toISOString(),
     });
     Alert.alert('Log captured', 'Open the reporter to include it.');
+  };
+
+  const triggerJavaScriptFatalFixture = () => {
+    Alert.alert(
+      'Fatal fixture',
+      'The app will terminate and recover this failure on relaunch.'
+    );
+    setTimeout(() => {
+      throw new Error('Crumb React Native fatal fixture');
+    }, 0);
   };
 
   return (
@@ -69,6 +83,11 @@ export default function App() {
           <Action
             label="Add test log"
             onPress={addTestLog}
+            disabled={!isStarted}
+          />
+          <Action
+            label="Trigger JS fatal fixture"
+            onPress={triggerJavaScriptFatalFixture}
             disabled={!isStarted}
           />
         </View>

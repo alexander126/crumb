@@ -101,6 +101,11 @@ await Crumb.start({
     logs: {
       captureConsole: true,
     },
+    javascriptCrashCapture: {
+      enabled: true,
+      maximumBreadcrumbs: 32,
+      maximumBreadcrumbBytes: 16_384,
+    },
   },
   reporter: {
     theme: 'system',
@@ -159,6 +164,34 @@ Crumb.disableConsoleCapture();
 
 Crumb never captures network bodies, Redux state, navigation history, arbitrary
 application object graphs, or analytics events.
+
+## JavaScript crash capture
+
+JavaScript crash capture is opt-in and disabled by default. Set
+`diagnostics.javascriptCrashCapture.enabled` to `true` to preserve fatal
+JavaScript exceptions and unhandled promise rejections. The adapter performs a
+bounded, sanitized synchronous handoff through Nitro before calling the
+existing React Native or host handler, so Crashlytics, Sentry, and other host
+handlers remain installed and continue to run.
+
+After a relaunch, native code validates and deduplicates the pending record,
+then commits it to the same durable report queue used by the reporter. Offline
+reports remain pending until the normal uploader receives an acknowledgement.
+The record includes the failure type, message, bounded stack, release/bundle
+identity, recent Crumb breadcrumbs, and only custom-context keys explicitly
+allowlisted by the host. It does not include native crash data, arbitrary
+memory, Redux/store state, request bodies, or response bodies.
+
+The breadcrumb limits default to 32 entries and 16 KiB. They can be lowered or
+raised within the package bounds (50 entries and 65,536 bytes maximum). A
+native termination wrapper with the same fingerprint is folded into the
+JavaScript occurrence without replacing its cause.
+
+For a local fatal-fixture check, enable the option in one of the included
+development-build examples and trigger the example's JavaScript failure action.
+The next launch should show one recovered `javascript_crash` occurrence; do not
+enable this option in production without first reviewing the collection notice
+and handler interaction for the host application.
 
 ## Development
 

@@ -12,6 +12,24 @@ public enum Crumb {
         return settings.evidence.contains(.logs)
     }
 
+    /// Synchronously accepts a sanitized JavaScript failure from the React
+    /// Native adapter. Native uncaught-exception hooks are never installed.
+    public static func recordJavaScriptCrash(_ recordJSON: String) {
+        guard (try? CrumbRuntime.shared.reportSettings().diagnostics.javascriptCrashCaptureEnabled) == true else {
+            return
+        }
+        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON)
+    }
+
+    /// Moves pending JavaScript failures into the regular durable report queue.
+    public static func recoverJavaScriptCrashes() async -> Bool {
+        guard let settings = try? CrumbRuntime.shared.reportSettings(),
+              settings.diagnostics.javascriptCrashCaptureEnabled else {
+            return false
+        }
+        return await CrumbJavaScriptCrashRecovery.recover(settings: settings)
+    }
+
     package static func reportSettings() throws -> CrumbReportSettings {
         try CrumbRuntime.shared.reportSettings()
     }

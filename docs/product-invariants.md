@@ -3,7 +3,9 @@
 These rules are part of Crumb's product interface. Implementations may change;
 the rules may not change accidentally.
 
-1. A human explicitly initiates every report.
+1. A human explicitly initiates every on-demand report. An opted-in React Native
+   JavaScript failure may be recovered as a separate crash occurrence after a
+   process relaunch.
 2. Crumb does not continuously sample performance or track product activity.
    Diagnostics are collected only after report invocation.
 3. Sanitization happens on-device before upload and again on the server.
@@ -23,13 +25,16 @@ the rules may not change accidentally.
    never fabricates unsupported GPU, native stack, or per-thread metrics.
 12. Model output cannot directly merge, close, assign, notify, edit source, or
    deploy anything.
-13. Crumb must coexist with existing crash and observability SDKs.
-    It does not install an uncaught-exception handler, initialize Sentry or
-    Crashlytics, replace application delegates, or intercept the host's logging
-    pipeline.
+13. Crumb must coexist with existing crash and observability SDKs. The native
+    SDKs never install native uncaught-exception hooks or initialize Sentry or
+    Crashlytics. The React Native adapter may install an explicitly enabled
+    JavaScript exception/rejection handler, chains the pre-existing handler,
+    and never replaces the host SDK.
 14. Offline reports survive application restart and uploads are idempotent.
 15. Customer report data is not used for model training by default.
 16. The working product name is not embedded unnecessarily in persistent wire
    formats.
-17. Crash capture, session replay, analytics, and automatic freeze monitoring
-   remain outside the report SDK boundary.
+17. Native crash capture, session replay, analytics, and automatic freeze
+    monitoring remain outside the report SDK boundary. The React Native
+    adapter's opt-in JavaScript-only failure record is the sole exception and
+    never claims arbitrary native crash coverage.

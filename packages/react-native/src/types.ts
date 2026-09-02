@@ -45,10 +45,20 @@ export interface CrumbLogOptions {
   captureConsole?: boolean;
 }
 
+export interface CrumbJavaScriptCrashCaptureOptions {
+  /** Captures fatal JavaScript exceptions and unhandled promise rejections. */
+  enabled?: boolean;
+  /** Maximum number of recent Crumb breadcrumbs attached to a crash. */
+  maximumBreadcrumbs?: number;
+  /** Maximum UTF-8 bytes used by the attached breadcrumbs. */
+  maximumBreadcrumbBytes?: number;
+}
+
 export interface CrumbDiagnosticsOptions {
   healthCheckUrl?: string;
   timeoutMs?: number;
   logs?: CrumbLogOptions;
+  javascriptCrashCapture?: CrumbJavaScriptCrashCaptureOptions;
 }
 
 export interface CrumbPrivacyOptions {

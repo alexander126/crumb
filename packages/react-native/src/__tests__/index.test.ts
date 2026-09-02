@@ -6,6 +6,10 @@ jest.mock('react-native-nitro-modules', () => {
     show: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
     addLog: jest.fn<void, [string]>(),
     clearLogs: jest.fn<void, []>(),
+    recordJavaScriptCrash: jest.fn<void, [string]>(),
+    recoverJavaScriptCrashes: jest.fn<Promise<boolean>, []>(() =>
+      Promise.resolve(true)
+    ),
   };
   return {
     NitroModules: {
@@ -26,6 +30,8 @@ const mockNative = (
       show: jest.Mock<Promise<boolean>, []>;
       addLog: jest.Mock<void, [string]>;
       clearLogs: jest.Mock<void, []>;
+      recordJavaScriptCrash: jest.Mock<void, [string]>;
+      recoverJavaScriptCrashes: jest.Mock<Promise<boolean>, []>;
     };
   }
 ).nativeMock;

@@ -71,6 +71,9 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
                 diagnostics = CrumbDiagnosticsOptions(
                     healthCheckUrl = diagnostics?.optionalString("healthCheckUrl"),
                     timeoutMillis = diagnostics?.optionalLong("timeoutMs") ?: 2_000,
+                    javascriptCrashCaptureEnabled = diagnostics
+                        ?.optJSONObject("javascriptCrashCapture")
+                        ?.optionalBoolean("enabled") ?: false,
                     logs = CrumbLogOptions(
                         enabled = logs?.optionalBoolean("enabled") ?: true,
                         lookbackMillis = lookbackMillis,
@@ -137,6 +140,26 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
 
     override fun clearLogs() {
         logBuffer.clear()
+    }
+
+    override fun recordJavaScriptCrash(recordJson: String) {
+        val context = NitroModules.applicationContext ?: return
+        Crumb.recordJavaScriptCrash(context, recordJson)
+    }
+
+    override fun recoverJavaScriptCrashes(): Promise<Boolean> {
+        val promise = Promise<Boolean>()
+        val context = NitroModules.applicationContext
+        if (context == null) {
+            promise.resolve(false)
+            return promise
+        }
+        Thread({
+            runCatching { Crumb.recoverJavaScriptCrashes(context) }
+                .onSuccess(promise::resolve)
+                .onFailure { promise.resolve(false) }
+        }, "Crumb JavaScript crash recovery").start()
+        return promise
     }
 }
 

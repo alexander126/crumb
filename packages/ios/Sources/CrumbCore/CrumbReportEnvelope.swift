@@ -70,6 +70,7 @@ package struct CrumbReportBuildInput: Equatable, Sendable {
     package let customContext: [String: String]
     package let policyStatus: CrumbPolicyStatus
     package let workspacePolicyVersion: Int?
+    package let javascriptCrash: CrumbJavaScriptCrash?
 
     package init(
         reportID: String,
@@ -85,7 +86,8 @@ package struct CrumbReportBuildInput: Equatable, Sendable {
         artifacts: [CrumbArtifactManifest] = [],
         customContext: [String: String] = [:],
         policyStatus: CrumbPolicyStatus = .notConfigured,
-        workspacePolicyVersion: Int? = nil
+        workspacePolicyVersion: Int? = nil,
+        javascriptCrash: CrumbJavaScriptCrash? = nil
     ) {
         self.reportID = reportID
         self.trigger = trigger
@@ -101,6 +103,7 @@ package struct CrumbReportBuildInput: Equatable, Sendable {
         self.customContext = customContext
         self.policyStatus = policyStatus
         self.workspacePolicyVersion = workspacePolicyVersion
+        self.javascriptCrash = javascriptCrash
     }
 }
 
@@ -121,6 +124,7 @@ package enum CrumbReportEnvelopeError: Error, Equatable {
     case invalidDescription
     case tooManyArtifacts
     case invalidArtifact
+    case invalidJavaScriptCrash
 }
 
 package enum CrumbReportEnvelopeBuilder {
@@ -178,7 +182,7 @@ package enum CrumbReportEnvelopeBuilder {
         let envelope = EnvelopeDTO(
             schemaVersion: "1.0",
             reportID: input.reportID,
-            trigger: input.trigger.rawValue,
+            trigger: input.javascriptCrash == nil ? input.trigger.rawValue : "javascript_crash",
             triggeredAt: input.triggeredAt,
             submittedAt: input.submittedAt,
             release: ReleaseDTO(
@@ -268,6 +272,7 @@ package enum CrumbReportEnvelopeBuilder {
                 workspacePolicyVersion: settings.workspacePolicyVersion
             ),
             customContext: customContext.isEmpty ? nil : customContext,
+            javascriptCrash: input.javascriptCrash.map(JavaScriptCrashDTO.init),
             artifacts: artifacts.map {
                 ArtifactDTO(
                     id: $0.id,
@@ -329,6 +334,20 @@ package enum CrumbReportEnvelopeBuilder {
         }
         guard input.artifacts.count <= 10 else {
             throw CrumbReportEnvelopeError.tooManyArtifacts
+        }
+        if let crash = input.javascriptCrash {
+            guard ["javascript", "native_termination_wrapper"].contains(crash.source),
+                  ["exception", "unhandled_rejection", "native_termination_wrapper"].contains(crash.kind),
+                  !crash.type.isEmpty,
+                  crash.type.utf8.count <= 128,
+                  !crash.message.isEmpty,
+                  crash.message.utf8.count <= 4_000,
+                  crash.stack.map({ $0.utf8.count <= 16_384 }) ?? true,
+                  crash.breadcrumbs.count <= 32,
+                  crash.context.count <= 16,
+                  crash.context.keys.allSatisfy({ CrumbCustomContextSanitizer.isValidKey($0) }) else {
+                throw CrumbReportEnvelopeError.invalidJavaScriptCrash
+            }
         }
         let artifactIDPattern = try! NSRegularExpression(pattern: "^art_[A-Za-z0-9_-]{12,80}$")
         let uploadIDPattern = try! NSRegularExpression(pattern: "^upl_[A-Za-z0-9_-]{12,80}$")
@@ -443,7 +462,62 @@ private struct EnvelopeDTO: Encodable {
     let diagnostics: DiagnosticsDTO
     let privacy: PrivacyDTO
     let customContext: [String: String]?
+    let javascriptCrash: JavaScriptCrashDTO?
     let artifacts: [ArtifactDTO]
+}
+
+private struct JavaScriptCrashDTO: Encodable {
+    let source: String
+    let kind: String
+    let type: String
+    let message: String
+    let stack: String?
+    let occurredAt: Date
+    let release: JavaScriptReleaseDTO
+    let breadcrumbs: [JavaScriptBreadcrumbDTO]
+    let context: [String: String]
+    let isFatal: Bool
+    let nativeTerminationWrapperObserved: Bool
+
+    init(_ crash: CrumbJavaScriptCrash) {
+        source = crash.source
+        kind = crash.kind
+        type = crash.type
+        message = crash.message
+        stack = crash.stack
+        occurredAt = crash.occurredAt
+        release = JavaScriptReleaseDTO(crash.release)
+        breadcrumbs = crash.breadcrumbs.map(JavaScriptBreadcrumbDTO.init)
+        context = crash.context
+        isFatal = crash.isFatal
+        nativeTerminationWrapperObserved = crash.nativeTerminationWrapperObserved
+    }
+}
+
+private struct JavaScriptReleaseDTO: Encodable {
+    let appVersion: String?
+    let nativeBuild: String?
+    let bundleVersion: String?
+
+    init(_ release: CrumbJavaScriptCrashRelease) {
+        appVersion = release.appVersion
+        nativeBuild = release.nativeBuild
+        bundleVersion = release.bundleVersion
+    }
+}
+
+private struct JavaScriptBreadcrumbDTO: Encodable {
+    let timestamp: Date
+    let source: String
+    let category: String
+    let message: String
+
+    init(_ breadcrumb: CrumbJavaScriptBreadcrumb) {
+        timestamp = breadcrumb.timestamp
+        source = breadcrumb.source
+        category = breadcrumb.category
+        message = breadcrumb.message
+    }
 }
 
 private struct ReleaseDTO: Encodable {

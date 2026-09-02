@@ -67,8 +67,11 @@ request is allowed before the report has committed to the private local queue.
   configuration values are rejected at startup.
 - Queue commits are app-private, atomic, integrity-checked, bounded, and never
   evict an existing report to accept a new one.
-- Crumb does not install uncaught-exception handlers or initialize, configure,
-  or wrap Sentry, Crashlytics, or the host logging system.
+- The native SDKs do not install uncaught-exception handlers or initialize,
+  configure, or wrap Sentry, Crashlytics, or the host logging system. The
+  React Native adapter's opt-in JavaScript-only handler is covered by adapter
+  tests for disabled mode, callback chaining, synchronous handoff failure, and
+  unhandled-rejection capture.
 
 ## Accessibility, appearance, and localization
 
@@ -94,8 +97,10 @@ npm run quality:verify
 ```
 
 This runs the Swift and Kotlin suites, builds release AARs, enforces supported
-OS floors, checks both localization catalogs, rejects crash-handler or
-crash-SDK initialization in native sources, and enforces Android binary budgets.
+OS floors, checks both localization catalogs, rejects native crash-handler or
+crash-SDK initialization in native sources, and enforces Android binary
+budgets. React Native package quality additionally exercises the opt-in
+JavaScript capture and Nitro bridge surface.
 
 The physical pass records device model, OS build, release configuration,
 20-run p50/p95 latency, before/after memory, link contribution, request count,
