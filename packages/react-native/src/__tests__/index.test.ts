@@ -4,6 +4,7 @@ jest.mock('react-native-nitro-modules', () => {
     canCollectLogs: jest.fn<boolean, []>(() => true),
     installReporter: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
     show: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
+    recordJavaScriptCrash: jest.fn<void, [string]>(),
     addLog: jest.fn<void, [string]>(),
     clearLogs: jest.fn<void, []>(),
   };
@@ -24,6 +25,7 @@ const mockNative = (
       canCollectLogs: jest.Mock<boolean, []>;
       installReporter: jest.Mock<Promise<boolean>, []>;
       show: jest.Mock<Promise<boolean>, []>;
+      recordJavaScriptCrash: jest.Mock<void, [string]>;
       addLog: jest.Mock<void, [string]>;
       clearLogs: jest.Mock<void, []>;
     };
@@ -31,15 +33,38 @@ const mockNative = (
 ).nativeMock;
 
 describe('Crumb React Native adapter', () => {
+  const runtimeGlobal = globalThis as unknown as {
+    ErrorUtils?: {
+      getGlobalHandler: () => (...args: unknown[]) => unknown;
+      setGlobalHandler: (handler: (...args: unknown[]) => unknown) => void;
+    };
+    onunhandledrejection?: ((event: unknown) => unknown) | null;
+  };
+  let hostErrorHandler: (...args: unknown[]) => unknown;
+  let hostRejectionHandler: ((event: unknown) => unknown) | undefined;
+
   beforeEach(() => {
     Crumb.disableConsoleCapture();
+    Crumb.disableJavaScriptCrashCapture();
     Crumb.clearLogs();
     jest.clearAllMocks();
     mockNative.canCollectLogs.mockReturnValue(true);
+    hostErrorHandler = jest.fn(() => 'host-error');
+    hostRejectionHandler = jest.fn(() => 'host-rejection');
+    runtimeGlobal.ErrorUtils = {
+      getGlobalHandler: () => hostErrorHandler,
+      setGlobalHandler: (handler) => {
+        hostErrorHandler = handler;
+      },
+    };
+    runtimeGlobal.onunhandledrejection = hostRejectionHandler;
   });
 
   afterEach(() => {
     Crumb.disableConsoleCapture();
+    Crumb.disableJavaScriptCrashCapture();
+    delete runtimeGlobal.ErrorUtils;
+    runtimeGlobal.onunhandledrejection = undefined;
   });
 
   it('starts the native SDK with the typed configuration', async () => {
@@ -143,6 +168,85 @@ describe('Crumb React Native adapter', () => {
     Crumb.disableConsoleCapture();
     consoleError.mockRestore();
     expect(console.error).toBe(originalConsoleError);
+  });
+
+  it('keeps JavaScript crash capture disabled unless explicitly enabled', async () => {
+    const errorUtils = runtimeGlobal.ErrorUtils;
+    const rejectionHandler = runtimeGlobal.onunhandledrejection;
+
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+    });
+
+    expect(errorUtils?.getGlobalHandler()).toBe(hostErrorHandler);
+    expect(runtimeGlobal.onunhandledrejection).toBe(rejectionHandler);
+    expect(mockNative.recordJavaScriptCrash).not.toHaveBeenCalled();
+  });
+
+  it('captures fatal exceptions and rejections before calling existing handlers', async () => {
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      javascriptCrashCapture: { enabled: true, maximumBreadcrumbs: 1 },
+    });
+    Crumb.log('notice', 'before failure');
+
+    const fatalHandler = hostErrorHandler;
+    const fatalError = new TypeError('Checkout failed');
+    expect(fatalHandler(fatalError, true)).toBe('host-error');
+    expect(mockNative.recordJavaScriptCrash).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.parse(mockNative.recordJavaScriptCrash.mock.calls[0]?.[0] ?? '{}')
+    ).toMatchObject({
+      kind: 'fatal_exception',
+      source: 'javascript',
+      errorType: 'TypeError',
+      message: 'Checkout failed',
+      nativeTerminationWrapper: false,
+      breadcrumbs: [{ message: 'before failure' }],
+    });
+    expect(hostErrorHandler).toBe(fatalHandler);
+
+    const rejection = runtimeGlobal.onunhandledrejection;
+    expect(rejection?.({ reason: new Error('Promise failed') })).toBe(
+      'host-rejection'
+    );
+    expect(mockNative.recordJavaScriptCrash).toHaveBeenCalledTimes(2);
+    expect(hostRejectionHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not capture non-fatal ErrorUtils notifications', async () => {
+    const existingHandler = hostErrorHandler;
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      javascriptCrashCapture: { enabled: true },
+    });
+
+    hostErrorHandler(new Error('handled'), false);
+
+    expect(mockNative.recordJavaScriptCrash).not.toHaveBeenCalled();
+    expect(existingHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not overwrite a host handler that changed after installation', async () => {
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      javascriptCrashCapture: { enabled: true },
+    });
+    const replacementErrorHandler = jest.fn();
+    hostErrorHandler = replacementErrorHandler;
+    const replacementRejectionHandler = jest.fn();
+    runtimeGlobal.onunhandledrejection = replacementRejectionHandler;
+
+    Crumb.disableJavaScriptCrashCapture();
+
+    expect(hostErrorHandler).toBe(replacementErrorHandler);
+    expect(runtimeGlobal.onunhandledrejection).toBe(
+      replacementRejectionHandler
+    );
   });
 
   it('fails closed for console logs until native policy permits collection', async () => {

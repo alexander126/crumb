@@ -29,6 +29,8 @@ import org.json.JSONObject
 
 class CrumbReactNative : HybridCrumbReactNativeSpec() {
     private val logBuffer = ReactNativeLogBuffer()
+    @Volatile
+    private var javascriptCrashCaptureEnabled = false
 
     override fun start(configurationJson: String) {
         val context = requireNotNull(NitroModules.applicationContext) {
@@ -91,20 +93,32 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
                 workspacePolicy = payload.workspacePolicyOptions(),
             ),
         )
+        javascriptCrashCaptureEnabled = payload.optJSONObject("javascriptCrashCapture")
+            ?.optionalBoolean("enabled") == true
     }
 
     override fun canCollectLogs(): Boolean = Crumb.canCollectLogs()
 
     override fun installReporter(): Promise<Boolean> {
         val promise = Promise<Boolean>()
-        UiThreadUtil.runOnUiThread {
-            runCatching {
-                val context = requireNotNull(NitroModules.applicationContext)
-                val application = context.applicationContext as Application
-                CrumbReporter.install(application)
-            }.onSuccess(promise::resolve)
-                .onFailure(promise::reject)
+        val context = runCatching {
+            requireNotNull(NitroModules.applicationContext).applicationContext
+        }.getOrElse {
+            promise.reject(it)
+            return promise
         }
+        val shouldRecoverJavaScriptCrashes = javascriptCrashCaptureEnabled
+        Thread({
+            if (shouldRecoverJavaScriptCrashes) {
+                runCatching { Crumb.recoverPendingJavaScriptCrashes(context) }
+            }
+            UiThreadUtil.runOnUiThread {
+                runCatching {
+                    CrumbReporter.install(context as Application)
+                }.onSuccess(promise::resolve)
+                    .onFailure(promise::reject)
+            }
+        }, "Crumb JavaScript crash recovery").start()
         return promise
     }
 
@@ -119,6 +133,13 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
                 .onFailure(promise::reject)
         }
         return promise
+    }
+
+    override fun recordJavaScriptCrash(payloadJson: String) {
+        if (!javascriptCrashCaptureEnabled) return
+        val context = requireNotNull(NitroModules.applicationContext)
+        val payload = JSONObject(payloadJson)
+        Crumb.recordJavaScriptCrash(context, payload.javascriptCrash())
     }
 
     override fun addLog(entryJson: String) {
@@ -239,6 +260,45 @@ private fun JSONObject.workspacePolicyOptions(): CrumbWorkspacePolicyOptions {
     return CrumbWorkspacePolicyOptions(
         url = policy.optionalString("url"),
         timeoutMillis = policy.optionalLong("timeoutMs") ?: 2_000,
+    )
+}
+
+private fun JSONObject.javascriptCrash(): dev.crumb.core.CrumbJavaScriptCrash {
+    val kind = when (getString("kind")) {
+        "fatal_exception" -> dev.crumb.core.CrumbJavaScriptCrashKind.FATAL_EXCEPTION
+        "unhandled_rejection" -> dev.crumb.core.CrumbJavaScriptCrashKind.UNHANDLED_REJECTION
+        else -> error("javascript crash kind is unsupported")
+    }
+    val source = when (optionalString("source") ?: "javascript") {
+        "javascript" -> dev.crumb.core.CrumbJavaScriptCrashSource.JAVASCRIPT
+        "native_termination_wrapper" ->
+            dev.crumb.core.CrumbJavaScriptCrashSource.NATIVE_TERMINATION_WRAPPER
+        else -> error("javascript crash source is unsupported")
+    }
+    val breadcrumbs = optJSONArray("breadcrumbs")?.let { array ->
+        buildList {
+            for (index in 0 until array.length()) {
+                val breadcrumb = array.optJSONObject(index) ?: continue
+                add(
+                    dev.crumb.core.CrumbJavaScriptBreadcrumb(
+                        timestampMillis = breadcrumb.optLong("timestampMs", System.currentTimeMillis()),
+                        category = breadcrumb.optString("category", "javascript"),
+                        message = breadcrumb.optString("message", ""),
+                    ),
+                )
+            }
+        }
+    } ?: emptyList()
+    return dev.crumb.core.CrumbJavaScriptCrash(
+        kind = kind,
+        source = source,
+        errorType = getString("errorType"),
+        message = getString("message"),
+        rawStack = optionalString("rawStack"),
+        fingerprint = optionalString("fingerprint"),
+        occurredAtMillis = optLong("occurredAtMs", System.currentTimeMillis()),
+        nativeTerminationWrapper = optBoolean("nativeTerminationWrapper", false),
+        breadcrumbs = breadcrumbs,
     )
 }
 

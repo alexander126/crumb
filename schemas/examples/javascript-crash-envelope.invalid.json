@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0",
+  "report_id": "rpt_01J6R7R2VAYM5X4S9ACQ",
+  "trigger": "javascript_crash",
+  "triggered_at": "2026-08-19T08:30:00Z",
+  "submitted_at": "2026-08-19T08:30:00Z",
+  "release": {
+    "platform": "react_native",
+    "app_version": "0.1.0",
+    "native_build": "1",
+    "environment": "development"
+  },
+  "sdk": {
+    "name": "crumb-react-native",
+    "version": "0.0.1",
+    "integration": "react_native"
+  },
+  "runtime": {
+    "os": "ios",
+    "os_version": "26.0",
+    "device_family": "iPhone",
+    "locale": "en-BG",
+    "timezone": "Europe/Sofia"
+  },
+  "user_input": {
+    "category": "javascript_crash",
+    "description": "missing crash details"
+  },
+  "diagnostics": {
+    "captured_at": "2026-08-19T08:30:00Z",
+    "location": "javascript_crash_recovery",
+    "process": { "name": "MerchantApp", "id": 4182 },
+    "thermal_state": "unavailable",
+    "threads": { "count": 0, "busiest": [] },
+    "gpu": { "status": "unavailable_on_demand" },
+    "network": {
+      "status": "unknown",
+      "transport": "unknown",
+      "is_expensive": false,
+      "is_constrained": false
+    },
+    "logs": {
+      "status": "unavailable",
+      "sources": [],
+      "entries": [],
+      "truncated": false,
+      "dropped_entry_count": 0,
+      "failures": []
+    },
+    "stack_traces": {
+      "status": "unavailable",
+      "scope": "none",
+      "threads": [],
+      "truncated": false
+    }
+  },
+  "privacy": {
+    "screenshot_capture": "not_applicable",
+    "screenshot_masking": "not_applicable",
+    "diagnostics_capture": "crash_recovery",
+    "log_capture": "not_applicable"
+  },
+  "artifacts": []
+}

@@ -21,6 +21,7 @@ export default function App() {
         environment: 'development',
         release: { bundleVersion: 'expo-development-build' },
         diagnostics: { logs: { captureConsole: true } },
+        javascriptCrashCapture: { enabled: true },
       });
       const installed = await Crumb.installReporter();
       setIsStarted(installed);
@@ -43,6 +44,16 @@ export default function App() {
       occurredAt: new Date().toISOString(),
     });
     Alert.alert('Log captured', 'Open the reporter to include it.');
+  };
+
+  const triggerFatalJavaScriptError = () => {
+    throw new Error('Synthetic fatal JavaScript error from the example.');
+  };
+
+  const triggerUnhandledRejection = () => {
+    void Promise.reject(
+      new Error('Synthetic unhandled promise rejection from the example.')
+    );
   };
 
   return (
@@ -69,6 +80,16 @@ export default function App() {
           <Action
             label="Add test log"
             onPress={addTestLog}
+            disabled={!isStarted}
+          />
+          <Action
+            label="Trigger fatal JS error"
+            onPress={triggerFatalJavaScriptError}
+            disabled={!isStarted}
+          />
+          <Action
+            label="Trigger unhandled rejection"
+            onPress={triggerUnhandledRejection}
             disabled={!isStarted}
           />
         </View>

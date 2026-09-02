@@ -22,6 +22,12 @@ const fixtures = [
     invalid: "schemas/examples/report-envelope.invalid.json",
   },
   {
+    name: "javascript-crash-envelope",
+    schema: "schemas/report-envelope.schema.json",
+    valid: "schemas/examples/javascript-crash-envelope.valid.json",
+    invalid: "schemas/examples/javascript-crash-envelope.invalid.json",
+  },
+  {
     name: "sdk-configuration",
     schema: "schemas/sdk-configuration.schema.json",
     valid: "schemas/examples/sdk-configuration.valid.json",
@@ -36,8 +42,13 @@ const fixtures = [
 ];
 
 let failed = false;
+const validators = new Map();
 for (const fixture of fixtures) {
-  const validate = ajv.compile(await readJson(fixture.schema));
+  let validate = validators.get(fixture.schema);
+  if (!validate) {
+    validate = ajv.compile(await readJson(fixture.schema));
+    validators.set(fixture.schema, validate);
+  }
   const validExample = await readJson(fixture.valid);
   const invalidExample = await readJson(fixture.invalid);
 

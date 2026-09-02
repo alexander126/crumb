@@ -1,4 +1,5 @@
 import NativeCrumbReactNative from './NativeCrumbReactNative';
+import { clearBreadcrumbs, recordBreadcrumb } from './breadcrumb-buffer';
 import type {
   CrumbLogEntry,
   CrumbLogLevel,
@@ -50,6 +51,7 @@ export function markNativeStarted(): void {
   NativeCrumbReactNative.clearLogs();
   if (!canCollectLogs()) {
     clearBufferedEntries();
+    clearBreadcrumbs();
     return;
   }
   for (const entry of entries) {
@@ -59,6 +61,7 @@ export function markNativeStarted(): void {
 
 export function clearLogs(): void {
   clearBufferedEntries();
+  clearBreadcrumbs();
   if (nativeStarted) {
     NativeCrumbReactNative.clearLogs();
   }
@@ -84,6 +87,7 @@ export function writeLog(
       MAXIMUM_ENTRY_BYTES
     ),
   };
+  recordBreadcrumb(timestampMs, category, entry.message);
 
   const bytes = byteLength(JSON.stringify(entry));
   entries.push(entry);

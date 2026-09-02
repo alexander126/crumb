@@ -1,5 +1,11 @@
 import type { CrumbConfiguration } from '@crumbsdk/react-native';
 
+type ExampleCrumbConfiguration = CrumbConfiguration & {
+  javascriptCrashCapture: {
+    enabled: true;
+  };
+};
+
 const projectKey = process.env.EXPO_PUBLIC_CRUMB_PROJECT_KEY?.trim();
 const ingestionUrl = process.env.EXPO_PUBLIC_CRUMB_INGESTION_URL?.trim();
 const environment =
@@ -11,7 +17,7 @@ export const crumbSetup = {
   isConfigured: Boolean(projectKey),
 } as const;
 
-export function createCrumbConfiguration(): CrumbConfiguration {
+export function createCrumbConfiguration(): ExampleCrumbConfiguration {
   if (!projectKey) {
     throw new Error(
       'Add EXPO_PUBLIC_CRUMB_PROJECT_KEY to .env.local, then restart Metro.'
@@ -33,6 +39,9 @@ export function createCrumbConfiguration(): CrumbConfiguration {
         enabled: true,
         captureConsole: true,
       },
+    },
+    javascriptCrashCapture: {
+      enabled: true,
     },
     privacy: {
       maskAllTextInputs: true,

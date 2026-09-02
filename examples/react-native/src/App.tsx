@@ -68,6 +68,17 @@ export default function App() {
     setMessage('Test log captured. It will be attached to the next report.');
   };
 
+  const triggerFatalJavaScriptError = () => {
+    throw new Error('Synthetic fatal JavaScript error from the example.');
+  };
+
+  const triggerUnhandledRejection = () => {
+    void Promise.reject(
+      new Error('Synthetic unhandled promise rejection from the example.')
+    );
+    setMessage('Synthetic unhandled rejection raised.');
+  };
+
   const isReady = runtimeStatus === 'ready';
   const isStarting = runtimeStatus === 'starting';
 
@@ -139,6 +150,18 @@ export default function App() {
           <Action
             label="Capture test log"
             onPress={captureTestLog}
+            disabled={!isReady}
+            variant="quiet"
+          />
+          <Action
+            label="Trigger fatal JS error"
+            onPress={triggerFatalJavaScriptError}
+            disabled={!isReady}
+            variant="quiet"
+          />
+          <Action
+            label="Trigger unhandled rejection"
+            onPress={triggerUnhandledRejection}
             disabled={!isReady}
             variant="quiet"
           />

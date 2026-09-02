@@ -14,6 +14,7 @@ const unsupportedModule: CrumbReactNative = {
   canCollectLogs: () => false,
   installReporter: () => Promise.resolve(false),
   show: () => Promise.resolve(false),
+  recordJavaScriptCrash: () => undefined,
   addLog: () => undefined,
   clearLogs: () => undefined,
 };

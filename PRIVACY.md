@@ -11,6 +11,13 @@ read logs, inspect diagnostics, write a report, or make a network request.
 Crumb begins a one-time collection only after a person explicitly opens the
 reporter through the host application's control or a foreground shake.
 
+The React Native adapter has a separate, disabled-by-default JavaScript crash
+capture option. When the host explicitly enables it, the adapter may observe
+fatal JavaScript exceptions and unhandled promise rejections, chain the host's
+existing handlers, and persist one bounded sanitized occurrence for recovery on
+the next launch. This is the only automatic occurrence path; native crash
+handlers are not installed.
+
 ## Potential report contents
 
 A submitted report can contain:
@@ -21,11 +28,16 @@ A submitted report can contain:
 - app, device, operating-system, release, locale, display, memory, CPU,
   thermal, thread, and network-path context available on the platform;
 - a bounded snapshot of recent host-provided or process-visible logs; and
-- the result of one optional Crumb service-health request.
+- the result of one optional Crumb service-health request; and
+- for an explicitly enabled React Native JavaScript crash occurrence, the
+  sanitized error type, message, raw JavaScript stack, release-bundle identity,
+  bounded breadcrumbs, and explicitly allowlisted custom context.
 
-Crumb does not install a crash handler, inspect unrelated applications, read
-Android system logcat, continuously sample the process, or intercept arbitrary
-application network bodies.
+Native Crumb does not install a crash handler, inspect unrelated applications,
+read Android system logcat, continuously sample the process, or intercept
+arbitrary application network bodies. The React Native adapter's opt-in
+JavaScript wrappers do not capture arbitrary memory, Redux or store state,
+request or response bodies, or unallowlisted context.
 
 ## On-device minimization
 
@@ -41,11 +53,12 @@ report envelope, artifact, log, or queue manifest.
 
 ## Storage and transmission
 
-Drafts and submitted reports are stored in the host application's private
-container. Submission commits atomically to a size-bounded local queue before
-the reporter confirms completion. When the host configures an ingestion URL,
-Crumb uploads queued reports over HTTPS with idempotency and bounded retry.
-When no ingestion URL is configured, reports remain local.
+Drafts, recovered JavaScript crash occurrences, and submitted reports are stored
+in the host application's private container. Submission commits atomically to a
+size-bounded local queue before the reporter confirms completion. When the host
+configures an ingestion URL, Crumb uploads queued reports over HTTPS with
+idempotency and bounded retry. When no ingestion URL is configured, reports
+remain local.
 
 The host application chooses the Crumb project, environment, collection
 options, invocation controls, and whether upload is enabled. Server-side

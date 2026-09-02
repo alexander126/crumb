@@ -12,6 +12,20 @@ public enum Crumb {
         return settings.evidence.contains(.logs)
     }
 
+    /// Records an opt-in JavaScript failure for recovery on the next launch.
+    /// Native exception and signal handlers remain outside the SDK boundary.
+    @discardableResult
+    public static func recordJavaScriptCrash(_ crash: CrumbJavaScriptCrash) -> Bool {
+        guard let settings = try? CrumbRuntime.shared.reportSettings() else { return false }
+        return CrumbJavaScriptCrashStore.shared.record(crash, settings: settings)
+    }
+
+    /// Converts pending JavaScript failures into the normal durable report
+    /// queue. Uploading remains owned by the installed reporter lifecycle.
+    public static func recoverPendingJavaScriptCrashes() async -> Int {
+        await CrumbJavaScriptCrashRecovery.recoverPending()
+    }
+
     package static func reportSettings() throws -> CrumbReportSettings {
         try CrumbRuntime.shared.reportSettings()
     }

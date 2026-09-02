@@ -6,6 +6,7 @@ import NitroModules
 final class CrumbReactNative: HybridCrumbReactNativeSpec {
     private let decoder = JSONDecoder()
     private let logBuffer = ReactNativeLogBuffer()
+    private var javascriptCrashCaptureEnabled = false
 
     func start(configurationJson: String) throws {
         let data = Data(configurationJson.utf8)
@@ -86,6 +87,7 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                 )
             )
         )
+        javascriptCrashCaptureEnabled = payload.javascriptCrashCapture?.enabled == true
     }
 
     func canCollectLogs() -> Bool {
@@ -93,8 +95,14 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
     }
 
     func installReporter() throws -> Promise<Bool> {
-        Promise.async { @MainActor in
-            Crumb.installReporter()
+        let shouldRecoverJavaScriptCrashes = javascriptCrashCaptureEnabled
+        return Promise.async {
+            if shouldRecoverJavaScriptCrashes {
+                _ = await Crumb.recoverPendingJavaScriptCrashes()
+            }
+            return await MainActor.run {
+                Crumb.installReporter()
+            }
         }
     }
 
@@ -102,6 +110,13 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
         Promise.async { @MainActor in
             Crumb.show()
         }
+    }
+
+    func recordJavaScriptCrash(payloadJson: String) throws {
+        guard javascriptCrashCaptureEnabled else { return }
+        let data = Data(payloadJson.utf8)
+        let payload = try decoder.decode(JavaScriptCrashPayload.self, from: data)
+        _ = Crumb.recordJavaScriptCrash(payload.native)
     }
 
     func addLog(entryJson: String) throws {
@@ -130,6 +145,7 @@ private struct ConfigurationPayload: Decodable {
     let customContext: CustomContextPayload?
     let workspacePolicy: WorkspacePolicyPayload?
     let upload: UploadPayload?
+    let javascriptCrashCapture: JavaScriptCrashCapturePayload?
 }
 
 private struct ReleasePayload: Decodable {
@@ -154,6 +170,10 @@ private struct CapturePayload: Decodable {
     let screenshot: Bool?
     let maximumScreenshotDimension: Int?
     let maximumScreenshotBytes: Int?
+}
+
+private struct JavaScriptCrashCapturePayload: Decodable {
+    let enabled: Bool?
 }
 
 private struct DiagnosticsPayload: Decodable {
@@ -302,6 +322,70 @@ private struct LogEntryPayload: Decodable {
             timestamp: Date(timeIntervalSince1970: TimeInterval(timestampMs) / 1_000),
             level: level.nativeLogLevel,
             source: source,
+            category: category,
+            message: message
+        )
+    }
+}
+
+private struct JavaScriptCrashPayload: Decodable {
+    let kind: JavaScriptCrashKindPayload
+    let source: JavaScriptCrashSourcePayload
+    let errorType: String
+    let message: String
+    let rawStack: String?
+    let fingerprint: String?
+    let occurredAtMs: Int64
+    let nativeTerminationWrapper: Bool?
+    let breadcrumbs: [JavaScriptBreadcrumbPayload]?
+
+    var native: CrumbJavaScriptCrash {
+        CrumbJavaScriptCrash(
+            kind: kind.native,
+            source: source.native,
+            errorType: errorType,
+            message: message,
+            rawStack: rawStack,
+            fingerprint: fingerprint,
+            occurredAt: Date(timeIntervalSince1970: TimeInterval(occurredAtMs) / 1_000),
+            nativeTerminationWrapper: nativeTerminationWrapper ?? false,
+            breadcrumbs: breadcrumbs?.map(\.native) ?? []
+        )
+    }
+}
+
+private enum JavaScriptCrashKindPayload: String, Decodable {
+    case fatalException = "fatal_exception"
+    case unhandledRejection = "unhandled_rejection"
+
+    var native: CrumbJavaScriptCrashKind {
+        switch self {
+        case .fatalException: .fatalException
+        case .unhandledRejection: .unhandledRejection
+        }
+    }
+}
+
+private enum JavaScriptCrashSourcePayload: String, Decodable {
+    case javascript
+    case nativeTerminationWrapper = "native_termination_wrapper"
+
+    var native: CrumbJavaScriptCrashSource {
+        switch self {
+        case .javascript: .javascript
+        case .nativeTerminationWrapper: .nativeTerminationWrapper
+        }
+    }
+}
+
+private struct JavaScriptBreadcrumbPayload: Decodable {
+    let timestampMs: Int64
+    let category: String
+    let message: String
+
+    var native: CrumbJavaScriptBreadcrumb {
+        CrumbJavaScriptBreadcrumb(
+            timestamp: Date(timeIntervalSince1970: TimeInterval(timestampMs) / 1_000),
             category: category,
             message: message
         )

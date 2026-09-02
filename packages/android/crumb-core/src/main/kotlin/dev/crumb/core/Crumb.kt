@@ -1,5 +1,11 @@
 package dev.crumb.core
 
+import android.content.Context
+import android.os.Build
+import android.os.Process
+import java.util.Locale
+import java.util.TimeZone
+
 data class CrumbConfiguration(
     val projectKey: String,
     val environment: String,
@@ -239,6 +245,7 @@ object Crumb {
     private var workspacePolicy: CrumbWorkspacePolicy? = null
     private val highestWorkspacePolicyVersionByScope = mutableMapOf<String, Int>()
     private var policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_FETCHED
+    private var javascriptCrashStore: CrumbJavaScriptCrashStore? = null
 
     @JvmStatic
     fun start(configuration: CrumbConfiguration) = synchronized(lock) {
@@ -252,6 +259,38 @@ object Crumb {
     fun canCollectLogs(): Boolean = synchronized(lock) {
         val activeConfiguration = configuration ?: return@synchronized false
         effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
+    }
+
+    /** Records an opt-in JavaScript failure for recovery on the next launch. */
+    @JvmStatic
+    fun recordJavaScriptCrash(context: Context, crash: CrumbJavaScriptCrash): Boolean = synchronized(lock) {
+        if (configuration == null) return@synchronized false
+        crashStore(context).record(crash, reportSettings())
+    }
+
+    /** Converts pending JavaScript failures into the normal durable report queue. */
+    @JvmStatic
+    fun recoverPendingJavaScriptCrashes(context: Context): Int {
+        val settings = synchronized(lock) {
+            if (configuration == null) return@synchronized null
+            reportSettings()
+        } ?: return 0
+        val applicationContext = context.applicationContext
+        val store = synchronized(lock) { crashStore(applicationContext) }
+        val runtime = CrumbJavaScriptCrashRuntime(
+            osVersion = Build.VERSION.RELEASE?.takeIf(String::isNotBlank) ?: "unknown",
+            deviceFamily = Build.MODEL?.takeIf(String::isNotBlank) ?: "Android",
+            locale = Locale.getDefault().toLanguageTag(),
+            timezone = TimeZone.getDefault().id,
+            processName = applicationContext.packageName,
+            processId = Process.myPid(),
+        )
+        return CrumbJavaScriptCrashRecovery.recoverPending(
+            store = store,
+            queue = CrumbReportQueue.from(applicationContext),
+            settings = settings,
+            runtime = runtime,
+        )
     }
 
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
@@ -393,7 +432,13 @@ object Crumb {
         workspacePolicy = null
         highestWorkspacePolicyVersionByScope.clear()
         policyStatus = CrumbPolicyStatus.NOT_FETCHED
+        javascriptCrashStore = null
     }
+
+    private fun crashStore(context: Context): CrumbJavaScriptCrashStore =
+        javascriptCrashStore ?: CrumbJavaScriptCrashStore.from(context).also {
+            javascriptCrashStore = it
+        }
 
     private fun validate(configuration: CrumbConfiguration) {
         if (configuration.projectKey.isBlank()) throw CrumbStartException.EmptyProjectKey()

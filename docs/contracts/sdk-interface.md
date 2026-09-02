@@ -39,6 +39,17 @@ The minimum configuration contains:
 - an optional ingestion base URL; leaving it unset disables network upload
   without disabling durable local submission.
 
+React Native additionally accepts an opt-in JavaScript crash-capture
+configuration. It is disabled unless `javascriptCrashCapture.enabled` is
+`true`. The adapter records fatal JavaScript exceptions and unhandled promise
+rejections by chaining React Native's existing handlers. The bounded record may
+contain only a sanitized error type, message, raw JavaScript stack,
+release-bundle identity, bounded breadcrumbs, and explicitly allowlisted custom
+context. It is persisted through a small app-private recovery store and moved
+into the normal durable envelope queue during the next `installReporter()`.
+The adapter installs no native crash hooks and does not collect arbitrary
+memory, Redux/store state, or request/response bodies.
+
 The project key is an identifier and write credential embedded in an
 application binary. It is not treated as a secret and never authorizes reads.
 
@@ -53,6 +64,10 @@ application binary. It is not treated as a secret and never authorizes reads.
 - Calls made before a successful `start` have no external side effects.
 - `installReporter` is called once after `start`; sensor ownership and lifecycle
   recovery stay inside the SDK rather than in each host screen.
+- When React Native JavaScript crash capture is enabled, `installReporter`
+  first recovers pending crash occurrences into the normal durable queue before
+  resuming delivery. Recovery is idempotent and leaves records pending when the
+  queue is full or acknowledgement is not possible.
 - `show` refuses duplicate presentation while a reporter is already visible.
 - A report session preserves its form or draft state across rotation and
   backgrounding. Destruction of its host without recreation ends the session.
@@ -105,9 +120,10 @@ defined in [Local report queue](local-report-queue.md).
 The delivery lifecycle and retry classification are defined in
 [Native uploader](native-uploader.md).
 
-Crash reporting, analytics, session replay, automatic hang detection, user
-identity, navigation tracking, attributes, and breadcrumbs are not part of this
-interface.
+Native crash reporting, analytics, session replay, automatic hang detection,
+user identity, navigation tracking, attributes, and breadcrumbs are not part of
+this native interface. The React Native adapter's breadcrumbs are an internal,
+bounded input to its explicitly enabled JavaScript crash-capture path only.
 
 ## Internal seams
 

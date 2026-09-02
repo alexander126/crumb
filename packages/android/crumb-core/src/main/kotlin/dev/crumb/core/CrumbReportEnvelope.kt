@@ -373,7 +373,7 @@ internal object CrumbReportEnvelopeBuilder {
     }
 }
 
-private object JsonValueEncoder {
+internal object JsonValueEncoder {
     fun encode(value: Any?): String = buildString { appendValue(value) }
 
     private fun StringBuilder.appendValue(value: Any?) {

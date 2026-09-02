@@ -21,6 +21,10 @@ export type CrumbLogLevel =
   | 'error'
   | 'fault';
 
+export type CrumbJavaScriptCrashKind =
+  | 'fatal_exception'
+  | 'unhandled_rejection';
+
 export interface CrumbRelease {
   /** Defaults to the native bundle version name. */
   appVersion?: string;
@@ -43,6 +47,15 @@ export interface CrumbLogOptions {
   maximumBytes?: number;
   /** Captures console.warn and console.error while preserving their behavior. */
   captureConsole?: boolean;
+}
+
+export interface CrumbJavaScriptCrashCaptureOptions {
+  /** Installs JavaScript-level fatal-error and unhandled-rejection handlers. */
+  enabled?: boolean;
+  /** Maximum number of in-memory breadcrumbs retained for a crash. */
+  maximumBreadcrumbs?: number;
+  /** Maximum UTF-8 bytes retained by the breadcrumb buffer. */
+  maximumBreadcrumbBytes?: number;
 }
 
 export interface CrumbDiagnosticsOptions {
@@ -91,6 +104,7 @@ export interface CrumbConfiguration {
   invocation?: readonly CrumbInvocation[];
   capture?: CrumbCaptureOptions;
   diagnostics?: CrumbDiagnosticsOptions;
+  javascriptCrashCapture?: CrumbJavaScriptCrashCaptureOptions;
   privacy?: CrumbPrivacyOptions;
   upload?: CrumbUploadOptions;
   reporter?: CrumbReporterOptions;

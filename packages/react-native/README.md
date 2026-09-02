@@ -102,6 +102,9 @@ await Crumb.start({
       captureConsole: true,
     },
   },
+  javascriptCrashCapture: {
+    enabled: true,
+  },
   reporter: {
     theme: 'system',
     visibleFields: ['category', 'description'],
@@ -159,6 +162,42 @@ Crumb.disableConsoleCapture();
 
 Crumb never captures network bodies, Redux state, navigation history, arbitrary
 application object graphs, or analytics events.
+
+## Optional JavaScript crash capture
+
+JavaScript crash capture is disabled unless `javascriptCrashCapture.enabled` is
+explicitly `true`. When enabled, the adapter installs a small wrapper around
+React Native's `ErrorUtils` fatal handler and the global
+`onunhandledrejection` hook. It records the sanitized JavaScript error before
+calling the existing host handler, then calls that handler exactly once with
+the original arguments and return behavior. Existing Sentry, Crashlytics, and
+host handlers must be installed before Crumb so the chain is preserved.
+
+```ts
+await Crumb.start({
+  projectKey: 'crumb_sdk_replace_me',
+  environment: 'development',
+  release: { bundleVersion: 'ota-update-id' },
+  javascriptCrashCapture: {
+    enabled: true,
+    maximumBreadcrumbs: 20,
+    maximumBreadcrumbBytes: 16_384,
+  },
+});
+```
+
+The native SDK synchronously stores a bounded, app-private handoff when the
+runtime permits. On the next `installReporter()` call, it becomes one normal
+durable queue item and follows the existing offline retry and server
+acknowledgement lifecycle. JavaScript failures and a later native termination
+wrapper are deduplicated by a bounded fingerprint without replacing the
+JavaScript cause.
+
+Only the error type, message, raw JavaScript stack, release/bundle identity,
+bounded Crumb breadcrumbs, and explicitly allowlisted custom context are
+eligible. Request/response bodies, Redux or store state, arbitrary object
+graphs, and general native crash hooks remain outside the feature. Disabling
+the option installs no JavaScript crash or rejection handlers.
 
 ## Development
 

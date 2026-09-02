@@ -261,6 +261,9 @@ export async function configureCrumb(): Promise<void> {
         captureConsole: true,
       },
     },
+    javascriptCrashCapture: {
+      enabled: true,
+    },
     reporter: {
       theme: 'system',
       visibleFields: ['category', 'description'],
@@ -282,6 +285,12 @@ export async function configureCrumb(): Promise<void> {
 Call `configureCrumb()` once from the application startup path. Crumb reads the
 native application version and build number automatically. For Expo Updates,
 pass the active update identifier as `release.bundleVersion`.
+
+JavaScript crash capture is opt-in. When enabled, the adapter chains the host
+React Native error and unhandled-rejection handlers, stores a bounded sanitized
+occurrence if the runtime is terminating, and recovers it on the next launch.
+The same configuration works in a bare React Native app and an Expo development
+build; Expo Go is not supported.
 
 Open the reporter from application UI when needed:
 
@@ -363,6 +372,9 @@ Use a real application build or simulator/emulator build, not Expo Go:
 4. Submit a test report and confirm it appears in the correct dashboard project.
 5. Shake a foreground physical device and confirm the small reporter prompt
    appears.
+6. With JavaScript crash capture enabled, run the example fatal-error and
+   unhandled-rejection actions, relaunch, and confirm each occurrence is
+   recovered once. Repeat once while offline and confirm it remains queued.
 
 Leaving the ingestion URL unset keeps submitted reports in the SDK's local,
 durable queue. Add it before expecting reports to reach the dashboard.

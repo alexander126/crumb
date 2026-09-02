@@ -35,6 +35,12 @@ npm run android
 In the app, choose **Start Crumb**, then **Open reporter**. Shaking a physical
 device also opens the reporter after installation.
 
+The example enables opt-in JavaScript crash capture in `src/crumb.ts`. After
+starting Crumb, the two crash actions exercise a fatal JavaScript error and an
+unhandled promise rejection. The captured occurrence is recovered into the
+durable queue on the next development-build launch; no crash hooks are
+installed when the option is omitted or disabled.
+
 ## Verify the integration
 
 ```sh

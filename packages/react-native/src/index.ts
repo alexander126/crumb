@@ -7,6 +7,10 @@ import {
   markNativeStarted,
   writeLog,
 } from './log-buffer';
+import {
+  configureJavaScriptCrashCapture,
+  disableJavaScriptCrashCapture,
+} from './javascript-crash-capture';
 import type {
   CrumbConfiguration,
   CrumbLogLevel,
@@ -21,6 +25,8 @@ export type {
   CrumbDiagnosticsOptions,
   CrumbEvidenceCategory,
   CrumbInvocation,
+  CrumbJavaScriptCrashKind,
+  CrumbJavaScriptCrashCaptureOptions,
   CrumbLogLevel,
   CrumbLogMetadata,
   CrumbLogOptions,
@@ -39,6 +45,7 @@ export async function start(configuration: CrumbConfiguration): Promise<void> {
   configureLogBuffer(logOptions);
   NativeCrumbReactNative.start(JSON.stringify(configuration));
   markNativeStarted();
+  configureJavaScriptCrashCapture(configuration.javascriptCrashCapture);
 
   if (logOptions?.captureConsole) {
     enableConsoleCapture();
@@ -66,7 +73,12 @@ export function log(
   writeLog(level, message, metadata);
 }
 
-export { clearLogs, disableConsoleCapture, enableConsoleCapture };
+export {
+  clearLogs,
+  disableConsoleCapture,
+  disableJavaScriptCrashCapture,
+  enableConsoleCapture,
+};
 
 function validateConfiguration(configuration: CrumbConfiguration): void {
   if (!configuration.projectKey?.trim()) {
@@ -100,6 +112,7 @@ function validateConfiguration(configuration: CrumbConfiguration): void {
     configuration.diagnostics?.logs?.maximumBytes,
     'diagnostics.logs.maximumBytes'
   );
+  assertJavaScriptCrashCapture(configuration.javascriptCrashCapture);
 
   if (
     configuration.reporter?.theme !== undefined &&
@@ -112,6 +125,43 @@ function validateConfiguration(configuration: CrumbConfiguration): void {
   assertApplicationMetadata(configuration.application?.name);
   assertCustomContext(configuration.customContext);
   assertWorkspacePolicy(configuration.workspacePolicy);
+}
+
+function assertJavaScriptCrashCapture(
+  value: CrumbConfiguration['javascriptCrashCapture']
+): void {
+  if (value === undefined) return;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(
+      'Crumb javascriptCrashCapture must be an options object.'
+    );
+  }
+  if (value.enabled !== undefined && typeof value.enabled !== 'boolean') {
+    throw new TypeError(
+      'Crumb javascriptCrashCapture.enabled must be a boolean.'
+    );
+  }
+  assertPositiveInteger(
+    value.maximumBreadcrumbs,
+    'javascriptCrashCapture.maximumBreadcrumbs'
+  );
+  assertPositiveInteger(
+    value.maximumBreadcrumbBytes,
+    'javascriptCrashCapture.maximumBreadcrumbBytes'
+  );
+  if (value.maximumBreadcrumbs !== undefined && value.maximumBreadcrumbs > 32) {
+    throw new TypeError(
+      'Crumb javascriptCrashCapture.maximumBreadcrumbs must be at most 32.'
+    );
+  }
+  if (
+    value.maximumBreadcrumbBytes !== undefined &&
+    value.maximumBreadcrumbBytes > 32_768
+  ) {
+    throw new TypeError(
+      'Crumb javascriptCrashCapture.maximumBreadcrumbBytes must be at most 32768.'
+    );
+  }
 }
 
 function assertReporterFields(value: readonly string[] | undefined): void {
@@ -264,6 +314,7 @@ const Crumb = Object.freeze({
   clearLogs,
   enableConsoleCapture,
   disableConsoleCapture,
+  disableJavaScriptCrashCapture,
 });
 
 export default Crumb;
