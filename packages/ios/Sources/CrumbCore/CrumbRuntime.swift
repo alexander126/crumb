@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 package struct CrumbReportSettings: Equatable, Sendable {
     package let environment: String
@@ -7,6 +8,12 @@ package struct CrumbReportSettings: Equatable, Sendable {
     package let capture: CrumbCaptureOptions
     package let diagnostics: CrumbDiagnosticsOptions
     package let privacy: CrumbPrivacyOptions
+    package let reporter: CrumbReporterOptions
+    package let evidence: Set<CrumbEvidenceCategory>
+    package let application: CrumbApplicationMetadata
+    package let customContext: [String: String]
+    package let policyStatus: CrumbPolicyStatus
+    package let workspacePolicyVersion: Int?
 }
 
 package struct CrumbUploadSettings: Equatable, Sendable {
@@ -19,6 +26,9 @@ final class CrumbRuntime: @unchecked Sendable {
 
     private let lock = NSLock()
     private var configuration: CrumbConfiguration?
+    private var workspacePolicy: CrumbWorkspacePolicy?
+    private var highestWorkspacePolicyVersionByScope: [String: Int] = [:]
+    private var policyStatus: CrumbPolicyStatus = .notFetched
 
     private init() {}
 
@@ -42,14 +52,88 @@ final class CrumbRuntime: @unchecked Sendable {
         defer { lock.unlock() }
 
         guard let configuration else { throw CrumbRuntimeError.notStarted }
+        let effective = effectiveSettings(for: configuration)
         return CrumbReportSettings(
             environment: configuration.environment,
             release: configuration.release,
             invocation: configuration.invocation,
             capture: configuration.capture,
             diagnostics: configuration.diagnostics,
-            privacy: configuration.privacy
+            privacy: configuration.privacy,
+            reporter: CrumbReporterOptions(
+                theme: configuration.reporter.theme,
+                visibleFields: effective.reporterFields
+            ),
+            evidence: effective.evidence,
+            application: configuration.application,
+            customContext: effective.customContext,
+            policyStatus: effective.status,
+            workspacePolicyVersion: effective.workspacePolicyVersion
         )
+    }
+
+    func workspacePolicyFetchSettings() throws -> CrumbPolicyFetchSettings? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let configuration else { throw CrumbRuntimeError.notStarted }
+        guard let url = configuration.workspacePolicy.url else { return nil }
+        return CrumbPolicyFetchSettings(
+            projectKey: configuration.projectKey,
+            url: url,
+            timeout: configuration.workspacePolicy.timeout
+        )
+    }
+
+    func workspacePolicyCacheKey() throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let configuration else { throw CrumbRuntimeError.notStarted }
+        let scope = Self.workspacePolicyScopeKey(for: configuration)
+        let digest = SHA256.hash(data: Data(scope.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return "crumb.workspace-policy.\(digest)"
+    }
+
+    func beginWorkspacePolicyFetch() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard configuration?.workspacePolicy.url != nil else { return }
+        policyStatus = workspacePolicy?.isValid(at: Date()) == true ? .cached : .fetching
+    }
+
+    @discardableResult
+    func applyWorkspacePolicy(_ policy: CrumbWorkspacePolicy, source: CrumbPolicySource) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let configuration,
+              configuration.workspacePolicy.url != nil,
+              policy.isValid(at: Date()) else {
+            return false
+        }
+        let scope = Self.workspacePolicyScopeKey(for: configuration)
+        if highestWorkspacePolicyVersionByScope[scope].map({ $0 > policy.version }) == true {
+            return false
+        }
+        workspacePolicy = policy
+        highestWorkspacePolicyVersionByScope[scope] = max(
+            highestWorkspacePolicyVersionByScope[scope] ?? 0,
+            policy.version
+        )
+        policyStatus = source == .fresh ? .fresh : .cached
+        return true
+    }
+
+    func markWorkspacePolicyUnavailable() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard configuration?.workspacePolicy.url != nil else { return }
+        if workspacePolicy?.isValid(at: Date()) != true {
+            workspacePolicy = nil
+            policyStatus = .unavailable
+        }
     }
 
     func uploadSettings() throws -> CrumbUploadSettings? {
@@ -68,6 +152,19 @@ final class CrumbRuntime: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         configuration = nil
+        workspacePolicy = nil
+        highestWorkspacePolicyVersionByScope.removeAll()
+        policyStatus = .notFetched
+    }
+
+    private static func workspacePolicyScopeKey(for configuration: CrumbConfiguration) -> String {
+        [
+            configuration.projectKey,
+            configuration.environment,
+            configuration.workspacePolicy.url?.absoluteString ?? ""
+        ]
+        .map { "\($0.utf8.count):\($0)" }
+        .joined(separator: "|")
     }
 
     private static func validate(_ configuration: CrumbConfiguration) throws {
@@ -91,6 +188,36 @@ final class CrumbRuntime: @unchecked Sendable {
             }) ?? true
         else {
             throw CrumbStartError.invalidRelease
+        }
+        guard configuration.reporter.visibleFields.contains(.description) else {
+            throw CrumbStartError.invalidReporterFields
+        }
+        guard Set(CrumbEvidenceCategory.allCases).isSuperset(of: configuration.evidence) else {
+            throw CrumbStartError.invalidEvidence
+        }
+        if let name = configuration.application.name,
+           !hasPrintableLength(name, maximum: 256) {
+            throw CrumbStartError.invalidApplicationMetadata
+        }
+        guard
+            configuration.customContext.values.count <= CrumbCustomContextSanitizer.maximumKeys,
+            configuration.customContext.allowedKeys.count <= CrumbCustomContextSanitizer.maximumKeys,
+            configuration.customContext.values.keys.allSatisfy({
+                CrumbCustomContextSanitizer.isValidKey($0)
+            }),
+            configuration.customContext.allowedKeys.allSatisfy({
+                CrumbCustomContextSanitizer.isValidKey($0)
+            })
+        else {
+            throw CrumbStartError.invalidCustomContext
+        }
+        guard configuration.workspacePolicy.timeout >= 0.25,
+              configuration.workspacePolicy.timeout <= 5 else {
+            throw CrumbStartError.invalidWorkspacePolicyTimeout
+        }
+        if let url = configuration.workspacePolicy.url,
+           !validHTTPURL(url) {
+            throw CrumbStartError.invalidWorkspacePolicyURL
         }
         guard (320...4_096).contains(configuration.capture.maximumScreenshotDimension) else {
             throw CrumbStartError.invalidScreenshotDimension
@@ -119,6 +246,30 @@ final class CrumbRuntime: @unchecked Sendable {
                 throw CrumbStartError.invalidIngestionURL
             }
         }
+    }
+
+    private func effectiveSettings(
+        for configuration: CrumbConfiguration,
+        now: Date = Date()
+    ) -> CrumbEffectivePolicy {
+        let status: CrumbPolicyStatus
+        if configuration.workspacePolicy.url == nil {
+            status = .notConfigured
+        } else if let workspacePolicy,
+                  workspacePolicy.isValid(at: now),
+                  policyStatus == .fresh || policyStatus == .cached {
+            status = policyStatus
+        } else if workspacePolicy.map({ $0.expiresAt <= now }) == true {
+            status = .expired
+        } else {
+            status = policyStatus
+        }
+        return CrumbPolicyEvaluator.effective(
+            for: configuration,
+            workspacePolicy: workspacePolicy,
+            status: status,
+            now: now
+        )
     }
 
     private static func validHTTPURL(_ url: URL) -> Bool {

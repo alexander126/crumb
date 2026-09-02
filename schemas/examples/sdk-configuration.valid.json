@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "project_key": "project_write_key",
+  "environment": "staging",
+  "release": {
+    "app_version": "1.2.3",
+    "native_build": "42",
+    "bundle_version": "ota-17"
+  },
+  "invocation": ["shake", "programmatic"],
+  "capture": {
+    "screenshot": true,
+    "maximum_screenshot_dimension": 2048,
+    "maximum_screenshot_bytes": 5242880
+  },
+  "diagnostics": {
+    "health_check_url": "https://api.example.invalid/health",
+    "timeout_ms": 2000,
+    "logs": {
+      "enabled": true,
+      "lookback_ms": 60000,
+      "maximum_entries": 200,
+      "maximum_bytes": 65536
+    }
+  },
+  "privacy": {
+    "mask_all_text_inputs": true,
+    "mask_screenshots_before_upload": true
+  },
+  "upload": {
+    "ingestion_url": "https://ingestion.example.invalid"
+  },
+  "reporter": {
+    "theme": "system",
+    "visible_fields": ["category", "description"]
+  },
+  "evidence": [
+    "screenshot",
+    "performance",
+    "network",
+    "logs",
+    "thread_stacks",
+    "health_check",
+    "custom_context"
+  ],
+  "application": { "name": "Example mobile app" },
+  "custom_context": {
+    "values": {
+      "account_tier": "trial",
+      "email": "user@example.invalid"
+    },
+    "allowed_keys": ["account_tier"]
+  },
+  "workspace_policy": {
+    "url": "https://policy.example.invalid/sdk/v1/policy",
+    "timeout_ms": 2000
+  }
+}

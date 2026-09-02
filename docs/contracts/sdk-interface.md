@@ -28,6 +28,14 @@ The minimum configuration contains:
 - bounded recent-log options (enabled, lookback, entry count, and byte limit)
   plus an optional application log provider;
 - privacy options whose defaults are safe.
+- an optional built-in reporter theme and visible-field allowlist; the
+  description remains required;
+- an optional evidence allowlist covering screenshot, performance, network,
+  logs, thread stacks, health checks, and explicitly allowlisted custom
+  context;
+- bounded application metadata and string-only custom context;
+- an optional versioned workspace policy URL that can only narrow the local
+  configuration;
 - an optional ingestion base URL; leaving it unset disables network upload
   without disabling durable local submission.
 
@@ -37,6 +45,11 @@ application binary. It is not treated as a secret and never authorizes reads.
 ## Ordering and failure behaviour
 
 - `start` validates configuration synchronously.
+- A configured workspace policy is fetched and cached asynchronously. Before a
+  valid fresh or cached policy exists, optional evidence and custom context are
+  disabled while the required description-only report remains available.
+- Workspace policy failures, expiry, and malformed documents never broaden the
+  locally configured evidence or context allowlist.
 - Calls made before a successful `start` have no external side effects.
 - `installReporter` is called once after `start`; sensor ownership and lifecycle
   recovery stay inside the SDK rather than in each host screen.
@@ -83,6 +96,9 @@ application binary. It is not treated as a secret and never authorizes reads.
 - The write key is available only to the transport settings seam. It is never
   placed in report-time UI settings, envelopes, stored failure reasons, or
   signed artifact requests.
+
+The full configuration, workspace-policy, precedence, bounds, and migration
+contract is defined in [SDK configuration and privacy precedence](sdk-configuration.md).
 
 The durable storage layout, integrity checks, limits, and recovery rules are
 defined in [Local report queue](local-report-queue.md).

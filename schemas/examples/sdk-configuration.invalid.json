@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "project_key": "project_write_key",
+  "environment": "staging",
+  "release": {
+    "app_version": "1.2.3",
+    "native_build": "42"
+  },
+  "reporter": {
+    "theme": "neon",
+    "visible_fields": ["description"]
+  }
+}

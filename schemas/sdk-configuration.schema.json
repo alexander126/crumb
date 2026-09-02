@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/sdk-configuration/1.0/schema.json",
+  "title": "Crumb SDK configuration",
+  "description": "The language-neutral v1 configuration contract. Native Swift/Kotlin initializers and the React Native object map to these normalized fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_key", "environment", "release"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "project_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "release": { "$ref": "#/$defs/release" },
+    "invocation": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["shake", "programmatic"] }
+    },
+    "capture": { "$ref": "#/$defs/capture" },
+    "diagnostics": { "$ref": "#/$defs/diagnostics" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "upload": { "$ref": "#/$defs/upload" },
+    "reporter": { "$ref": "#/$defs/reporter" },
+    "evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "screenshot",
+          "performance",
+          "network",
+          "logs",
+          "thread_stacks",
+          "health_check",
+          "custom_context"
+        ]
+      }
+    },
+    "application": { "$ref": "#/$defs/application" },
+    "custom_context": { "$ref": "#/$defs/customContext" },
+    "workspace_policy": { "$ref": "#/$defs/workspacePolicy" }
+  },
+  "$defs": {
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_version", "native_build"],
+      "properties": {
+        "app_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "native_build": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "bundle_version": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "screenshot": { "type": "boolean" },
+        "maximum_screenshot_dimension": { "type": "integer", "minimum": 320, "maximum": 4096 },
+        "maximum_screenshot_bytes": { "type": "integer", "minimum": 65536, "maximum": 26214400 }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "health_check_url": {
+          "type": "string",
+          "pattern": "^https?://[^/?#]+(?:/[^?#]*)?$"
+        },
+        "timeout_ms": { "type": "integer", "minimum": 250, "maximum": 5000 },
+        "logs": { "$ref": "#/$defs/logs" }
+      }
+    },
+    "logs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "lookback_ms": { "type": "integer", "minimum": 1000, "maximum": 300000 },
+        "maximum_entries": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "maximum_bytes": { "type": "integer", "minimum": 1024, "maximum": 262144 }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mask_all_text_inputs": { "type": "boolean" },
+        "mask_screenshots_before_upload": { "type": "boolean" }
+      }
+    },
+    "upload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ingestion_url": {
+          "type": "string",
+          "pattern": "^https?://[^/?#]+(?:/[^?#]*)?$"
+        }
+      }
+    },
+    "reporter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+        "visible_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "contains": { "const": "description" },
+          "items": { "type": "string", "enum": ["category", "description"] }
+        }
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "customContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "values": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" },
+          "additionalProperties": { "type": "string", "maxLength": 4096 }
+        },
+        "allowed_keys": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" }
+        }
+      }
+    },
+    "workspacePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https?://[^/?#]+(?:/[^?#]*)?$"
+        },
+        "timeout_ms": { "type": "integer", "minimum": 250, "maximum": 5000 }
+      }
+    }
+  }
+}

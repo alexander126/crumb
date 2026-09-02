@@ -82,6 +82,7 @@ public enum CrumbLogCaptureStatus: String, Equatable, Sendable {
     case empty
     case unavailable
     case disabled
+    case disabledByPolicy = "disabled_by_policy"
 }
 
 public struct CrumbLogDiagnostic: Equatable, Sendable {

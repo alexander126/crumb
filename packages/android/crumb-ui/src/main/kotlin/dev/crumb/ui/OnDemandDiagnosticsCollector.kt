@@ -13,7 +13,12 @@ import android.system.OsConstants
 import android.telephony.TelephonyManager
 import dev.crumb.core.CrumbDiagnosticsOptions
 import dev.crumb.core.CrumbDiagnosticsSnapshot
+import dev.crumb.core.CrumbEvidenceCategory
+import dev.crumb.core.CrumbLogCaptureStatus
+import dev.crumb.core.CrumbLogDiagnostic
 import dev.crumb.core.CrumbNetworkDiagnostic
+import dev.crumb.core.CrumbStackTraceCaptureStatus
+import dev.crumb.core.CrumbStackTraceDiagnostic
 import dev.crumb.core.CrumbThreadDiagnostic
 import java.io.File
 
@@ -24,14 +29,20 @@ internal object OnDemandDiagnosticsCollector {
         context: Context,
         location: String,
         options: CrumbDiagnosticsOptions,
+        evidence: Set<CrumbEvidenceCategory> = CrumbEvidenceCategory.entries.toSet(),
     ): CrumbDiagnosticsSnapshot {
-        val firstThreads = readThreads()
-        val firstProcessCpuMillis = Process.getElapsedCpuTime()
+        val capturesPerformance = CrumbEvidenceCategory.PERFORMANCE in evidence
+        val firstThreads = if (capturesPerformance) readThreads() else emptyMap()
+        val firstProcessCpuMillis = if (capturesPerformance) Process.getElapsedCpuTime() else 0L
         val startedAt = SystemClock.elapsedRealtime()
-        Thread.sleep(sampleDurationMillis)
+        if (capturesPerformance) Thread.sleep(sampleDurationMillis)
         val elapsedMillis = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(1)
-        val processCpuMillis = Process.getElapsedCpuTime() - firstProcessCpuMillis
-        val secondThreads = readThreads()
+        val processCpuMillis = if (capturesPerformance) {
+            Process.getElapsedCpuTime() - firstProcessCpuMillis
+        } else {
+            0L
+        }
+        val secondThreads = if (capturesPerformance) readThreads() else emptyMap()
         val clockTicks = runCatching { Os.sysconf(OsConstants._SC_CLK_TCK) }.getOrDefault(100L)
 
         val threads = secondThreads.map { (id, sample) ->
@@ -48,22 +59,66 @@ internal object OnDemandDiagnosticsCollector {
             )
         }.sortedByDescending { it.cpuUsagePercent ?: 0.0 }
 
-        val memory = Debug.MemoryInfo().also(Debug::getMemoryInfo)
+        val memory = if (capturesPerformance) Debug.MemoryInfo().also(Debug::getMemoryInfo) else null
         return CrumbDiagnosticsSnapshot(
             capturedAtMillis = System.currentTimeMillis(),
             location = location,
             processName = processName(context),
             processId = Process.myPid(),
-            cpuUsagePercent = processCpuMillis.toDouble() / elapsedMillis.toDouble() * 100.0,
-            residentMemoryBytes = residentMemoryBytes(),
-            physicalFootprintBytes = memory.totalPss.toLong() * 1_024,
-            thermalState = thermalState(context),
+            cpuUsagePercent = if (capturesPerformance) {
+                processCpuMillis.toDouble() / elapsedMillis.toDouble() * 100.0
+            } else {
+                null
+            },
+            residentMemoryBytes = if (capturesPerformance) residentMemoryBytes() else null,
+            physicalFootprintBytes = memory?.totalPss?.toLong()?.times(1_024),
+            thermalState = if (capturesPerformance) thermalState(context) else "unavailable",
             threadCount = threads.size,
             busiestThreads = threads.take(12),
             gpuStatus = "Unavailable on demand on Android",
-            network = networkDiagnostics(context, options),
-            logs = OnDemandLogCollector.capture(options.logs),
-            stackTraces = ManagedStackCollector.capture(),
+            network = if (CrumbEvidenceCategory.NETWORK in evidence) {
+                networkDiagnostics(
+                    context,
+                    options,
+                    includeHealthCheck = CrumbEvidenceCategory.HEALTH_CHECK in evidence,
+                )
+            } else {
+                CrumbNetworkDiagnostic(
+                    status = "unknown",
+                    transport = "unknown",
+                    cellularGeneration = null,
+                    isExpensive = false,
+                    isConstrained = false,
+                    healthCheck = null,
+                )
+            },
+            logs = if (CrumbEvidenceCategory.LOGS in evidence) {
+                OnDemandLogCollector.capture(options.logs)
+            } else {
+                CrumbLogDiagnostic(
+                    status = if (options.logs.enabled) {
+                        CrumbLogCaptureStatus.DISABLED_BY_POLICY
+                    } else {
+                        CrumbLogCaptureStatus.DISABLED
+                    },
+                    sources = emptyList(),
+                    entries = emptyList(),
+                    truncated = false,
+                    droppedEntryCount = 0,
+                    failures = emptyList(),
+                )
+            },
+            stackTraces = if (CrumbEvidenceCategory.THREAD_STACKS in evidence) {
+                ManagedStackCollector.capture()
+            } else {
+                CrumbStackTraceDiagnostic(
+                    status = CrumbStackTraceCaptureStatus.UNAVAILABLE,
+                    scope = "none",
+                    threads = emptyList(),
+                    truncated = false,
+                    unavailableReason = "disabled_by_policy",
+                )
+            },
         )
     }
 
@@ -122,6 +177,7 @@ internal object OnDemandDiagnosticsCollector {
     private fun networkDiagnostics(
         context: Context,
         options: CrumbDiagnosticsOptions,
+        includeHealthCheck: Boolean,
     ): CrumbNetworkDiagnostic {
         val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
@@ -147,9 +203,9 @@ internal object OnDemandDiagnosticsCollector {
             isExpensive = connectivity.isActiveNetworkMetered,
             isConstrained = connectivity.restrictBackgroundStatus ==
                 ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED,
-            healthCheck = options.healthCheckUrl?.let {
+            healthCheck = if (includeHealthCheck) options.healthCheckUrl?.let {
                 CrumbInfrastructureHealthProbe.capture(it, options.timeoutMillis)
-            },
+            } else null,
         )
     }
 

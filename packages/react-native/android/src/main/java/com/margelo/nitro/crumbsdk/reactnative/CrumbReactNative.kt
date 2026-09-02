@@ -9,14 +9,21 @@ import dev.crumb.core.Crumb
 import dev.crumb.core.CrumbCaptureOptions
 import dev.crumb.core.CrumbConfiguration
 import dev.crumb.core.CrumbDiagnosticsOptions
+import dev.crumb.core.CrumbEvidenceCategory
 import dev.crumb.core.CrumbInvocation
 import dev.crumb.core.CrumbLogEntry
 import dev.crumb.core.CrumbLogLevel
 import dev.crumb.core.CrumbLogOptions
 import dev.crumb.core.CrumbLogProvider
+import dev.crumb.core.CrumbReporterField
+import dev.crumb.core.CrumbReporterOptions
 import dev.crumb.core.CrumbPrivacyOptions
 import dev.crumb.core.CrumbRelease
+import dev.crumb.core.CrumbTheme
 import dev.crumb.core.CrumbUploadOptions
+import dev.crumb.core.CrumbApplicationMetadata
+import dev.crumb.core.CrumbCustomContextOptions
+import dev.crumb.core.CrumbWorkspacePolicyOptions
 import dev.crumb.ui.CrumbReporter
 import org.json.JSONObject
 
@@ -77,9 +84,16 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
                     ingestionUrl = payload.optJSONObject("upload")
                         ?.optionalString("ingestionUrl"),
                 ),
+                reporter = payload.reporterOptions(),
+                evidence = payload.evidenceOptions(),
+                application = payload.applicationMetadata(),
+                customContext = payload.customContextOptions(),
+                workspacePolicy = payload.workspacePolicyOptions(),
             ),
         )
     }
+
+    override fun canCollectLogs(): Boolean = Crumb.canCollectLogs()
 
     override fun installReporter(): Promise<Boolean> {
         val promise = Promise<Boolean>()
@@ -108,6 +122,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
     }
 
     override fun addLog(entryJson: String) {
+        if (!Crumb.canCollectLogs()) return
         val payload = JSONObject(entryJson)
         logBuffer.append(
             CrumbLogEntry(
@@ -152,6 +167,78 @@ private fun JSONObject.privacyOptions(): CrumbPrivacyOptions {
     return CrumbPrivacyOptions(
         maskAllTextInputs = privacy.optionalBoolean("maskAllTextInputs") ?: true,
         maskScreenshotsBeforeUpload = privacy.optionalBoolean("maskScreenshotsBeforeUpload") ?: true,
+    )
+}
+
+private fun JSONObject.reporterOptions(): CrumbReporterOptions {
+    val reporter = optJSONObject("reporter") ?: return CrumbReporterOptions()
+    val theme = when (reporter.optionalString("theme") ?: "system") {
+        "system" -> CrumbTheme.SYSTEM
+        "light" -> CrumbTheme.LIGHT
+        "dark" -> CrumbTheme.DARK
+        else -> error("reporter.theme is unsupported")
+    }
+    val fields = reporter.optJSONArray("visibleFields")?.let { array ->
+        buildSet {
+            for (index in 0 until array.length()) {
+                when (array.getString(index)) {
+                    "category" -> add(CrumbReporterField.CATEGORY)
+                    "description" -> add(CrumbReporterField.DESCRIPTION)
+                    else -> error("reporter.visibleFields contains an unsupported value")
+                }
+            }
+        }
+    } ?: CrumbReporterOptions().visibleFields
+    return CrumbReporterOptions(theme = theme, visibleFields = fields)
+}
+
+private fun JSONObject.evidenceOptions(): Set<CrumbEvidenceCategory> {
+    val evidence = optJSONArray("evidence") ?: return CrumbEvidenceCategory.entries.toSet()
+    return buildSet {
+        for (index in 0 until evidence.length()) {
+            when (evidence.getString(index)) {
+                "screenshot" -> add(CrumbEvidenceCategory.SCREENSHOT)
+                "performance" -> add(CrumbEvidenceCategory.PERFORMANCE)
+                "network" -> add(CrumbEvidenceCategory.NETWORK)
+                "logs" -> add(CrumbEvidenceCategory.LOGS)
+                "thread_stacks" -> add(CrumbEvidenceCategory.THREAD_STACKS)
+                "health_check" -> add(CrumbEvidenceCategory.HEALTH_CHECK)
+                "custom_context" -> add(CrumbEvidenceCategory.CUSTOM_CONTEXT)
+                else -> error("evidence contains an unsupported value")
+            }
+        }
+    }
+}
+
+private fun JSONObject.applicationMetadata(): CrumbApplicationMetadata {
+    val application = optJSONObject("application") ?: return CrumbApplicationMetadata()
+    return CrumbApplicationMetadata(name = application.optionalString("name"))
+}
+
+private fun JSONObject.customContextOptions(): CrumbCustomContextOptions {
+    val customContext = optJSONObject("customContext") ?: return CrumbCustomContextOptions()
+    val values = customContext.optJSONObject("values")?.let { valuesObject ->
+        buildMap {
+            val names = valuesObject.keys()
+            while (names.hasNext()) {
+                val name = names.next()
+                put(name, valuesObject.getString(name))
+            }
+        }
+    } ?: emptyMap()
+    val allowedKeys = customContext.optJSONArray("allowedKeys")?.let { array ->
+        buildSet {
+            for (index in 0 until array.length()) add(array.getString(index))
+        }
+    } ?: emptySet()
+    return CrumbCustomContextOptions(values = values, allowedKeys = allowedKeys)
+}
+
+private fun JSONObject.workspacePolicyOptions(): CrumbWorkspacePolicyOptions {
+    val policy = optJSONObject("workspacePolicy") ?: return CrumbWorkspacePolicyOptions()
+    return CrumbWorkspacePolicyOptions(
+        url = policy.optionalString("url"),
+        timeoutMillis = policy.optionalLong("timeoutMs") ?: 2_000,
     )
 }
 

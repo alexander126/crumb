@@ -102,6 +102,18 @@ await Crumb.start({
       captureConsole: true,
     },
   },
+  reporter: {
+    theme: 'system',
+    visibleFields: ['category', 'description'],
+  },
+  evidence: ['screenshot', 'performance', 'network', 'logs', 'thread_stacks', 'health_check'],
+  customContext: {
+    values: { account_tier: 'trial' },
+    allowedKeys: ['account_tier'],
+  },
+  workspacePolicy: {
+    url: 'https://policy.example.com/sdk/v1/policy',
+  },
 });
 
 await Crumb.installReporter();
@@ -119,6 +131,12 @@ const opened = await Crumb.show();
 
 Shake invocation is enabled by default while the app is foregrounded. Configure
 `invocation: ['programmatic']` to disable it.
+
+Reporter theme, evidence, custom context, and workspace policy use the same
+native-owned contract as Swift and Kotlin. A configured policy fetch is
+non-blocking and fail-closed: optional evidence stays disabled until a fresh or
+valid cached policy is accepted, while the description-only report path
+remains available. See the [shared configuration contract](../../docs/contracts/sdk-configuration.md).
 
 ## JavaScript logs
 

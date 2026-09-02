@@ -32,11 +32,21 @@
     "triggered_at": { "type": "string", "format": "date-time" },
     "submitted_at": { "type": "string", "format": "date-time" },
     "release": { "$ref": "#/$defs/release" },
+    "application": { "$ref": "#/$defs/application" },
     "sdk": { "$ref": "#/$defs/sdk" },
     "runtime": { "$ref": "#/$defs/runtime" },
     "user_input": { "$ref": "#/$defs/userInput" },
     "diagnostics": { "$ref": "#/$defs/diagnostics" },
     "privacy": { "$ref": "#/$defs/privacy" },
+    "custom_context": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
     "artifacts": {
       "type": "array",
       "maxItems": 10,
@@ -57,6 +67,14 @@
         "native_build": { "type": "string", "minLength": 1, "maxLength": 64 },
         "js_bundle_version": { "type": "string", "minLength": 1, "maxLength": 128 },
         "environment": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 }
       }
     },
     "sdk": {
@@ -223,7 +241,7 @@
       "properties": {
         "status": {
           "type": "string",
-          "enum": ["captured", "empty", "unavailable", "disabled"]
+          "enum": ["captured", "empty", "unavailable", "disabled", "disabled_by_policy"]
         },
         "sources": {
           "type": "array",
@@ -304,7 +322,7 @@
       "properties": {
         "screenshot_capture": {
           "type": "string",
-          "enum": ["enabled", "disabled_by_configuration", "unavailable"]
+          "enum": ["enabled", "disabled_by_configuration", "disabled_by_policy", "unavailable"]
         },
         "screenshot_masking": {
           "type": "string",
@@ -313,8 +331,21 @@
         "diagnostics_capture": { "const": "on_demand" },
         "log_capture": {
           "type": "string",
-          "enum": ["enabled", "disabled_by_configuration", "unavailable"]
-        }
+          "enum": ["enabled", "disabled_by_configuration", "disabled_by_policy", "unavailable"]
+        },
+        "policy_status": {
+          "type": "string",
+          "enum": [
+            "not_configured",
+            "not_fetched",
+            "fetching",
+            "fresh",
+            "cached",
+            "unavailable",
+            "expired"
+          ]
+        },
+        "policy_version": { "type": "integer", "minimum": 1 }
       }
     },
     "artifact": {

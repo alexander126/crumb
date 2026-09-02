@@ -9,7 +9,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class OnDemandLogCollectorTest {
     @Test
     fun sanitizesSensitiveValues() {
@@ -45,6 +48,31 @@ class OnDemandLogCollectorTest {
         assertEquals(listOf("middle", "newest"), result.entries.map(CrumbLogEntry::message))
         assertTrue(result.truncated)
         assertEquals(1, result.droppedEntryCount)
+    }
+
+    @Test
+    fun distinguishesLocallyDisabledLogsFromPolicyDisabledLogs() {
+        val application = org.robolectric.RuntimeEnvironment.getApplication()
+
+        val locallyDisabled = OnDemandDiagnosticsCollector.capture(
+            context = application,
+            location = "TestActivity",
+            options = dev.crumb.core.CrumbDiagnosticsOptions(
+                logs = CrumbLogOptions(enabled = false),
+            ),
+            evidence = emptySet(),
+        )
+        val policyDisabled = OnDemandDiagnosticsCollector.capture(
+            context = application,
+            location = "TestActivity",
+            options = dev.crumb.core.CrumbDiagnosticsOptions(
+                logs = CrumbLogOptions(enabled = true),
+            ),
+            evidence = emptySet(),
+        )
+
+        assertEquals(CrumbLogCaptureStatus.DISABLED, locallyDisabled.logs.status)
+        assertEquals(CrumbLogCaptureStatus.DISABLED_BY_POLICY, policyDisabled.logs.status)
     }
 
     private fun entry(timestamp: Long, message: String) = CrumbLogEntry(

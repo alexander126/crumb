@@ -99,6 +99,41 @@ The provider is invoked on the diagnostics worker only after a report opens.
 It should return a prompt in-memory snapshot; Crumb applies time, count, byte,
 and sanitization limits.
 
+## Configuration and workspace privacy policy
+
+The built-in reporter accepts `CrumbReporterOptions` for system/light/dark
+appearance and category/description visibility, plus an `evidence` set for
+optional screenshot, performance, network, logs, thread-stack, health-check,
+and custom-context sources. The description is always retained.
+
+Custom context is string-only and requires an explicit `allowedKeys` set. Crumb
+sanitizes and bounds it before local persistence. To opt into a workspace-owned
+privacy policy, add a public policy URL:
+
+```kotlin
+CrumbConfiguration(
+    projectKey = "project_write_key",
+    environment = "production",
+    release = CrumbRelease(appVersion = "1.0.0", nativeBuild = "100"),
+    reporter = CrumbReporterOptions(theme = CrumbTheme.SYSTEM),
+    evidence = CrumbEvidenceCategory.entries.toSet(),
+    customContext = CrumbCustomContextOptions(
+        values = mapOf("account_tier" to "trial"),
+        allowedKeys = setOf("account_tier"),
+    ),
+    workspacePolicy = CrumbWorkspacePolicyOptions(
+        url = "https://policy.example.com/sdk/v1/policy",
+    ),
+)
+```
+
+The fetch is asynchronous and cached app-locally. A valid policy can disable
+locally enabled optional evidence or hide the optional category field; it can
+never enable a locally disabled source. Until the first valid policy is
+available, only the required description path remains active. See the [shared
+configuration contract](../../docs/contracts/sdk-configuration.md) for the
+versioned policy shape and migration rules.
+
 ## Develop the SDK
 
 This Gradle project contains:

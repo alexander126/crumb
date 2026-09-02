@@ -1,5 +1,18 @@
 export type CrumbInvocation = 'shake' | 'programmatic';
 
+export type CrumbTheme = 'system' | 'light' | 'dark';
+
+export type CrumbReporterField = 'category' | 'description';
+
+export type CrumbEvidenceCategory =
+  | 'screenshot'
+  | 'performance'
+  | 'network'
+  | 'logs'
+  | 'thread_stacks'
+  | 'health_check'
+  | 'custom_context';
+
 export type CrumbLogLevel =
   | 'debug'
   | 'info'
@@ -43,6 +56,29 @@ export interface CrumbPrivacyOptions {
   maskScreenshotsBeforeUpload?: boolean;
 }
 
+export interface CrumbReporterOptions {
+  /** Controls only the built-in reporter appearance. */
+  theme?: CrumbTheme;
+  /** The description field is always required by the report contract. */
+  visibleFields?: readonly CrumbReporterField[];
+}
+
+export interface CrumbApplicationMetadata {
+  name?: string;
+}
+
+export interface CrumbCustomContextOptions {
+  /** String-only context values; only explicitly allowed keys are persisted. */
+  values?: Readonly<Record<string, string>>;
+  allowedKeys?: readonly string[];
+}
+
+export interface CrumbWorkspacePolicyOptions {
+  /** Public policy endpoint. Omit to keep configuration local-only. */
+  url?: string;
+  timeoutMs?: number;
+}
+
 export interface CrumbUploadOptions {
   /** Base URL of the Crumb ingestion API. Omit to keep reports local-only. */
   ingestionUrl?: string;
@@ -57,6 +93,11 @@ export interface CrumbConfiguration {
   diagnostics?: CrumbDiagnosticsOptions;
   privacy?: CrumbPrivacyOptions;
   upload?: CrumbUploadOptions;
+  reporter?: CrumbReporterOptions;
+  evidence?: readonly CrumbEvidenceCategory[];
+  application?: CrumbApplicationMetadata;
+  customContext?: CrumbCustomContextOptions;
+  workspacePolicy?: CrumbWorkspacePolicyOptions;
 }
 
 export type CrumbLogMetadata = Readonly<Record<string, unknown>>;

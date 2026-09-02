@@ -2,11 +2,22 @@ import CrumbCore
 #if canImport(UIKit)
 import UIKit
 
+private extension CrumbTheme {
+    var uiStyle: UIUserInterfaceStyle {
+        switch self {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
 public extension Crumb {
     @MainActor
     @discardableResult
     static func show(trigger: CrumbInvocation = .programmatic) -> Bool {
-        CrumbReporterPresenter.shared.show(trigger: trigger)
+        CrumbWorkspacePolicyCoordinator.shared.install()
+        return CrumbReporterPresenter.shared.show(trigger: trigger)
     }
 }
 
@@ -41,7 +52,9 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         let sessionID = UUID()
 
         let screenshotArtifact: CrumbScreenshotArtifact?
-        if settings.capture.screenshot, let window = presenter.view.window {
+        if settings.evidence.contains(.screenshot),
+           settings.capture.screenshot,
+           let window = presenter.view.window {
             screenshotArtifact = CrumbScreenshotArtifactPipeline.capture(
                 window: window,
                 capture: settings.capture,
@@ -56,6 +69,8 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         )
         let screenshotCapture: CrumbScreenshotCaptureState = if !settings.capture.screenshot {
             .disabledByConfiguration
+        } else if !settings.evidence.contains(.screenshot) {
+            .disabledByPolicy
         } else if screenshotArtifact != nil {
             .enabled
         } else {
@@ -63,7 +78,8 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         }
         let screenshotMasking: CrumbScreenshotMaskingState = if let screenshotArtifact {
             screenshotArtifact.maskingState
-        } else if settings.capture.screenshot
+        } else if settings.evidence.contains(.screenshot)
+                    && settings.capture.screenshot
                     && (settings.privacy.maskAllTextInputs
                         || settings.privacy.maskScreenshotsBeforeUpload) {
             .failed
@@ -118,6 +134,7 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         )
         let navigationController = UINavigationController(rootViewController: reporter)
         navigationController.modalPresentationStyle = .pageSheet
+        navigationController.overrideUserInterfaceStyle = context.settings.reporter.theme.uiStyle
         navigationController.setNavigationBarHidden(true, animated: false)
         let appearance = CrumbDesign.navigationAppearance()
         navigationController.navigationBar.standardAppearance = appearance
@@ -158,6 +175,7 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         sessionID: UUID
     ) {
         let prompt = ShakePromptViewController()
+        prompt.overrideUserInterfaceStyle = context.settings.reporter.theme.uiStyle
         prompt.modalPresentationStyle = .overFullScreen
         prompt.modalTransitionStyle = .crossDissolve
         prompt.onReport = { [weak self, weak prompt, weak presenter] in
@@ -533,7 +551,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private var didMoveInitialAccessibilityFocus = false
 
     var hasMeaningfulInput: Bool {
-        categoryControl.selectedSegmentIndex != 0
+        (settings.reporter.visibleFields.contains(.category) && categoryControl.selectedSegmentIndex != 0)
             || !descriptionView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
@@ -671,6 +689,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             UIAction { [weak self] _ in self?.updateSubmitButton() },
             for: .valueChanged
         )
+        categoryControl.isHidden = !settings.reporter.visibleFields.contains(.category)
         content.addArrangedSubview(categoryControl)
 
         let descriptionCard = UIStackView()
@@ -998,7 +1017,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         scrollTopConstraint?.constant = 11
         typingGrabber.isHidden = true
         navigationController?.sheetPresentationController?.prefersGrabberVisible = true
-        categoryControl.isHidden = false
+        categoryControl.isHidden = !settings.reporter.visibleFields.contains(.category)
         diagnosticsCard?.isHidden = false
         screenshotCard?.isHidden = screenshotArtifact == nil
         submitButton.isHidden = false
@@ -1060,10 +1079,15 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
 
     private func gatherDiagnostics() {
         let options = settings.diagnostics
+        let evidence = settings.evidence
         let location = location
         diagnosticsTask = Task { [weak self] in
             let diagnostics = await Task.detached(priority: .userInitiated) {
-                OnDemandDiagnosticsCollector.capture(location: location, options: options)
+                OnDemandDiagnosticsCollector.capture(
+                    location: location,
+                    options: options,
+                    evidence: evidence
+                )
             }.value
             guard !Task.isCancelled else { return }
             guard let self else { return }
@@ -1126,7 +1150,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             diagnostics: diagnostics,
             screenshotCapture: screenshotCapture,
             screenshotMasking: screenshotMasking,
-            artifacts: screenshotArtifact.map { [$0.manifest] } ?? []
+            artifacts: screenshotArtifact.map { [$0.manifest] } ?? [],
+            customContext: settings.customContext,
+            policyStatus: settings.policyStatus,
+            workspacePolicyVersion: settings.workspacePolicyVersion
         )
 
         let envelope: CrumbSerializedReportEnvelope

@@ -9,6 +9,11 @@ data class CrumbConfiguration(
     val diagnostics: CrumbDiagnosticsOptions = CrumbDiagnosticsOptions(),
     val privacy: CrumbPrivacyOptions = CrumbPrivacyOptions(),
     val upload: CrumbUploadOptions = CrumbUploadOptions(),
+    val reporter: CrumbReporterOptions = CrumbReporterOptions(),
+    val evidence: Set<CrumbEvidenceCategory> = CrumbEvidenceCategory.entries.toSet(),
+    val application: CrumbApplicationMetadata = CrumbApplicationMetadata(),
+    val customContext: CrumbCustomContextOptions = CrumbCustomContextOptions(),
+    val workspacePolicy: CrumbWorkspacePolicyOptions = CrumbWorkspacePolicyOptions(),
 )
 
 data class CrumbRelease(
@@ -55,7 +60,43 @@ data class CrumbLogOptions(
     val provider: CrumbLogProvider? = null,
 )
 
-enum class CrumbLogCaptureStatus { CAPTURED, EMPTY, UNAVAILABLE, DISABLED }
+enum class CrumbLogCaptureStatus { CAPTURED, EMPTY, UNAVAILABLE, DISABLED, DISABLED_BY_POLICY }
+
+enum class CrumbTheme { SYSTEM, LIGHT, DARK }
+
+enum class CrumbReporterField { CATEGORY, DESCRIPTION }
+
+enum class CrumbEvidenceCategory {
+    SCREENSHOT,
+    PERFORMANCE,
+    NETWORK,
+    LOGS,
+    THREAD_STACKS,
+    HEALTH_CHECK,
+    CUSTOM_CONTEXT,
+}
+
+data class CrumbReporterOptions(
+    val theme: CrumbTheme = CrumbTheme.SYSTEM,
+    val visibleFields: Set<CrumbReporterField> = setOf(
+        CrumbReporterField.CATEGORY,
+        CrumbReporterField.DESCRIPTION,
+    ),
+)
+
+data class CrumbApplicationMetadata(
+    val name: String? = null,
+)
+
+data class CrumbCustomContextOptions(
+    val values: Map<String, String> = emptyMap(),
+    val allowedKeys: Set<String> = emptySet(),
+)
+
+data class CrumbWorkspacePolicyOptions(
+    val url: String? = null,
+    val timeoutMillis: Long = 2_000,
+)
 
 data class CrumbLogDiagnostic(
     val status: CrumbLogCaptureStatus,
@@ -141,6 +182,12 @@ class CrumbReportSettings internal constructor(
     val capture: CrumbCaptureOptions,
     val diagnostics: CrumbDiagnosticsOptions,
     val privacy: CrumbPrivacyOptions,
+    val reporter: CrumbReporterOptions,
+    val evidence: Set<CrumbEvidenceCategory>,
+    val application: CrumbApplicationMetadata,
+    val customContext: Map<String, String>,
+    val policyStatus: CrumbPolicyStatus,
+    val workspacePolicyVersion: Int?,
 )
 
 class CrumbUploadSettings internal constructor(
@@ -171,12 +218,27 @@ sealed class CrumbStartException(message: String) : IllegalArgumentException(mes
         CrumbStartException("log limits must be 1-500 entries and 1024-262144 bytes")
     class InvalidIngestionUrl :
         CrumbStartException("ingestionUrl must be an absolute HTTP or HTTPS base URL")
+    class InvalidReporterFields :
+        CrumbStartException("reporter.visibleFields must include description")
+    class InvalidEvidence :
+        CrumbStartException("evidence contains an unsupported category")
+    class InvalidApplicationMetadata :
+        CrumbStartException("application.name must be printable and at most 256 characters")
+    class InvalidCustomContext :
+        CrumbStartException("custom context must contain bounded, allowlisted string values")
+    class InvalidWorkspacePolicyTimeout :
+        CrumbStartException("workspace policy timeout must be between 250 and 5000 milliseconds")
+    class InvalidWorkspacePolicyUrl :
+        CrumbStartException("workspace policy url must be an absolute HTTP or HTTPS URL without credentials or query values")
     class AlreadyStarted : CrumbStartException("Crumb is already started with another configuration")
 }
 
 object Crumb {
     private val lock = Any()
     private var configuration: CrumbConfiguration? = null
+    private var workspacePolicy: CrumbWorkspacePolicy? = null
+    private val highestWorkspacePolicyVersionByScope = mutableMapOf<String, Int>()
+    private var policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_FETCHED
 
     @JvmStatic
     fun start(configuration: CrumbConfiguration) = synchronized(lock) {
@@ -186,10 +248,17 @@ object Crumb {
         if (existing == null) this.configuration = configuration
     }
 
+    @JvmStatic
+    fun canCollectLogs(): Boolean = synchronized(lock) {
+        val activeConfiguration = configuration ?: return@synchronized false
+        effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
+    }
+
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
     @JvmSynthetic
     fun reportSettings(): CrumbReportSettings = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        val effective = effectiveSettings(activeConfiguration)
         CrumbReportSettings(
             environment = activeConfiguration.environment,
             release = activeConfiguration.release,
@@ -197,7 +266,89 @@ object Crumb {
             capture = activeConfiguration.capture,
             diagnostics = activeConfiguration.diagnostics,
             privacy = activeConfiguration.privacy,
+            reporter = activeConfiguration.reporter.copy(
+                visibleFields = effective.reporterFields,
+            ),
+            evidence = effective.evidence,
+            application = activeConfiguration.application,
+            customContext = effective.customContext,
+            policyStatus = effective.status,
+            workspacePolicyVersion = effective.workspacePolicyVersion,
         )
+    }
+
+    /** Internal bridge for the native UI policy coordinator. */
+    @JvmSynthetic
+    fun workspacePolicyFetchSettings(): CrumbPolicyFetchSettings? = synchronized(lock) {
+        val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        activeConfiguration.workspacePolicy.url?.let {
+            CrumbPolicyFetchSettings(
+                projectKey = activeConfiguration.projectKey,
+                url = it,
+                timeoutMillis = activeConfiguration.workspacePolicy.timeoutMillis,
+            )
+        }
+    }
+
+    @JvmSynthetic
+    fun workspacePolicyCacheKey(): String = synchronized(lock) {
+        val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        val scope = CrumbPolicy.scopeKey(
+            projectKey = activeConfiguration.projectKey,
+            environment = activeConfiguration.environment,
+            url = activeConfiguration.workspacePolicy.url,
+        )
+        "crumb.workspace-policy.${CrumbPolicy.sha256(scope)}"
+    }
+
+    @JvmSynthetic
+    fun beginWorkspacePolicyFetch() = synchronized(lock) {
+        val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        if (activeConfiguration.workspacePolicy.url != null) {
+            policyStatus = if (workspacePolicy?.isValidAt(System.currentTimeMillis()) == true) {
+                CrumbPolicyStatus.CACHED
+            } else {
+                CrumbPolicyStatus.FETCHING
+            }
+        }
+    }
+
+    @JvmSynthetic
+    fun applyWorkspacePolicy(policy: CrumbWorkspacePolicy, source: CrumbPolicySource): Boolean = synchronized(lock) {
+        val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        val now = System.currentTimeMillis()
+        val scope = CrumbPolicy.scopeKey(
+            projectKey = activeConfiguration.projectKey,
+            environment = activeConfiguration.environment,
+            url = activeConfiguration.workspacePolicy.url,
+        )
+        if (activeConfiguration.workspacePolicy.url == null ||
+            !policy.isValidAt(now) ||
+            (highestWorkspacePolicyVersionByScope[scope]?.let { policy.version < it } == true)
+        ) {
+            return@synchronized false
+        }
+        workspacePolicy = policy
+        highestWorkspacePolicyVersionByScope[scope] = maxOf(
+            highestWorkspacePolicyVersionByScope[scope] ?: 0,
+            policy.version,
+        )
+        policyStatus = when (source) {
+            CrumbPolicySource.FRESH -> CrumbPolicyStatus.FRESH
+            CrumbPolicySource.CACHED -> CrumbPolicyStatus.CACHED
+        }
+        true
+    }
+
+    @JvmSynthetic
+    fun markWorkspacePolicyUnavailable() = synchronized(lock) {
+        val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        if (activeConfiguration.workspacePolicy.url != null &&
+            workspacePolicy?.isValidAt(System.currentTimeMillis()) != true
+        ) {
+            workspacePolicy = null
+            policyStatus = CrumbPolicyStatus.UNAVAILABLE
+        }
     }
 
     /** Internal transport settings; the project write key never enters report UI or envelopes. */
@@ -213,6 +364,7 @@ object Crumb {
     @JvmSynthetic
     fun buildReport(input: CrumbReportBuildInput): CrumbSerializedReportEnvelope = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
+        val effective = effectiveSettings(activeConfiguration)
         CrumbReportEnvelopeBuilder.build(
             settings = CrumbReportSettings(
                 environment = activeConfiguration.environment,
@@ -221,6 +373,12 @@ object Crumb {
                 capture = activeConfiguration.capture,
                 diagnostics = activeConfiguration.diagnostics,
                 privacy = activeConfiguration.privacy,
+                reporter = activeConfiguration.reporter.copy(visibleFields = effective.reporterFields),
+                evidence = effective.evidence,
+                application = activeConfiguration.application,
+                customContext = effective.customContext,
+                policyStatus = effective.status,
+                workspacePolicyVersion = effective.workspacePolicyVersion,
             ),
             input = input,
         )
@@ -232,6 +390,9 @@ object Crumb {
     @JvmSynthetic
     internal fun resetForTesting() = synchronized(lock) {
         configuration = null
+        workspacePolicy = null
+        highestWorkspacePolicyVersionByScope.clear()
+        policyStatus = CrumbPolicyStatus.NOT_FETCHED
     }
 
     private fun validate(configuration: CrumbConfiguration) {
@@ -271,6 +432,29 @@ object Crumb {
         ) {
             throw CrumbStartException.InvalidLogLimits()
         }
+        if (CrumbReporterField.DESCRIPTION !in configuration.reporter.visibleFields) {
+            throw CrumbStartException.InvalidReporterFields()
+        }
+        if (configuration.evidence.size > CrumbEvidenceCategory.entries.size) {
+            throw CrumbStartException.InvalidEvidence()
+        }
+        configuration.application.name?.let {
+            if (!it.hasPrintableLength(256)) throw CrumbStartException.InvalidApplicationMetadata()
+        }
+        if (
+            configuration.customContext.values.size > CrumbCustomContextSanitizer.maximumKeys ||
+            configuration.customContext.allowedKeys.size > CrumbCustomContextSanitizer.maximumKeys ||
+            configuration.customContext.values.keys.any { !CrumbCustomContextSanitizer.isValidKey(it) } ||
+            configuration.customContext.allowedKeys.any { !CrumbCustomContextSanitizer.isValidKey(it) }
+        ) {
+            throw CrumbStartException.InvalidCustomContext()
+        }
+        if (configuration.workspacePolicy.timeoutMillis !in 250..5_000) {
+            throw CrumbStartException.InvalidWorkspacePolicyTimeout()
+        }
+        configuration.workspacePolicy.url?.let { value ->
+            if (!validHttpUrl(value)) throw CrumbStartException.InvalidWorkspacePolicyUrl()
+        }
         configuration.upload.ingestionUrl?.let { value ->
             if (!validHttpUrl(value)) {
                 throw CrumbStartException.InvalidIngestionUrl()
@@ -287,4 +471,20 @@ object Crumb {
 
     private fun String.hasPrintableLength(maximum: Int): Boolean =
         isNotBlank() && length <= maximum && none { it.isISOControl() }
+
+    private fun effectiveSettings(configuration: CrumbConfiguration): CrumbEffectivePolicy {
+        val now = System.currentTimeMillis()
+        val status = when {
+            configuration.workspacePolicy.url == null -> CrumbPolicyStatus.NOT_CONFIGURED
+            workspacePolicy?.isValidAt(now) == true -> policyStatus
+            workspacePolicy != null -> CrumbPolicyStatus.EXPIRED
+            else -> policyStatus
+        }
+        return CrumbPolicyEvaluator.effective(
+            configuration = configuration,
+            workspacePolicy = workspacePolicy?.takeIf { it.isValidAt(now) },
+            status = status,
+            nowMillis = now,
+        )
+    }
 }

@@ -64,9 +64,32 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                 ),
                 upload: CrumbUploadOptions(
                     ingestionURL: try payload.upload?.ingestionURL()
+                ),
+                reporter: CrumbReporterOptions(
+                    theme: payload.reporter?.theme?.native ?? .system,
+                    visibleFields: Set(
+                        (payload.reporter?.visibleFields ?? [.category, .description]).map(\.native)
+                    )
+                ),
+                evidence: Set(
+                    (payload.evidence ?? EvidencePayload.allCases).map(\.native)
+                ),
+                application: CrumbApplicationMetadata(name: payload.application?.name),
+                customContext: CrumbCustomContextOptions(
+                    values: payload.customContext?.values ?? [:],
+                    allowedKeys: Set(payload.customContext?.allowedKeys ?? [])
+                ),
+                workspacePolicy: CrumbWorkspacePolicyOptions(
+                    url: try payload.workspacePolicy?.url(),
+                    timeout: payload.workspacePolicy?.timeoutMs
+                        .map { TimeInterval(milliseconds: $0) } ?? 2
                 )
             )
         )
+    }
+
+    func canCollectLogs() -> Bool {
+        Crumb.canCollectLogs()
     }
 
     func installReporter() throws -> Promise<Bool> {
@@ -82,6 +105,7 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
     }
 
     func addLog(entryJson: String) throws {
+        guard Crumb.canCollectLogs() else { return }
         let data = Data(entryJson.utf8)
         let entry = try decoder.decode(LogEntryPayload.self, from: data)
         logBuffer.append(entry.native)
@@ -100,6 +124,11 @@ private struct ConfigurationPayload: Decodable {
     let capture: CapturePayload?
     let diagnostics: DiagnosticsPayload?
     let privacy: PrivacyPayload?
+    let reporter: ReporterPayload?
+    let evidence: [EvidencePayload]?
+    let application: ApplicationPayload?
+    let customContext: CustomContextPayload?
+    let workspacePolicy: WorkspacePolicyPayload?
     let upload: UploadPayload?
 }
 
@@ -163,6 +192,86 @@ private struct LogOptionsPayload: Decodable {
 private struct PrivacyPayload: Decodable {
     let maskAllTextInputs: Bool?
     let maskScreenshotsBeforeUpload: Bool?
+}
+
+private struct ReporterPayload: Decodable {
+    let theme: ThemePayload?
+    let visibleFields: [ReporterFieldPayload]?
+}
+
+private enum ThemePayload: String, Decodable {
+    case system
+    case light
+    case dark
+
+    var native: CrumbTheme {
+        switch self {
+        case .system: .system
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
+private enum ReporterFieldPayload: String, Decodable {
+    case category
+    case description
+
+    var native: CrumbReporterField {
+        switch self {
+        case .category: .category
+        case .description: .description
+        }
+    }
+}
+
+private enum EvidencePayload: String, CaseIterable, Decodable {
+    case screenshot
+    case performance
+    case network
+    case logs
+    case threadStacks = "thread_stacks"
+    case healthCheck = "health_check"
+    case customContext = "custom_context"
+
+    var native: CrumbEvidenceCategory {
+        switch self {
+        case .screenshot: .screenshot
+        case .performance: .performance
+        case .network: .network
+        case .logs: .logs
+        case .threadStacks: .threadStacks
+        case .healthCheck: .healthCheck
+        case .customContext: .customContext
+        }
+    }
+}
+
+private struct ApplicationPayload: Decodable {
+    let name: String?
+}
+
+private struct CustomContextPayload: Decodable {
+    let values: [String: String]?
+    let allowedKeys: [String]?
+}
+
+private struct WorkspacePolicyPayload: Decodable {
+    let urlString: String?
+    let timeoutMs: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case urlString = "url"
+        case timeoutMs
+    }
+
+    func url() throws -> URL? {
+        guard let urlString else { return nil }
+        guard let url = URL(string: urlString) else {
+            throw BridgeConfigurationError.invalidURL("workspacePolicy.url")
+        }
+        return url
+    }
 }
 
 private struct UploadPayload: Decodable {

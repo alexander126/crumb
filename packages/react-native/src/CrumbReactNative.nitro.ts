@@ -5,6 +5,7 @@ export interface CrumbReactNative extends HybridObject<{
   android: 'kotlin';
 }> {
   start(configurationJson: string): void;
+  canCollectLogs(): boolean;
   installReporter(): Promise<boolean>;
   show(): Promise<boolean>;
   addLog(entryJson: string): void;

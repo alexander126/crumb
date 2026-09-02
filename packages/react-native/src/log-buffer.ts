@@ -48,14 +48,17 @@ export function configureLogBuffer(options: CrumbLogOptions | undefined): void {
 export function markNativeStarted(): void {
   nativeStarted = true;
   NativeCrumbReactNative.clearLogs();
+  if (!canCollectLogs()) {
+    clearBufferedEntries();
+    return;
+  }
   for (const entry of entries) {
     NativeCrumbReactNative.addLog(JSON.stringify(entry));
   }
 }
 
 export function clearLogs(): void {
-  entries = [];
-  usedBytes = 0;
+  clearBufferedEntries();
   if (nativeStarted) {
     NativeCrumbReactNative.clearLogs();
   }
@@ -67,6 +70,8 @@ export function writeLog(
   metadata?: CrumbLogMetadata,
   category: CrumbLogEntry['category'] = 'javascript'
 ): void {
+  if (!canCollectLogs()) return;
+
   const timestampMs = Date.now();
   const metadataText = metadata ? serializeMetadata(metadata) : undefined;
   const entry: CrumbLogEntry = {
@@ -121,6 +126,8 @@ export function disableConsoleCapture(): void {
 }
 
 function writeConsoleLog(level: 'warning' | 'error', data: unknown[]): void {
+  if (!canCollectLogs()) return;
+
   const suppliedError = data.find(
     (value): value is Error => value instanceof Error
   );
@@ -128,6 +135,15 @@ function writeConsoleLog(level: 'warning' | 'error', data: unknown[]): void {
   const stack = suppliedError?.stack ?? new Error(`console.${level}`).stack;
   const message = stack ? `${rendered}\n${stack}` : rendered;
   writeLog(level, message, undefined, 'console');
+}
+
+function canCollectLogs(): boolean {
+  return !nativeStarted || NativeCrumbReactNative.canCollectLogs();
+}
+
+function clearBufferedEntries(): void {
+  entries = [];
+  usedBytes = 0;
 }
 
 function renderConsoleValue(value: unknown): string {

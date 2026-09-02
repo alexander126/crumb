@@ -3,6 +3,7 @@ package dev.crumb.core
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -94,6 +95,29 @@ class CrumbTest {
         Crumb.start(configuration)
     }
 
+    @Test
+    fun workspacePolicyCacheKeyIncludesPolicyScope() {
+        fun cacheKey(environment: String, url: String): String {
+            Crumb.resetForTesting()
+            Crumb.start(
+                configuration(
+                    environment = environment,
+                    workspacePolicy = CrumbWorkspacePolicyOptions(url),
+                ),
+            )
+            return Crumb.workspacePolicyCacheKey()
+        }
+
+        val first = cacheKey("test", "https://policy.example.invalid/sdk/v1/policy")
+        val otherEnvironment = cacheKey("production", "https://policy.example.invalid/sdk/v1/policy")
+        val otherEndpoint = cacheKey("test", "https://policy.example.invalid/sdk/v2/policy")
+        Crumb.resetForTesting()
+
+        assertNotEquals(first, otherEnvironment)
+        assertNotEquals(first, otherEndpoint)
+        assertNotEquals(otherEnvironment, otherEndpoint)
+    }
+
     @Test(expected = CrumbStartException.InvalidLogLimits::class)
     fun rejectsInvalidLogLimits() {
         Crumb.start(
@@ -145,8 +169,160 @@ class CrumbTest {
     }
 
     @Test
+    fun configuredWorkspacePolicyFailsClosedUntilValidPolicyIsAvailable() {
+        val configuration = configuration(
+            diagnostics = CrumbDiagnosticsOptions(healthCheckUrl = "https://api.example.invalid/health"),
+            reporter = CrumbReporterOptions(
+                visibleFields = setOf(CrumbReporterField.CATEGORY, CrumbReporterField.DESCRIPTION),
+            ),
+            evidence = CrumbEvidenceCategory.entries.toSet(),
+            customContext = CrumbCustomContextOptions(
+                values = mapOf("account_tier" to "trial", "email" to "user@example.invalid"),
+                allowedKeys = setOf("account_tier", "email"),
+            ),
+            workspacePolicy = CrumbWorkspacePolicyOptions("https://policy.example.invalid/sdk/v1/policy"),
+        )
+        Crumb.start(configuration)
+
+        val beforeFetch = Crumb.reportSettings()
+        assertTrue(beforeFetch.evidence.isEmpty())
+        assertEquals(setOf(CrumbReporterField.DESCRIPTION), beforeFetch.reporter.visibleFields)
+        assertTrue(beforeFetch.customContext.isEmpty())
+        assertEquals(CrumbPolicyStatus.NOT_FETCHED, beforeFetch.policyStatus)
+
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version = 7,
+                expiresAtMillis = 4_000_000_000_000,
+                disabledEvidence = setOf(CrumbEvidenceCategory.NETWORK),
+                hiddenReporterFields = setOf(CrumbReporterField.CATEGORY),
+                allowedContextKeys = setOf("account_tier"),
+            ),
+            CrumbPolicySource.FRESH,
+        )
+        val afterFetch = Crumb.reportSettings()
+        assertEquals(
+            CrumbEvidenceCategory.entries.toSet() - CrumbEvidenceCategory.NETWORK,
+            afterFetch.evidence,
+        )
+        assertEquals(setOf(CrumbReporterField.DESCRIPTION), afterFetch.reporter.visibleFields)
+        assertEquals(mapOf("account_tier" to "trial"), afterFetch.customContext)
+        assertEquals(CrumbPolicyStatus.FRESH, afterFetch.policyStatus)
+        assertEquals(7, afterFetch.workspacePolicyVersion)
+    }
+
+    @Test
+    fun logCollectionFollowsEffectiveWorkspacePolicy() {
+        val policyUrl = "https://policy.example.invalid/sdk/v1/policy"
+        Crumb.start(
+            configuration(
+                evidence = setOf(CrumbEvidenceCategory.LOGS),
+                workspacePolicy = CrumbWorkspacePolicyOptions(policyUrl),
+            ),
+        )
+
+        assertFalse(Crumb.canCollectLogs())
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version = 1,
+                expiresAtMillis = 4_000_000_000_000,
+            ),
+            CrumbPolicySource.FRESH,
+        )
+        assertTrue(Crumb.canCollectLogs())
+    }
+
+    @Test
+    fun malformedAndExpiredWorkspacePoliciesDoNotBecomeEffective() {
+        val valid = """
+            {"schema_version":"1.0","version":7,"expires_at":"2030-01-01T00:00:00Z",
+             "disabled_evidence":["network"],"hidden_reporter_fields":["category"],
+             "allowed_context_keys":["account_tier"]}
+        """.trimIndent()
+        val decoded = CrumbWorkspacePolicy.fromJson(valid, nowMillis = 1_700_000_000_000)
+        assertEquals(7, decoded.version)
+        assertEquals(setOf(CrumbEvidenceCategory.NETWORK), decoded.disabledEvidence)
+        assertEquals(setOf(CrumbReporterField.CATEGORY), decoded.hiddenReporterFields)
+        assertEquals(setOf("account_tier"), decoded.allowedContextKeys)
+        try {
+            CrumbWorkspacePolicy.fromJson("{\"schema_version\":\"1.0\"}")
+            throw AssertionError("Expected malformed policy rejection")
+        } catch (_: CrumbWorkspacePolicyException) {
+            // Expected.
+        }
+        val expired = """
+            {"schema_version":"1.0","version":1,"expires_at":"2030-01-01T00:00:00Z",
+             "disabled_evidence":[],"hidden_reporter_fields":[],"allowed_context_keys":[]}
+        """.trimIndent()
+        assertNull(CrumbPolicyCache.load(expired, nowMillis = 4_000_000_000_000))
+    }
+
+    @Test
+    fun workspacePolicyCannotEnableLocallyDisabledEvidence() {
+        Crumb.start(
+            configuration(
+                evidence = setOf(CrumbEvidenceCategory.LOGS),
+                workspacePolicy = CrumbWorkspacePolicyOptions("https://policy.example.invalid/sdk/v1/policy"),
+            ),
+        )
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version = 1,
+                expiresAtMillis = 4_000_000_000_000,
+            ),
+            CrumbPolicySource.FRESH,
+        )
+        assertEquals(setOf(CrumbEvidenceCategory.LOGS), Crumb.reportSettings().evidence)
+    }
+
+    @Test
+    fun customContextFollowsItsEvidenceCategory() {
+        Crumb.start(
+            configuration(
+                evidence = setOf(CrumbEvidenceCategory.CUSTOM_CONTEXT),
+                customContext = CrumbCustomContextOptions(
+                    values = mapOf("account_tier" to "trial"),
+                    allowedKeys = setOf("account_tier"),
+                ),
+                workspacePolicy = CrumbWorkspacePolicyOptions("https://policy.example.invalid/sdk/v1/policy"),
+            ),
+        )
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version = 1,
+                expiresAtMillis = 4_000_000_000_000,
+                disabledEvidence = setOf(CrumbEvidenceCategory.CUSTOM_CONTEXT),
+                allowedContextKeys = setOf("account_tier"),
+            ),
+            CrumbPolicySource.FRESH,
+        )
+
+        val settings = Crumb.reportSettings()
+        assertTrue(settings.evidence.isEmpty())
+        assertTrue(settings.customContext.isEmpty())
+    }
+
+    @Test
+    fun sanitizesCustomContextValuesBeforePersistence() {
+        val sanitized = CrumbCustomContextSanitizer.sanitize(
+            CrumbCustomContextOptions(
+                values = mapOf("account_tier" to "Authorization: Bearer secret email=user@example.com\nnext"),
+                allowedKeys = setOf("account_tier"),
+            ),
+        )["account_tier"].orEmpty()
+
+        assertFalse(sanitized.contains("secret"))
+        assertFalse(sanitized.contains("user@example.com"))
+        assertFalse(sanitized.contains('\n'))
+    }
+
+    @Test
     fun buildsContractReadyReportEnvelope() {
-        Crumb.start(configuration())
+        Crumb.start(
+            configuration(
+                diagnostics = CrumbDiagnosticsOptions(healthCheckUrl = "https://health.example.invalid/ping"),
+            ),
+        )
 
         val envelope = Crumb.buildReport(reportInput())
 
@@ -168,7 +344,11 @@ class CrumbTest {
 
     @Test
     fun preservesDeviceConnectivityWhenTheCrumbApiIsUnavailable() {
-        Crumb.start(configuration())
+        Crumb.start(
+            configuration(
+                diagnostics = CrumbDiagnosticsOptions(healthCheckUrl = "https://health.example.invalid/ping"),
+            ),
+        )
 
         val envelope = Crumb.buildReport(reportInput(healthCheckSucceeded = false))
         val network = JSONObject(envelope.json)
@@ -306,6 +486,11 @@ class CrumbTest {
         diagnostics: CrumbDiagnosticsOptions = CrumbDiagnosticsOptions(),
         privacy: CrumbPrivacyOptions = CrumbPrivacyOptions(),
         upload: CrumbUploadOptions = CrumbUploadOptions(),
+        reporter: CrumbReporterOptions = CrumbReporterOptions(),
+        evidence: Set<CrumbEvidenceCategory> = CrumbEvidenceCategory.entries.toSet(),
+        application: CrumbApplicationMetadata = CrumbApplicationMetadata(),
+        customContext: CrumbCustomContextOptions = CrumbCustomContextOptions(),
+        workspacePolicy: CrumbWorkspacePolicyOptions = CrumbWorkspacePolicyOptions(),
     ) = CrumbConfiguration(
         projectKey = projectKey,
         environment = environment,
@@ -315,5 +500,10 @@ class CrumbTest {
         diagnostics = diagnostics,
         privacy = privacy,
         upload = upload,
+        reporter = reporter,
+        evidence = evidence,
+        application = application,
+        customContext = customContext,
+        workspacePolicy = workspacePolicy,
     )
 }

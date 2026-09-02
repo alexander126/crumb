@@ -5,12 +5,43 @@ public enum Crumb {
         try CrumbRuntime.shared.start(configuration)
     }
 
+    /// Returns whether the current effective policy permits adapter-owned logs
+    /// to be collected at this moment.
+    public static func canCollectLogs() -> Bool {
+        guard let settings = try? CrumbRuntime.shared.reportSettings() else { return false }
+        return settings.evidence.contains(.logs)
+    }
+
     package static func reportSettings() throws -> CrumbReportSettings {
         try CrumbRuntime.shared.reportSettings()
     }
 
     package static func uploadSettings() throws -> CrumbUploadSettings? {
         try CrumbRuntime.shared.uploadSettings()
+    }
+
+    package static func workspacePolicyFetchSettings() throws -> CrumbPolicyFetchSettings? {
+        try CrumbRuntime.shared.workspacePolicyFetchSettings()
+    }
+
+    package static func workspacePolicyCacheKey() throws -> String {
+        try CrumbRuntime.shared.workspacePolicyCacheKey()
+    }
+
+    package static func beginWorkspacePolicyFetch() {
+        CrumbRuntime.shared.beginWorkspacePolicyFetch()
+    }
+
+    @discardableResult
+    package static func applyWorkspacePolicy(
+        _ policy: CrumbWorkspacePolicy,
+        source: CrumbPolicySource
+    ) -> Bool {
+        CrumbRuntime.shared.applyWorkspacePolicy(policy, source: source)
+    }
+
+    package static func markWorkspacePolicyUnavailable() {
+        CrumbRuntime.shared.markWorkspacePolicyUnavailable()
     }
 
     package static func buildReport(
@@ -41,5 +72,11 @@ public enum CrumbStartError: Error, Equatable {
     case invalidLogLookback
     case invalidLogLimits
     case invalidIngestionURL
+    case invalidReporterFields
+    case invalidEvidence
+    case invalidApplicationMetadata
+    case invalidCustomContext
+    case invalidWorkspacePolicyTimeout
+    case invalidWorkspacePolicyURL
     case alreadyStartedWithDifferentConfiguration
 }
