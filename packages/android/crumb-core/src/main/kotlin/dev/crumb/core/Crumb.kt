@@ -237,7 +237,7 @@ object Crumb {
     private val lock = Any()
     private var configuration: CrumbConfiguration? = null
     private var workspacePolicy: CrumbWorkspacePolicy? = null
-    private var highestWorkspacePolicyVersion: Int? = null
+    private val highestWorkspacePolicyVersionByScope = mutableMapOf<String, Int>()
     private var policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_FETCHED
 
     @JvmStatic
@@ -246,6 +246,12 @@ object Crumb {
         val existing = this.configuration
         if (existing != null && existing != configuration) throw CrumbStartException.AlreadyStarted()
         if (existing == null) this.configuration = configuration
+    }
+
+    @JvmStatic
+    fun canCollectLogs(): Boolean = synchronized(lock) {
+        val activeConfiguration = configuration ?: return@synchronized false
+        effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
     }
 
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
@@ -287,7 +293,12 @@ object Crumb {
     @JvmSynthetic
     fun workspacePolicyCacheKey(): String = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
-        "crumb.workspace-policy.${CrumbPolicy.sha256(activeConfiguration.projectKey)}"
+        val scope = CrumbPolicy.scopeKey(
+            projectKey = activeConfiguration.projectKey,
+            environment = activeConfiguration.environment,
+            url = activeConfiguration.workspacePolicy.url,
+        )
+        "crumb.workspace-policy.${CrumbPolicy.sha256(scope)}"
     }
 
     @JvmSynthetic
@@ -306,14 +317,22 @@ object Crumb {
     fun applyWorkspacePolicy(policy: CrumbWorkspacePolicy, source: CrumbPolicySource): Boolean = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
         val now = System.currentTimeMillis()
+        val scope = CrumbPolicy.scopeKey(
+            projectKey = activeConfiguration.projectKey,
+            environment = activeConfiguration.environment,
+            url = activeConfiguration.workspacePolicy.url,
+        )
         if (activeConfiguration.workspacePolicy.url == null ||
             !policy.isValidAt(now) ||
-            (highestWorkspacePolicyVersion?.let { policy.version < it } == true)
+            (highestWorkspacePolicyVersionByScope[scope]?.let { policy.version < it } == true)
         ) {
             return@synchronized false
         }
         workspacePolicy = policy
-        highestWorkspacePolicyVersion = maxOf(highestWorkspacePolicyVersion ?: 0, policy.version)
+        highestWorkspacePolicyVersionByScope[scope] = maxOf(
+            highestWorkspacePolicyVersionByScope[scope] ?: 0,
+            policy.version,
+        )
         policyStatus = when (source) {
             CrumbPolicySource.FRESH -> CrumbPolicyStatus.FRESH
             CrumbPolicySource.CACHED -> CrumbPolicyStatus.CACHED
@@ -372,7 +391,7 @@ object Crumb {
     internal fun resetForTesting() = synchronized(lock) {
         configuration = null
         workspacePolicy = null
-        highestWorkspacePolicyVersion = null
+        highestWorkspacePolicyVersionByScope.clear()
         policyStatus = CrumbPolicyStatus.NOT_FETCHED
     }
 

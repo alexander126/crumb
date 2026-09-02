@@ -16,6 +16,7 @@ public extension Crumb {
     @MainActor
     @discardableResult
     static func show(trigger: CrumbInvocation = .programmatic) -> Bool {
+        CrumbWorkspacePolicyCoordinator.shared.install()
         CrumbReporterPresenter.shared.show(trigger: trigger)
     }
 }

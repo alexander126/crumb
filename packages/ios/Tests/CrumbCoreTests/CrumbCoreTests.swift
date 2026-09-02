@@ -116,6 +116,30 @@ struct CrumbCoreTests {
     }
 
     @Test
+    func workspacePolicyCacheKeyIncludesPolicyScope() throws {
+        let policyURL = try #require(URL(string: "https://policy.example.invalid/sdk/v1/policy"))
+        let otherPolicyURL = try #require(URL(string: "https://policy.example.invalid/sdk/v2/policy"))
+
+        func cacheKey(environment: String, url: URL) throws -> String {
+            Crumb.resetForTesting()
+            try Crumb.start(makeConfiguration(
+                environment: environment,
+                workspacePolicy: CrumbWorkspacePolicyOptions(url: url)
+            ))
+            return try Crumb.workspacePolicyCacheKey()
+        }
+
+        let first = try cacheKey(environment: "test", url: policyURL)
+        let otherEnvironment = try cacheKey(environment: "production", url: policyURL)
+        let otherEndpoint = try cacheKey(environment: "test", url: otherPolicyURL)
+        Crumb.resetForTesting()
+
+        #expect(first != otherEnvironment)
+        #expect(first != otherEndpoint)
+        #expect(otherEnvironment != otherEndpoint)
+    }
+
+    @Test
     func rejectsInvalidLogLimits() {
         Crumb.resetForTesting()
         defer { Crumb.resetForTesting() }
@@ -223,6 +247,27 @@ struct CrumbCoreTests {
         #expect(afterFetch.customContext == ["account_tier": "trial"])
         #expect(afterFetch.policyStatus == .fresh)
         #expect(afterFetch.workspacePolicyVersion == 7)
+    }
+
+    @Test
+    func logCollectionFollowsEffectiveWorkspacePolicy() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        let policyURL = try #require(URL(string: "https://policy.example.invalid/sdk/v1/policy"))
+        try Crumb.start(makeConfiguration(
+            evidence: [.logs],
+            workspacePolicy: CrumbWorkspacePolicyOptions(url: policyURL)
+        ))
+
+        #expect(!Crumb.canCollectLogs())
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version: 1,
+                expiresAt: Date(timeIntervalSince1970: 4_000_000_000)
+            ),
+            source: .fresh
+        )
+        #expect(Crumb.canCollectLogs())
     }
 
     @Test

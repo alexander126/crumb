@@ -5,6 +5,13 @@ public enum Crumb {
         try CrumbRuntime.shared.start(configuration)
     }
 
+    /// Returns whether the current effective policy permits adapter-owned logs
+    /// to be collected at this moment.
+    public static func canCollectLogs() -> Bool {
+        guard let settings = try? CrumbRuntime.shared.reportSettings() else { return false }
+        return settings.evidence.contains(.logs)
+    }
+
     package static func reportSettings() throws -> CrumbReportSettings {
         try CrumbRuntime.shared.reportSettings()
     }

@@ -1,6 +1,7 @@
 jest.mock('react-native-nitro-modules', () => {
   const nativeMock = {
     start: jest.fn<void, [string]>(),
+    canCollectLogs: jest.fn<boolean, []>(() => true),
     installReporter: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
     show: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
     addLog: jest.fn<void, [string]>(),
@@ -20,6 +21,7 @@ const mockNative = (
   jest.requireMock('react-native-nitro-modules') as {
     nativeMock: {
       start: jest.Mock<void, [string]>;
+      canCollectLogs: jest.Mock<boolean, []>;
       installReporter: jest.Mock<Promise<boolean>, []>;
       show: jest.Mock<Promise<boolean>, []>;
       addLog: jest.Mock<void, [string]>;
@@ -33,6 +35,7 @@ describe('Crumb React Native adapter', () => {
     Crumb.disableConsoleCapture();
     Crumb.clearLogs();
     jest.clearAllMocks();
+    mockNative.canCollectLogs.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -140,6 +143,32 @@ describe('Crumb React Native adapter', () => {
     Crumb.disableConsoleCapture();
     consoleError.mockRestore();
     expect(console.error).toBe(originalConsoleError);
+  });
+
+  it('fails closed for console logs until native policy permits collection', async () => {
+    mockNative.canCollectLogs.mockReturnValue(false);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      diagnostics: { logs: { captureConsole: true } },
+      workspacePolicy: {
+        url: 'https://policy.example.invalid/sdk/v1/policy',
+      },
+    });
+
+    mockNative.addLog.mockClear();
+    console.error('blocked before policy');
+    expect(mockNative.addLog).not.toHaveBeenCalled();
+
+    mockNative.canCollectLogs.mockReturnValue(true);
+    console.error('allowed after policy');
+    expect(mockNative.addLog).toHaveBeenCalledTimes(1);
+
+    consoleError.mockRestore();
   });
 
   it('delegates reporter installation and presentation', async () => {

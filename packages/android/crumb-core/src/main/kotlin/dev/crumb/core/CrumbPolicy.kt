@@ -282,6 +282,14 @@ object CrumbPolicyCache {
 }
 
 object CrumbPolicy {
+    fun scopeKey(projectKey: String, environment: String, url: String?): String = listOf(
+        projectKey,
+        environment,
+        url.orEmpty(),
+    ).joinToString("|") { value ->
+        "${value.toByteArray(StandardCharsets.UTF_8).size}:$value"
+    }
+
     fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(StandardCharsets.UTF_8))
         .joinToString("") { byte -> "%02x".format(Locale.ROOT, byte) }

@@ -3,6 +3,7 @@ package dev.crumb.core
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -92,6 +93,29 @@ class CrumbTest {
         val configuration = configuration()
         Crumb.start(configuration)
         Crumb.start(configuration)
+    }
+
+    @Test
+    fun workspacePolicyCacheKeyIncludesPolicyScope() {
+        fun cacheKey(environment: String, url: String): String {
+            Crumb.resetForTesting()
+            Crumb.start(
+                configuration(
+                    environment = environment,
+                    workspacePolicy = CrumbWorkspacePolicyOptions(url),
+                ),
+            )
+            return Crumb.workspacePolicyCacheKey()
+        }
+
+        val first = cacheKey("test", "https://policy.example.invalid/sdk/v1/policy")
+        val otherEnvironment = cacheKey("production", "https://policy.example.invalid/sdk/v1/policy")
+        val otherEndpoint = cacheKey("test", "https://policy.example.invalid/sdk/v2/policy")
+        Crumb.resetForTesting()
+
+        assertNotEquals(first, otherEnvironment)
+        assertNotEquals(first, otherEndpoint)
+        assertNotEquals(otherEnvironment, otherEndpoint)
     }
 
     @Test(expected = CrumbStartException.InvalidLogLimits::class)
@@ -185,6 +209,27 @@ class CrumbTest {
         assertEquals(mapOf("account_tier" to "trial"), afterFetch.customContext)
         assertEquals(CrumbPolicyStatus.FRESH, afterFetch.policyStatus)
         assertEquals(7, afterFetch.workspacePolicyVersion)
+    }
+
+    @Test
+    fun logCollectionFollowsEffectiveWorkspacePolicy() {
+        val policyUrl = "https://policy.example.invalid/sdk/v1/policy"
+        Crumb.start(
+            configuration(
+                evidence = setOf(CrumbEvidenceCategory.LOGS),
+                workspacePolicy = CrumbWorkspacePolicyOptions(policyUrl),
+            ),
+        )
+
+        assertFalse(Crumb.canCollectLogs())
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version = 1,
+                expiresAtMillis = 4_000_000_000_000,
+            ),
+            CrumbPolicySource.FRESH,
+        )
+        assertTrue(Crumb.canCollectLogs())
     }
 
     @Test

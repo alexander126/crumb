@@ -88,6 +88,10 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
         )
     }
 
+    func canCollectLogs() -> Bool {
+        Crumb.canCollectLogs()
+    }
+
     func installReporter() throws -> Promise<Bool> {
         Promise.async { @MainActor in
             Crumb.installReporter()
@@ -101,6 +105,7 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
     }
 
     func addLog(entryJson: String) throws {
+        guard Crumb.canCollectLogs() else { return }
         let data = Data(entryJson.utf8)
         let entry = try decoder.decode(LogEntryPayload.self, from: data)
         logBuffer.append(entry.native)

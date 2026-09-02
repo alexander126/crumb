@@ -27,7 +27,7 @@ final class CrumbRuntime: @unchecked Sendable {
     private let lock = NSLock()
     private var configuration: CrumbConfiguration?
     private var workspacePolicy: CrumbWorkspacePolicy?
-    private var highestWorkspacePolicyVersion: Int?
+    private var highestWorkspacePolicyVersionByScope: [String: Int] = [:]
     private var policyStatus: CrumbPolicyStatus = .notFetched
 
     private init() {}
@@ -90,7 +90,8 @@ final class CrumbRuntime: @unchecked Sendable {
         defer { lock.unlock() }
 
         guard let configuration else { throw CrumbRuntimeError.notStarted }
-        let digest = SHA256.hash(data: Data(configuration.projectKey.utf8))
+        let scope = Self.workspacePolicyScopeKey(for: configuration)
+        let digest = SHA256.hash(data: Data(scope.utf8))
             .map { String(format: "%02x", $0) }
             .joined()
         return "crumb.workspace-policy.\(digest)"
@@ -107,15 +108,20 @@ final class CrumbRuntime: @unchecked Sendable {
     func applyWorkspacePolicy(_ policy: CrumbWorkspacePolicy, source: CrumbPolicySource) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard configuration?.workspacePolicy.url != nil,
+        guard let configuration,
+              configuration.workspacePolicy.url != nil,
               policy.isValid(at: Date()) else {
             return false
         }
-        if highestWorkspacePolicyVersion.map({ $0 > policy.version }) == true {
+        let scope = Self.workspacePolicyScopeKey(for: configuration)
+        if highestWorkspacePolicyVersionByScope[scope].map({ $0 > policy.version }) == true {
             return false
         }
         workspacePolicy = policy
-        highestWorkspacePolicyVersion = max(highestWorkspacePolicyVersion ?? 0, policy.version)
+        highestWorkspacePolicyVersionByScope[scope] = max(
+            highestWorkspacePolicyVersionByScope[scope] ?? 0,
+            policy.version
+        )
         policyStatus = source == .fresh ? .fresh : .cached
         return true
     }
@@ -147,8 +153,18 @@ final class CrumbRuntime: @unchecked Sendable {
         defer { lock.unlock() }
         configuration = nil
         workspacePolicy = nil
-        highestWorkspacePolicyVersion = nil
+        highestWorkspacePolicyVersionByScope.removeAll()
         policyStatus = .notFetched
+    }
+
+    private static func workspacePolicyScopeKey(for configuration: CrumbConfiguration) -> String {
+        [
+            configuration.projectKey,
+            configuration.environment,
+            configuration.workspacePolicy.url?.absoluteString ?? ""
+        ]
+        .map { "\($0.utf8.count):\($0)" }
+        .joined(separator: "|")
     }
 
     private static func validate(_ configuration: CrumbConfiguration) throws {

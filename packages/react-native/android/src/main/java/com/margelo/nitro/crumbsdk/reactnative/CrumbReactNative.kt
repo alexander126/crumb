@@ -93,6 +93,8 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
         )
     }
 
+    override fun canCollectLogs(): Boolean = Crumb.canCollectLogs()
+
     override fun installReporter(): Promise<Boolean> {
         val promise = Promise<Boolean>()
         UiThreadUtil.runOnUiThread {
@@ -120,6 +122,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
     }
 
     override fun addLog(entryJson: String) {
+        if (!Crumb.canCollectLogs()) return
         val payload = JSONObject(entryJson)
         logBuffer.append(
             CrumbLogEntry(
