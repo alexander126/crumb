@@ -26,8 +26,7 @@ final class CrumbWorkspacePolicyCoordinator {
 
     func refresh() {
         guard fetchTask == nil,
-              let settings = try? Crumb.workspacePolicyFetchSettings(),
-              let settings else {
+              let settings = try? Crumb.workspacePolicyFetchSettings() else {
             return
         }
         Crumb.beginWorkspacePolicyFetch()
