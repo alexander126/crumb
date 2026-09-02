@@ -8,12 +8,56 @@ import Network
 enum OnDemandDiagnosticsCollector {
     static func capture(
         location: String,
-        options: CrumbDiagnosticsOptions
+        options: CrumbDiagnosticsOptions,
+        evidence: Set<CrumbEvidenceCategory> = Set(CrumbEvidenceCategory.allCases)
     ) -> CrumbDiagnosticsSnapshot {
-        let threads = threadDiagnostics()
-        let memory = memoryDiagnostics()
-        let network = networkDiagnostics(options: options)
-        let logs = OnDemandLogCollector.capture(options: options.logs)
+        let capturesPerformance = evidence.contains(.performance)
+        let threads = capturesPerformance ? threadDiagnostics() : []
+        let memory = capturesPerformance ? memoryDiagnostics() : nil
+        let network = evidence.contains(.network)
+            ? networkDiagnostics(
+                options: CrumbDiagnosticsOptions(
+                    healthCheckURL: evidence.contains(.healthCheck) ? options.healthCheckURL : nil,
+                    timeout: options.timeout,
+                    logs: options.logs
+                )
+            )
+            : CrumbNetworkDiagnostic(
+                status: "unknown",
+                transport: "unknown",
+                cellularGeneration: nil,
+                isExpensive: false,
+                isConstrained: false,
+                healthCheck: nil
+            )
+        let logs: CrumbLogDiagnostic
+        if evidence.contains(.logs) {
+            logs = OnDemandLogCollector.capture(options: options.logs)
+        } else {
+            logs = CrumbLogDiagnostic(
+                status: options.logs.enabled ? .disabledByPolicy : .disabled,
+                sources: [],
+                entries: [],
+                truncated: false,
+                droppedEntryCount: 0,
+                failures: options.logs.enabled ? ["disabled_by_policy"] : []
+            )
+        }
+        let stackTraces = evidence.contains(.threadStacks)
+            ? CrumbStackTraceDiagnostic(
+                status: .unavailable,
+                scope: "none",
+                threads: [],
+                truncated: false,
+                unavailableReason: "all_thread_stacks_unavailable_without_sampling"
+            )
+            : CrumbStackTraceDiagnostic(
+                status: .unavailable,
+                scope: "none",
+                threads: [],
+                truncated: false,
+                unavailableReason: "disabled_by_policy"
+            )
 
         return CrumbDiagnosticsSnapshot(
             capturedAt: Date(),
@@ -23,7 +67,7 @@ enum OnDemandDiagnosticsCollector {
             cpuUsagePercent: threads.compactMap(\.cpuUsagePercent).reduce(0, +),
             residentMemoryBytes: memory?.resident,
             physicalFootprintBytes: memory?.footprint,
-            thermalState: thermalState(),
+            thermalState: capturesPerformance ? thermalState() : "unavailable_by_policy",
             threadCount: threads.count,
             busiestThreads: Array(
                 threads
@@ -33,13 +77,7 @@ enum OnDemandDiagnosticsCollector {
             gpuStatus: "Unavailable on demand on iOS",
             network: network,
             logs: logs,
-            stackTraces: CrumbStackTraceDiagnostic(
-                status: .unavailable,
-                scope: "none",
-                threads: [],
-                truncated: false,
-                unavailableReason: "all_thread_stacks_unavailable_without_sampling"
-            )
+            stackTraces: stackTraces
         )
     }
 

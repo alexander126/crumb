@@ -13,6 +13,7 @@ data class CrumbReportRuntime(
 enum class CrumbScreenshotCaptureState(val wireValue: String) {
     ENABLED("enabled"),
     DISABLED_BY_CONFIGURATION("disabled_by_configuration"),
+    DISABLED_BY_POLICY("disabled_by_policy"),
     UNAVAILABLE("unavailable"),
 }
 
@@ -44,6 +45,9 @@ data class CrumbReportBuildInput(
     val screenshotCapture: CrumbScreenshotCaptureState,
     val screenshotMasking: CrumbScreenshotMaskingState,
     val artifacts: List<CrumbArtifactManifest> = emptyList(),
+    val customContext: Map<String, String> = emptyMap(),
+    val policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_CONFIGURED,
+    val workspacePolicyVersion: Int? = null,
 )
 
 data class CrumbSerializedReportEnvelope(
@@ -72,9 +76,23 @@ internal object CrumbReportEnvelopeBuilder {
         input: CrumbReportBuildInput,
     ): CrumbSerializedReportEnvelope {
         validate(settings, input)
-        val diagnostics = input.diagnostics
+        val diagnostics = effectiveDiagnostics(input.diagnostics, settings)
         val category = input.category.trim()
         val description = input.description.trim()
+        val screenshotEnabled = settings.capture.screenshot &&
+            CrumbEvidenceCategory.SCREENSHOT in settings.evidence
+        val screenshotCapture = when {
+            !settings.capture.screenshot -> CrumbScreenshotCaptureState.DISABLED_BY_CONFIGURATION
+            CrumbEvidenceCategory.SCREENSHOT !in settings.evidence ->
+                CrumbScreenshotCaptureState.DISABLED_BY_POLICY
+            else -> input.screenshotCapture
+        }
+        val screenshotMasking = if (screenshotEnabled) {
+            input.screenshotMasking
+        } else {
+            CrumbScreenshotMaskingState.NOT_APPLICABLE
+        }
+        val artifacts = if (screenshotEnabled) input.artifacts else emptyList()
         val memory = if (
             diagnostics.residentMemoryBytes != null || diagnostics.physicalFootprintBytes != null
         ) {
@@ -96,6 +114,7 @@ internal object CrumbReportEnvelopeBuilder {
         }
         val logCapture = when (diagnostics.logs.status) {
             CrumbLogCaptureStatus.DISABLED -> "disabled_by_configuration"
+            CrumbLogCaptureStatus.DISABLED_BY_POLICY -> "disabled_by_policy"
             CrumbLogCaptureStatus.UNAVAILABLE -> "unavailable"
             CrumbLogCaptureStatus.CAPTURED,
             CrumbLogCaptureStatus.EMPTY,
@@ -115,6 +134,7 @@ internal object CrumbReportEnvelopeBuilder {
                 "js_bundle_version" to settings.release.bundleVersion,
                 "environment" to settings.environment,
             ),
+            "application" to settings.application.name?.let { obj("name" to it) },
             "sdk" to obj(
                 "name" to "crumb-android",
                 "version" to CrumbSDKVersion.CURRENT,
@@ -193,12 +213,15 @@ internal object CrumbReportEnvelopeBuilder {
                 ),
             ),
             "privacy" to obj(
-                "screenshot_capture" to input.screenshotCapture.wireValue,
-                "screenshot_masking" to input.screenshotMasking.wireValue,
+                "screenshot_capture" to screenshotCapture.wireValue,
+                "screenshot_masking" to screenshotMasking.wireValue,
                 "diagnostics_capture" to "on_demand",
                 "log_capture" to logCapture,
+                "policy_status" to settings.policyStatus.wireValue,
+                "policy_version" to settings.workspacePolicyVersion,
             ),
-            "artifacts" to input.artifacts.map {
+            "custom_context" to settings.customContext.takeIf { it.isNotEmpty() },
+            "artifacts" to artifacts.map {
                 obj(
                     "id" to it.id,
                     "kind" to it.kind,
@@ -262,6 +285,72 @@ internal object CrumbReportEnvelopeBuilder {
         ) {
             throw CrumbReportEnvelopeException.InvalidArtifact()
         }
+    }
+
+    private fun effectiveDiagnostics(
+        input: CrumbDiagnosticsSnapshot,
+        settings: CrumbReportSettings,
+    ): CrumbDiagnosticsSnapshot {
+        val performanceEnabled = CrumbEvidenceCategory.PERFORMANCE in settings.evidence
+        val networkEnabled = CrumbEvidenceCategory.NETWORK in settings.evidence
+        val healthCheckEnabled = networkEnabled &&
+            CrumbEvidenceCategory.HEALTH_CHECK in settings.evidence
+        val logsEnabled = CrumbEvidenceCategory.LOGS in settings.evidence
+        val stacksEnabled = CrumbEvidenceCategory.THREAD_STACKS in settings.evidence
+        return CrumbDiagnosticsSnapshot(
+            capturedAtMillis = input.capturedAtMillis,
+            location = input.location,
+            processName = input.processName,
+            processId = input.processId,
+            cpuUsagePercent = if (performanceEnabled) input.cpuUsagePercent else null,
+            residentMemoryBytes = if (performanceEnabled) input.residentMemoryBytes else null,
+            physicalFootprintBytes = if (performanceEnabled) input.physicalFootprintBytes else null,
+            thermalState = if (performanceEnabled) input.thermalState else "unavailable",
+            threadCount = if (performanceEnabled) input.threadCount else 0,
+            busiestThreads = if (performanceEnabled) input.busiestThreads else emptyList(),
+            gpuStatus = if (performanceEnabled) input.gpuStatus else "unavailable_by_policy",
+            network = if (networkEnabled) {
+                input.network.copy(
+                    healthCheck = if (healthCheckEnabled) input.network.healthCheck else null,
+                )
+            } else {
+                CrumbNetworkDiagnostic(
+                    status = "unknown",
+                    transport = "unknown",
+                    cellularGeneration = null,
+                    isExpensive = false,
+                    isConstrained = false,
+                    healthCheck = null,
+                )
+            },
+            logs = if (logsEnabled) {
+                input.logs
+            } else {
+                CrumbLogDiagnostic(
+                    status = if (settings.diagnostics.logs.enabled) {
+                        CrumbLogCaptureStatus.DISABLED_BY_POLICY
+                    } else {
+                        CrumbLogCaptureStatus.DISABLED
+                    },
+                    sources = emptyList(),
+                    entries = emptyList(),
+                    truncated = false,
+                    droppedEntryCount = 0,
+                    failures = emptyList(),
+                )
+            },
+            stackTraces = if (stacksEnabled) {
+                input.stackTraces
+            } else {
+                CrumbStackTraceDiagnostic(
+                    status = CrumbStackTraceCaptureStatus.UNAVAILABLE,
+                    scope = "none",
+                    threads = emptyList(),
+                    truncated = false,
+                    unavailableReason = "disabled_by_policy",
+                )
+            },
+        )
     }
 
     private fun String.hasLength(maximum: Int): Boolean = isNotBlank() && length <= maximum

@@ -78,6 +78,7 @@ object CrumbReporter {
         installedApplication = application
         lifecycleCallbacks = callbacks
         CrumbUploadCoordinator.install(application)
+        CrumbWorkspacePolicyCoordinator.install(application)
         Thread({
             runCatching { CrumbReportQueue.from(application).recoverInterruptedUploads() }
         }, "Crumb queue recovery").start()
@@ -106,10 +107,12 @@ object CrumbReporter {
             triggeredAtMillis = System.currentTimeMillis(),
             location = activity.javaClass.name,
             screenshotArtifact = null,
-            screenshotCapture = if (settings.capture.screenshot) {
-                CrumbScreenshotCaptureState.UNAVAILABLE
-            } else {
+            screenshotCapture = if (!settings.capture.screenshot) {
                 CrumbScreenshotCaptureState.DISABLED_BY_CONFIGURATION
+            } else if (!settings.evidence.contains(dev.crumb.core.CrumbEvidenceCategory.SCREENSHOT)) {
+                CrumbScreenshotCaptureState.DISABLED_BY_POLICY
+            } else {
+                CrumbScreenshotCaptureState.UNAVAILABLE
             },
             screenshotMasking = CrumbScreenshotMaskingState.NOT_APPLICABLE,
             settings = settings,
@@ -137,6 +140,7 @@ object CrumbReporter {
                 context = context,
                 location = session.location,
                 options = session.settings.diagnostics,
+                evidence = session.settings.evidence,
             )
             CrumbQualityInstrumentation.record(
                 CrumbQualityEventKind.DIAGNOSTICS_READY,
@@ -151,7 +155,11 @@ object CrumbReporter {
     }
 
     private fun startScreenshotCapture(session: ReporterSession, activity: Activity) {
-        if (!session.settings.capture.screenshot || session.screenshotCaptureStarted) return
+        if (
+            !session.settings.capture.screenshot ||
+            !session.settings.evidence.contains(dev.crumb.core.CrumbEvidenceCategory.SCREENSHOT) ||
+            session.screenshotCaptureStarted
+        ) return
         session.screenshotCaptureStarted = true
         CrumbScreenshotArtifactPipeline.captureAsync(
             activity = activity,
@@ -167,8 +175,9 @@ object CrumbReporter {
             }
             session.screenshotMasking = when {
                 artifact != null -> artifact.maskingState
-                session.settings.privacy.maskAllTextInputs ||
-                    session.settings.privacy.maskScreenshotsBeforeUpload -> {
+                session.settings.evidence.contains(dev.crumb.core.CrumbEvidenceCategory.SCREENSHOT) &&
+                    (session.settings.privacy.maskAllTextInputs ||
+                        session.settings.privacy.maskScreenshotsBeforeUpload) -> {
                     CrumbScreenshotMaskingState.FAILED
                 }
                 else -> CrumbScreenshotMaskingState.NOT_APPLICABLE
@@ -186,7 +195,7 @@ object CrumbReporter {
     private fun presentSession(activity: Activity, session: ReporterSession) {
         if (session.finished || activity.isFinishing || activity.isDestroyed) return
         if (session.dialog?.isShowing == true) return
-        CrumbDesign.applyAppearance(activity)
+        CrumbDesign.applyAppearance(activity, session.settings.reporter.theme)
 
         val dialog = Dialog(activity)
         session.dialog = dialog
@@ -385,6 +394,9 @@ object CrumbReporter {
             category.addView(segment, LinearLayout.LayoutParams(0, dp(activity, 42), 1f))
         }
         styleCategorySegments(activity, category, session.categoryIndex)
+        category.visibility = if (
+            session.settings.reporter.visibleFields.contains(dev.crumb.core.CrumbReporterField.CATEGORY)
+        ) View.VISIBLE else View.GONE
         content.addView(category, matchWrap().withMargins(activity, bottom = 18))
 
         val descriptionField = verticalLayout(activity).apply {
@@ -567,7 +579,10 @@ object CrumbReporter {
     }
 
     private fun requestFinish(activity: Activity, session: ReporterSession) {
-        val hasMeaningfulInput = session.categoryIndex != 0 || session.description.isNotBlank()
+        val hasMeaningfulInput = (
+            session.settings.reporter.visibleFields.contains(dev.crumb.core.CrumbReporterField.CATEGORY) &&
+                session.categoryIndex != 0
+            ) || session.description.isNotBlank()
         if (!hasMeaningfulInput) {
             finishSession(session)
             return
@@ -609,6 +624,9 @@ object CrumbReporter {
                 screenshotCapture = session.screenshotCapture,
                 screenshotMasking = session.screenshotMasking,
                 artifacts = session.screenshotArtifact?.let { listOf(it.manifest) }.orEmpty(),
+                customContext = session.settings.customContext,
+                policyStatus = session.settings.policyStatus,
+                workspacePolicyVersion = session.settings.workspacePolicyVersion,
             ),
         )
     }
@@ -1278,6 +1296,7 @@ object CrumbReporter {
     private class ReporterLifecycleCallbacks : Application.ActivityLifecycleCallbacks {
         override fun onActivityResumed(activity: Activity) {
             CrumbUploadCoordinator.resume(activity.application)
+            CrumbWorkspacePolicyCoordinator.refresh()
             handleActivityResumed(activity)
         }
 
@@ -1322,8 +1341,10 @@ object CrumbReporter {
         var actionHelperLabel: TextView? = null
         var screenshotContainer: LinearLayout? = null
         var diagnosticsStarted = false
-        var screenshotCaptureStarted = !settings.capture.screenshot
-        var screenshotCaptureComplete = !settings.capture.screenshot
+        var screenshotCaptureStarted = !settings.capture.screenshot ||
+            !settings.evidence.contains(dev.crumb.core.CrumbEvidenceCategory.SCREENSHOT)
+        var screenshotCaptureComplete = !settings.capture.screenshot ||
+            !settings.evidence.contains(dev.crumb.core.CrumbEvidenceCategory.SCREENSHOT)
         var formReadyRecorded = false
         var isSaving = false
         var finished = false

@@ -58,6 +58,40 @@ describe('Crumb React Native adapter', () => {
     });
   });
 
+  it('passes the privacy precedence configuration to the native owner', async () => {
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      reporter: { theme: 'dark', visibleFields: ['category', 'description'] },
+      evidence: ['screenshot', 'logs', 'custom_context'],
+      application: { name: 'Example app' },
+      customContext: {
+        values: { account_tier: 'trial' },
+        allowedKeys: ['account_tier'],
+      },
+      workspacePolicy: {
+        url: 'https://policy.example.invalid/sdk/v1/policy',
+        timeoutMs: 2000,
+      },
+    });
+
+    expect(
+      JSON.parse(mockNative.start.mock.calls[0]?.[0] ?? '{}')
+    ).toMatchObject({
+      reporter: { theme: 'dark', visibleFields: ['category', 'description'] },
+      evidence: ['screenshot', 'logs', 'custom_context'],
+      application: { name: 'Example app' },
+      customContext: {
+        values: { account_tier: 'trial' },
+        allowedKeys: ['account_tier'],
+      },
+      workspacePolicy: {
+        url: 'https://policy.example.invalid/sdk/v1/policy',
+        timeoutMs: 2000,
+      },
+    });
+  });
+
   it('mirrors bounded structured logs to native storage', async () => {
     await Crumb.start({
       projectKey: 'crumb_sdk_test',
@@ -128,6 +162,30 @@ describe('Crumb React Native adapter', () => {
         diagnostics: { logs: { maximumEntries: -1 } },
       })
     ).rejects.toThrow('maximumEntries');
+    expect(mockNative.start).not.toHaveBeenCalled();
+  });
+
+  it('rejects a policy endpoint that can carry credentials or query values', async () => {
+    await expect(
+      Crumb.start({
+        projectKey: 'crumb_sdk_test',
+        environment: 'test',
+        workspacePolicy: {
+          url: 'https://user:pass@policy.example.invalid/policy?x=1',
+        },
+      })
+    ).rejects.toThrow('workspacePolicy.url');
+    expect(mockNative.start).not.toHaveBeenCalled();
+  });
+
+  it('requires the description field to remain visible', async () => {
+    await expect(
+      Crumb.start({
+        projectKey: 'crumb_sdk_test',
+        environment: 'test',
+        reporter: { visibleFields: ['category'] },
+      })
+    ).rejects.toThrow('visibleFields');
     expect(mockNative.start).not.toHaveBeenCalled();
   });
 });

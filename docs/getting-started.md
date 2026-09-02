@@ -106,6 +106,8 @@ func configureCrumb() throws {
             diagnostics: CrumbDiagnosticsOptions(
                 healthCheckURL: apiURL.appendingPathComponent("health")
             ),
+            reporter: CrumbReporterOptions(theme: .system),
+            evidence: [.screenshot, .performance, .network, .logs, .threadStacks, .healthCheck],
             upload: CrumbUploadOptions(ingestionURL: apiURL)
         )
     )
@@ -175,7 +177,10 @@ import android.app.Application
 import dev.crumb.core.Crumb
 import dev.crumb.core.CrumbConfiguration
 import dev.crumb.core.CrumbDiagnosticsOptions
+import dev.crumb.core.CrumbEvidenceCategory
 import dev.crumb.core.CrumbRelease
+import dev.crumb.core.CrumbReporterOptions
+import dev.crumb.core.CrumbTheme
 import dev.crumb.core.CrumbUploadOptions
 import dev.crumb.ui.CrumbReporter
 
@@ -195,6 +200,8 @@ class App : Application() {
                 diagnostics = CrumbDiagnosticsOptions(
                     healthCheckUrl = "$apiUrl/health",
                 ),
+                reporter = CrumbReporterOptions(theme = CrumbTheme.SYSTEM),
+                evidence = CrumbEvidenceCategory.entries.toSet(),
                 upload = CrumbUploadOptions(ingestionUrl = apiUrl),
             ),
         )
@@ -253,6 +260,18 @@ export async function configureCrumb(): Promise<void> {
       logs: {
         captureConsole: true,
       },
+    },
+    reporter: {
+      theme: 'system',
+      visibleFields: ['category', 'description'],
+    },
+    evidence: ['screenshot', 'performance', 'network', 'logs', 'thread_stacks', 'health_check'],
+    customContext: {
+      values: { account_tier: 'trial' },
+      allowedKeys: ['account_tier'],
+    },
+    workspacePolicy: {
+      url: 'https://policy.example.com/sdk/v1/policy',
     },
   });
 
@@ -347,6 +366,10 @@ Use a real application build or simulator/emulator build, not Expo Go:
 
 Leaving the ingestion URL unset keeps submitted reports in the SDK's local,
 durable queue. Add it before expecting reports to reach the dashboard.
+
+The complete configuration and privacy precedence rules, including the
+description-only fail-closed state while a workspace policy is unavailable,
+are documented in the [SDK configuration contract](contracts/sdk-configuration.md).
 
 ## Next references
 

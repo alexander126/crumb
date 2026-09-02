@@ -1,0 +1,17 @@
+{
+  "local": {
+    "evidence": ["screenshot", "network", "logs", "custom_context"],
+    "visible_fields": ["category", "description"],
+    "allowed_context_keys": ["account_tier", "region"]
+  },
+  "workspace": {
+    "disabled_evidence": ["network"],
+    "hidden_reporter_fields": ["category"],
+    "allowed_context_keys": ["account_tier"]
+  },
+  "effective": {
+    "evidence": ["screenshot", "logs", "custom_context"],
+    "visible_fields": ["description"],
+    "allowed_context_keys": ["account_tier"]
+  }
+}

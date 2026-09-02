@@ -44,6 +44,7 @@ final class CrumbReporterLifecycle: NSObject {
         Task {
             try? await CrumbReportQueue.shared.recoverInterruptedUploads()
         }
+        CrumbWorkspacePolicyCoordinator.shared.install()
         CrumbUploadCoordinator.shared.resume()
         startShakeMonitoringIfNeeded()
         return true
@@ -62,6 +63,7 @@ final class CrumbReporterLifecycle: NSObject {
     }
 
     @objc private func applicationDidBecomeActive() {
+        CrumbWorkspacePolicyCoordinator.shared.refresh()
         CrumbUploadCoordinator.shared.resume()
         startShakeMonitoringIfNeeded()
     }

@@ -10,6 +10,7 @@ import android.graphics.drawable.StateListDrawable
 import android.view.Gravity
 import android.widget.Button
 import android.widget.TextView
+import dev.crumb.core.CrumbTheme
 
 internal object CrumbDesign {
     var INK = 0xFF16181D.toInt()
@@ -54,9 +55,14 @@ internal object CrumbDesign {
         private set
     val MARK_BACKGROUND = 0xFF16181D.toInt()
 
-    fun applyAppearance(context: Context) {
-        val isDark = context.resources.configuration.uiMode and
+    fun applyAppearance(context: Context, theme: CrumbTheme = CrumbTheme.SYSTEM) {
+        val systemIsDark = context.resources.configuration.uiMode and
             Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        val isDark = when (theme) {
+            CrumbTheme.SYSTEM -> systemIsDark
+            CrumbTheme.LIGHT -> false
+            CrumbTheme.DARK -> true
+        }
         INK = if (isDark) 0xFFF4F5F7.toInt() else 0xFF16181D.toInt()
         ACCENT = if (isDark) 0xFF2DD4A7.toInt() else 0xFF0FB489.toInt()
         ACCENT_DARK = if (isDark) 0xFF72E2C1.toInt() else 0xFF077056.toInt()

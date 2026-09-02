@@ -17,6 +17,7 @@ package struct CrumbReportRuntime: Equatable, Sendable {
 package enum CrumbScreenshotCaptureState: String, Equatable, Sendable {
     case enabled
     case disabledByConfiguration = "disabled_by_configuration"
+    case disabledByPolicy = "disabled_by_policy"
     case unavailable
 }
 
@@ -66,6 +67,9 @@ package struct CrumbReportBuildInput: Equatable, Sendable {
     package let screenshotCapture: CrumbScreenshotCaptureState
     package let screenshotMasking: CrumbScreenshotMaskingState
     package let artifacts: [CrumbArtifactManifest]
+    package let customContext: [String: String]
+    package let policyStatus: CrumbPolicyStatus
+    package let workspacePolicyVersion: Int?
 
     package init(
         reportID: String,
@@ -78,7 +82,10 @@ package struct CrumbReportBuildInput: Equatable, Sendable {
         diagnostics: CrumbDiagnosticsSnapshot,
         screenshotCapture: CrumbScreenshotCaptureState,
         screenshotMasking: CrumbScreenshotMaskingState,
-        artifacts: [CrumbArtifactManifest] = []
+        artifacts: [CrumbArtifactManifest] = [],
+        customContext: [String: String] = [:],
+        policyStatus: CrumbPolicyStatus = .notConfigured,
+        workspacePolicyVersion: Int? = nil
     ) {
         self.reportID = reportID
         self.trigger = trigger
@@ -91,6 +98,9 @@ package struct CrumbReportBuildInput: Equatable, Sendable {
         self.screenshotCapture = screenshotCapture
         self.screenshotMasking = screenshotMasking
         self.artifacts = artifacts
+        self.customContext = customContext
+        self.policyStatus = policyStatus
+        self.workspacePolicyVersion = workspacePolicyVersion
     }
 }
 
@@ -123,9 +133,22 @@ package enum CrumbReportEnvelopeBuilder {
         input: CrumbReportBuildInput
     ) throws -> CrumbSerializedReportEnvelope {
         try validate(settings: settings, input: input)
-        let diagnostics = input.diagnostics
+        let diagnostics = effectiveDiagnostics(input.diagnostics, settings: settings)
         let category = input.category.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = input.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let screenshotEnabled = settings.capture.screenshot
+            && settings.evidence.contains(.screenshot)
+        let screenshotCapture: CrumbScreenshotCaptureState = if !settings.capture.screenshot {
+            .disabledByConfiguration
+        } else if !settings.evidence.contains(.screenshot) {
+            .disabledByPolicy
+        } else {
+            input.screenshotCapture
+        }
+        let screenshotMasking = screenshotEnabled
+            ? input.screenshotMasking
+            : .notApplicable
+        let artifacts = screenshotEnabled ? input.artifacts : []
         let memory: MemoryDTO? = if diagnostics.residentMemoryBytes != nil
             || diagnostics.physicalFootprintBytes != nil {
             MemoryDTO(
@@ -146,9 +169,11 @@ package enum CrumbReportEnvelopeBuilder {
         }
         let logCapture = switch diagnostics.logs.status {
         case .disabled: "disabled_by_configuration"
+        case .disabledByPolicy: "disabled_by_policy"
         case .unavailable: "unavailable"
         case .captured, .empty: "enabled"
         }
+        let customContext = settings.customContext
 
         let envelope = EnvelopeDTO(
             schemaVersion: "1.0",
@@ -163,6 +188,7 @@ package enum CrumbReportEnvelopeBuilder {
                 jsBundleVersion: settings.release.bundleVersion,
                 environment: settings.environment
             ),
+            application: settings.application.name.map { ApplicationDTO(name: $0) },
             sdk: SDKDTO(name: "crumb-ios", version: CrumbSDKVersion.current, integration: "native"),
             runtime: RuntimeDTO(
                 os: "ios",
@@ -234,12 +260,15 @@ package enum CrumbReportEnvelopeBuilder {
                 )
             ),
             privacy: PrivacyDTO(
-                screenshotCapture: input.screenshotCapture.rawValue,
-                screenshotMasking: input.screenshotMasking.rawValue,
+                screenshotCapture: screenshotCapture.rawValue,
+                screenshotMasking: screenshotMasking.rawValue,
                 diagnosticsCapture: "on_demand",
-                logCapture: logCapture
+                logCapture: logCapture,
+                policyStatus: settings.policyStatus.rawValue,
+                workspacePolicyVersion: settings.workspacePolicyVersion
             ),
-            artifacts: input.artifacts.map {
+            customContext: customContext.isEmpty ? nil : customContext,
+            artifacts: artifacts.map {
                 ArtifactDTO(
                     id: $0.id,
                     kind: $0.kind,
@@ -320,6 +349,60 @@ package enum CrumbReportEnvelopeBuilder {
         }
     }
 
+    private static func effectiveDiagnostics(
+        _ input: CrumbDiagnosticsSnapshot,
+        settings: CrumbReportSettings
+    ) -> CrumbDiagnosticsSnapshot {
+        let performanceEnabled = settings.evidence.contains(.performance)
+        let networkEnabled = settings.evidence.contains(.network)
+        let healthCheckEnabled = networkEnabled && settings.evidence.contains(.healthCheck)
+        let logsEnabled = settings.evidence.contains(.logs)
+        let stacksEnabled = settings.evidence.contains(.threadStacks)
+        return CrumbDiagnosticsSnapshot(
+            capturedAt: input.capturedAt,
+            location: input.location,
+            processName: input.processName,
+            processID: input.processID,
+            cpuUsagePercent: performanceEnabled ? input.cpuUsagePercent : nil,
+            residentMemoryBytes: performanceEnabled ? input.residentMemoryBytes : nil,
+            physicalFootprintBytes: performanceEnabled ? input.physicalFootprintBytes : nil,
+            thermalState: performanceEnabled ? input.thermalState : "unavailable",
+            threadCount: performanceEnabled ? input.threadCount : 0,
+            busiestThreads: performanceEnabled ? input.busiestThreads : [],
+            gpuStatus: performanceEnabled ? input.gpuStatus : "unavailable_by_policy",
+            network: networkEnabled ? CrumbNetworkDiagnostic(
+                status: input.network.status,
+                transport: input.network.transport,
+                cellularGeneration: input.network.cellularGeneration,
+                isExpensive: input.network.isExpensive,
+                isConstrained: input.network.isConstrained,
+                healthCheck: healthCheckEnabled ? input.network.healthCheck : nil
+            ) : CrumbNetworkDiagnostic(
+                status: "unknown",
+                transport: "unknown",
+                cellularGeneration: nil,
+                isExpensive: false,
+                isConstrained: false,
+                healthCheck: nil
+            ),
+            logs: logsEnabled ? input.logs : CrumbLogDiagnostic(
+                status: settings.diagnostics.logs.enabled ? .disabledByPolicy : .disabled,
+                sources: [],
+                entries: [],
+                truncated: false,
+                droppedEntryCount: 0,
+                failures: []
+            ),
+            stackTraces: stacksEnabled ? input.stackTraces : CrumbStackTraceDiagnostic(
+                status: .unavailable,
+                scope: "none",
+                threads: [],
+                truncated: false,
+                unavailableReason: "disabled_by_policy"
+            )
+        )
+    }
+
     private static func hasLength(_ value: String, maximum: Int) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && value.unicodeScalars.count <= maximum
@@ -353,11 +436,13 @@ private struct EnvelopeDTO: Encodable {
     let triggeredAt: Date
     let submittedAt: Date
     let release: ReleaseDTO
+    let application: ApplicationDTO?
     let sdk: SDKDTO
     let runtime: RuntimeDTO
     let userInput: UserInputDTO
     let diagnostics: DiagnosticsDTO
     let privacy: PrivacyDTO
+    let customContext: [String: String]?
     let artifacts: [ArtifactDTO]
 }
 
@@ -367,6 +452,10 @@ private struct ReleaseDTO: Encodable {
     let nativeBuild: String
     let jsBundleVersion: String?
     let environment: String
+}
+
+private struct ApplicationDTO: Encodable {
+    let name: String
 }
 
 private struct SDKDTO: Encodable {
@@ -483,6 +572,8 @@ private struct PrivacyDTO: Encodable {
     let screenshotMasking: String
     let diagnosticsCapture: String
     let logCapture: String
+    let policyStatus: String
+    let workspacePolicyVersion: Int?
 }
 
 private struct ArtifactDTO: Encodable {

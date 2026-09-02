@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/workspace-policy/1.0/schema.json",
+  "title": "Crumb workspace privacy policy",
+  "description": "A signed-transport, versioned narrowing policy fetched by the SDK. The policy can only remove locally enabled optional evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "version",
+    "expires_at",
+    "disabled_evidence",
+    "hidden_reporter_fields",
+    "allowed_context_keys"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "version": { "type": "integer", "minimum": 1 },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "disabled_evidence": {
+      "type": "array",
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "screenshot",
+          "performance",
+          "network",
+          "logs",
+          "thread_stacks",
+          "health_check",
+          "custom_context"
+        ]
+      }
+    },
+    "hidden_reporter_fields": {
+      "type": "array",
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["category"] }
+    },
+    "allowed_context_keys": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" }
+    }
+  }
+}

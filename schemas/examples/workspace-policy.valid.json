@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "version": 7,
+  "expires_at": "2030-01-01T00:00:00Z",
+  "disabled_evidence": ["network", "custom_context"],
+  "hidden_reporter_fields": ["category"],
+  "allowed_context_keys": ["account_tier"]
+}

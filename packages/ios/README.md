@@ -43,6 +43,15 @@ PaymentCardView()
     .crumbMaskInScreenshots()
 ```
 
+`CrumbReporterOptions` controls system/light/dark appearance and the optional
+category field. `evidence` is a local allowlist for optional sources. Custom
+context is string-only and explicitly allowlisted; it is bounded and sanitized
+before the report is saved. A `CrumbWorkspacePolicyOptions` URL enables the
+same non-blocking, fail-closed workspace policy used by Android and React
+Native. A policy may narrow local evidence and context, never broaden it. See
+the [shared configuration contract](../../docs/contracts/sdk-configuration.md)
+for defaults, cache/expiry behavior, and migration guidance.
+
 ## Develop the SDK
 
 From the repository root:

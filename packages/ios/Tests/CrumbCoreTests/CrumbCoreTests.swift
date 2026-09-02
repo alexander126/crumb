@@ -186,10 +186,130 @@ struct CrumbCoreTests {
     }
 
     @Test
+    func configuredWorkspacePolicyFailsClosedUntilValidPolicyIsAvailable() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        let policyURL = try #require(URL(string: "https://policy.example.invalid/sdk/v1/policy"))
+        let healthURL = try #require(URL(string: "https://api.example.invalid/health"))
+        let configuration = makeConfiguration(
+            diagnostics: CrumbDiagnosticsOptions(healthCheckURL: healthURL),
+            reporter: CrumbReporterOptions(visibleFields: [.category, .description]),
+            evidence: Set(CrumbEvidenceCategory.allCases),
+            customContext: CrumbCustomContextOptions(
+                values: ["account_tier": "trial", "email": "user@example.invalid"],
+                allowedKeys: ["account_tier", "email"]
+            ),
+            workspacePolicy: CrumbWorkspacePolicyOptions(url: policyURL)
+        )
+
+        try Crumb.start(configuration)
+        let beforeFetch = try Crumb.reportSettings()
+        #expect(beforeFetch.evidence.isEmpty)
+        #expect(beforeFetch.reporter.visibleFields == [.description])
+        #expect(beforeFetch.customContext.isEmpty)
+        #expect(beforeFetch.policyStatus == .notFetched)
+
+        let policy = CrumbWorkspacePolicy(
+            version: 7,
+            expiresAt: Date(timeIntervalSince1970: 4_000_000_000),
+            disabledEvidence: [.network],
+            hiddenReporterFields: [.category],
+            allowedContextKeys: ["account_tier"]
+        )
+        Crumb.applyWorkspacePolicy(policy, source: .fresh)
+        let afterFetch = try Crumb.reportSettings()
+        #expect(afterFetch.evidence == Set(CrumbEvidenceCategory.allCases).subtracting([.network]))
+        #expect(afterFetch.reporter.visibleFields == [.description])
+        #expect(afterFetch.customContext == ["account_tier": "trial"])
+        #expect(afterFetch.policyStatus == .fresh)
+        #expect(afterFetch.workspacePolicyVersion == 7)
+    }
+
+    @Test
+    func malformedAndExpiredWorkspacePoliciesDoNotBecomeEffective() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let valid = Data(#"{"schema_version":"1.0","version":7,"expires_at":"2030-01-01T00:00:00Z","disabled_evidence":["network"],"hidden_reporter_fields":["category"],"allowed_context_keys":["account_tier"]}"#.utf8)
+        let decoded = try CrumbWorkspacePolicy.decode(valid, now: now)
+        #expect(decoded.version == 7)
+        #expect(decoded.disabledEvidence == [.network])
+        #expect(decoded.hiddenReporterFields == [.category])
+        #expect(decoded.allowedContextKeys == ["account_tier"])
+        #expect(throws: CrumbWorkspacePolicyError.invalid) {
+            try CrumbWorkspacePolicy.decode(Data(#"{"schema_version":"1.0"}"#.utf8), now: now)
+        }
+        let expired = Data(#"{"schema_version":"1.0","version":1,"expires_at":"2030-01-01T00:00:00Z","disabled_evidence":[],"hidden_reporter_fields":[],"allowed_context_keys":[]}"#.utf8)
+        #expect(CrumbPolicyCache.load(data: expired, now: Date(timeIntervalSince1970: 4_000_000_000)) == nil)
+    }
+
+    @Test
+    func workspacePolicyCannotEnableLocallyDisabledEvidence() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        let policyURL = try #require(URL(string: "https://policy.example.invalid/sdk/v1/policy"))
+        try Crumb.start(makeConfiguration(
+            evidence: [.logs],
+            workspacePolicy: CrumbWorkspacePolicyOptions(url: policyURL)
+        ))
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version: 1,
+                expiresAt: Date(timeIntervalSince1970: 4_000_000_000)
+            ),
+            source: .fresh
+        )
+        #expect(try Crumb.reportSettings().evidence == [.logs])
+    }
+
+    @Test
+    func customContextFollowsItsEvidenceCategory() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        let policyURL = try #require(URL(string: "https://policy.example.invalid/sdk/v1/policy"))
+        try Crumb.start(makeConfiguration(
+            evidence: [.customContext],
+            customContext: CrumbCustomContextOptions(
+                values: ["account_tier": "trial"],
+                allowedKeys: ["account_tier"]
+            ),
+            workspacePolicy: CrumbWorkspacePolicyOptions(url: policyURL)
+        ))
+        Crumb.applyWorkspacePolicy(
+            CrumbWorkspacePolicy(
+                version: 1,
+                expiresAt: Date(timeIntervalSince1970: 4_000_000_000),
+                disabledEvidence: [.customContext],
+                allowedContextKeys: ["account_tier"]
+            ),
+            source: .fresh
+        )
+
+        let settings = try Crumb.reportSettings()
+        #expect(settings.evidence.isEmpty)
+        #expect(settings.customContext.isEmpty)
+    }
+
+    @Test
+    func sanitizesCustomContextValuesBeforePersistence() {
+        let sanitized = CrumbCustomContextSanitizer.sanitize(
+            CrumbCustomContextOptions(
+                values: ["account_tier": "Authorization: Bearer secret email=user@example.com\nnext"],
+                allowedKeys: ["account_tier"]
+            )
+        )
+
+        #expect(!sanitized["account_tier", default: ""].contains("secret"))
+        #expect(!sanitized["account_tier", default: ""].contains("user@example.com"))
+        #expect(!sanitized["account_tier", default: ""].contains("\n"))
+    }
+
+    @Test
     func buildsContractReadyReportEnvelope() throws {
         Crumb.resetForTesting()
         defer { Crumb.resetForTesting() }
-        try Crumb.start(makeConfiguration())
+        let healthURL = try #require(URL(string: "https://health.example.invalid/ping"))
+        try Crumb.start(makeConfiguration(
+            diagnostics: CrumbDiagnosticsOptions(healthCheckURL: healthURL)
+        ))
         let input = makeReportInput()
 
         let envelope = try Crumb.buildReport(input)
@@ -228,7 +348,10 @@ struct CrumbCoreTests {
     func preservesDeviceConnectivityWhenTheCrumbAPIIsUnavailable() throws {
         Crumb.resetForTesting()
         defer { Crumb.resetForTesting() }
-        try Crumb.start(makeConfiguration())
+        let healthURL = try #require(URL(string: "https://health.example.invalid/ping"))
+        try Crumb.start(makeConfiguration(
+            diagnostics: CrumbDiagnosticsOptions(healthCheckURL: healthURL)
+        ))
 
         let envelope = try Crumb.buildReport(makeReportInput(healthCheckSucceeded: false))
         let root = try #require(
@@ -384,7 +507,12 @@ struct CrumbCoreTests {
         capture: CrumbCaptureOptions = .init(),
         diagnostics: CrumbDiagnosticsOptions = .init(),
         privacy: CrumbPrivacyOptions = .init(),
-        upload: CrumbUploadOptions = .init()
+        upload: CrumbUploadOptions = .init(),
+        reporter: CrumbReporterOptions = .init(),
+        evidence: Set<CrumbEvidenceCategory> = Set(CrumbEvidenceCategory.allCases),
+        application: CrumbApplicationMetadata = .init(),
+        customContext: CrumbCustomContextOptions = .init(),
+        workspacePolicy: CrumbWorkspacePolicyOptions = .init()
     ) -> CrumbConfiguration {
         CrumbConfiguration(
             projectKey: projectKey,
@@ -394,7 +522,12 @@ struct CrumbCoreTests {
             capture: capture,
             diagnostics: diagnostics,
             privacy: privacy,
-            upload: upload
+            upload: upload,
+            reporter: reporter,
+            evidence: evidence,
+            application: application,
+            customContext: customContext,
+            workspacePolicy: workspacePolicy
         )
     }
 }
