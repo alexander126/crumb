@@ -62,6 +62,9 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                     maskScreenshotsBeforeUpload:
                         payload.privacy?.maskScreenshotsBeforeUpload ?? true
                 ),
+                upload: CrumbUploadOptions(
+                    ingestionURL: try payload.upload?.ingestionURL()
+                ),
                 reporter: CrumbReporterOptions(
                     theme: payload.reporter?.theme?.native ?? .system,
                     visibleFields: Set(
@@ -80,9 +83,6 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                     url: try payload.workspacePolicy?.url(),
                     timeout: payload.workspacePolicy?.timeoutMs
                         .map { TimeInterval(milliseconds: $0) } ?? 2
-                ),
-                upload: CrumbUploadOptions(
-                    ingestionURL: try payload.upload?.ingestionURL()
                 )
             )
         )
