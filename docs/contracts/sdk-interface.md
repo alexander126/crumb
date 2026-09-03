@@ -10,6 +10,7 @@ differ.
 | `start(configuration)` | Validates and stores configuration. It starts no sampler, tracker, or upload. Repeating the same configuration is harmless; replacing it requires a process restart. |
 | `installReporter()` | Registers native lifecycle handling. When shake is configured, the accelerometer is enabled only while the app is foregrounded. It does not collect report diagnostics. Repeated installation is harmless. |
 | `show()` | If programmatic invocation is configured, captures the host screen before presentation, opens the native reporter immediately, and starts one short diagnostic probe independently. It does not require a health endpoint. |
+| React Native JavaScript crash capture | Optional and disabled by default. When enabled by the adapter, a fatal JavaScript exception or unhandled rejection is sanitized and synchronously handed to native storage; recovery later queues it through the normal durable report lifecycle. Native SDKs do not install native crash hooks. |
 
 ## Configuration
 
@@ -38,6 +39,9 @@ The minimum configuration contains:
   configuration;
 - an optional ingestion base URL; leaving it unset disables network upload
   without disabling durable local submission.
+- an optional React Native JavaScript crash-capture block. It can enable fatal
+  JavaScript exception and unhandled-rejection capture and bound the attached
+  breadcrumbs; it does not enable native crash capture.
 
 The project key is an identifier and write credential embedded in an
 application binary. It is not treated as a secret and never authorizes reads.
@@ -96,6 +100,16 @@ application binary. It is not treated as a secret and never authorizes reads.
 - The write key is available only to the transport settings seam. It is never
   placed in report-time UI settings, envelopes, stored failure reasons, or
   signed artifact requests.
+- React Native JavaScript capture is disabled unless its `enabled` flag is
+  true. Enabled handlers run the existing React Native, host, Crashlytics, or
+  Sentry callback according to the host runtime's existing chain after Crumb's
+  bounded synchronous handoff. A persistence failure never prevents the host
+  callback from running.
+- A recovered JavaScript occurrence is first committed to the same durable
+  report queue as an on-demand report. It remains `pending` when offline and is
+  removed only after the normal idempotent upload acknowledgement. A duplicate
+  native termination wrapper is merged by fingerprint and cannot replace the
+  stored JavaScript cause.
 
 The full configuration, workspace-policy, precedence, bounds, and migration
 contract is defined in [SDK configuration and privacy precedence](sdk-configuration.md).
@@ -105,9 +119,11 @@ defined in [Local report queue](local-report-queue.md).
 The delivery lifecycle and retry classification are defined in
 [Native uploader](native-uploader.md).
 
-Crash reporting, analytics, session replay, automatic hang detection, user
-identity, navigation tracking, attributes, and breadcrumbs are not part of this
-interface.
+General native crash reporting, analytics, session replay, automatic hang
+detection, user identity, navigation tracking, attributes, and arbitrary
+breadcrumbs are not part of this interface. The only breadcrumb-like data is
+the bounded Crumb log snapshot explicitly attached to an opted-in React Native
+JavaScript failure.
 
 ## Internal seams
 

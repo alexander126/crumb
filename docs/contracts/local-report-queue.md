@@ -16,6 +16,13 @@ uploader. No network request begins before this local transaction commits.
   by that envelope are written. Preview-only or pre-mask image data is never
   queued.
 
+The React Native adapter keeps a separate, smaller crash handoff under the same
+application-private boundary. It stores only a sanitized JavaScript failure,
+its release identity, bounded Crumb breadcrumbs, and explicitly allowlisted
+context. The handoff has independent count, record, and byte limits and is
+never used to capture native memory, Redux state, request bodies, or response
+bodies.
+
 ## Atomic commit
 
 Each submission is first written to a uniquely named temporary directory on the
@@ -56,6 +63,11 @@ repeats completion safely, and then removes the queue item.
 Removal first renames the accepted directory to a hidden tombstone on the same
 volume, so process exit during byte cleanup cannot expose a partial queue item.
 
+On the next opted-in React Native launch, each valid crash handoff is converted
+to a normal queue item. The handoff is removed only after that queue commit; a
+queue-full, corruption, or storage failure leaves it for a later launch. The
+normal queue then owns offline retry and upload acknowledgement.
+
 ## Default limits
 
 Limits account for the persisted envelope and artifact payload bytes. Queue
@@ -73,3 +85,7 @@ metadata is intentionally not included in the payload budget.
 If a new report would exceed a count or byte limit, the local commit fails and
 the reporter remains available to retry. The SDK does not silently delete or
 replace an already queued report.
+
+The JavaScript crash handoff defaults to 50 occurrences, 2 MiB total, 32 KiB
+per occurrence, 32 breadcrumbs, and 16 KiB of breadcrumb data. It also never
+evicts an existing occurrence to accept a new one.

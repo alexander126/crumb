@@ -64,6 +64,11 @@ export function clearLogs(): void {
   }
 }
 
+export function snapshotLogEntries(): readonly CrumbLogEntry[] {
+  prune(Date.now());
+  return entries.slice();
+}
+
 export function writeLog(
   level: CrumbLogLevel,
   message: string,

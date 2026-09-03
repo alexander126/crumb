@@ -1585,6 +1585,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@crumbsdk/react-native-example@workspace:example"
   dependencies:
+    "@crumbsdk/react-native": "workspace:*"
     "@expo/config-plugins": "npm:~55.0.11"
     "@expo/metro-runtime": "npm:55.0.12"
     expo: "npm:55.0.31"
@@ -1601,7 +1602,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@crumbsdk/react-native@workspace:.":
+"@crumbsdk/react-native@workspace:*, @crumbsdk/react-native@workspace:.":
   version: 0.0.0-use.local
   resolution: "@crumbsdk/react-native@workspace:."
   dependencies:

@@ -260,6 +260,9 @@ export async function configureCrumb(): Promise<void> {
       logs: {
         captureConsole: true,
       },
+      javascriptCrashCapture: {
+        enabled: true,
+      },
     },
     reporter: {
       theme: 'system',
@@ -282,6 +285,12 @@ export async function configureCrumb(): Promise<void> {
 Call `configureCrumb()` once from the application startup path. Crumb reads the
 native application version and build number automatically. For Expo Updates,
 pass the active update identifier as `release.bundleVersion`.
+
+JavaScript crash capture is optional and disabled by default. When enabled, the
+React Native adapter preserves fatal JavaScript exceptions and unhandled promise
+rejections through a bounded sanitized native handoff, chains existing host
+handlers, and recovers the occurrence into the normal durable queue on the next
+launch. It does not capture arbitrary native crashes or application state.
 
 Open the reporter from application UI when needed:
 

@@ -390,6 +390,61 @@ struct CrumbCoreTests {
     }
 
     @Test
+    func buildsRecoveredJavaScriptCrashAsOneStructuredOccurrence() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        try Crumb.start(makeConfiguration(
+            diagnostics: CrumbDiagnosticsOptions(javascriptCrashCaptureEnabled: true)
+        ))
+        let crash = CrumbJavaScriptCrash(
+            recordID: "jsc_0123456789ABCDEF",
+            fingerprint: "0123456789abcdef",
+            source: "javascript",
+            kind: "exception",
+            type: "TypeError",
+            message: "JS exploded",
+            stack: "TypeError: JS exploded\n    at screen (bundle.js:10:4)",
+            occurredAt: Date(timeIntervalSince1970: 1_700_000_000),
+            release: CrumbJavaScriptCrashRelease(
+                appVersion: "1.2.3",
+                nativeBuild: "42",
+                bundleVersion: "ota-17"
+            ),
+            breadcrumbs: [],
+            context: ["account_tier": "trial"],
+            isFatal: true,
+            nativeTerminationWrapperObserved: true
+        )
+
+        let envelope = try Crumb.buildReport(
+            CrumbReportBuildInput(
+                reportID: Crumb.newReportID(),
+                trigger: .programmatic,
+                triggeredAt: crash.occurredAt,
+                submittedAt: crash.occurredAt.addingTimeInterval(2),
+                runtime: CrumbReportRuntime(
+                    osVersion: "18.0",
+                    deviceFamily: "iPhone",
+                    locale: "en-US",
+                    timezone: "Europe/Athens"
+                ),
+                category: "Bug",
+                description: "Recovered JavaScript failure",
+                diagnostics: makeDiagnostics(at: crash.occurredAt, healthCheckSucceeded: true),
+                screenshotCapture: .disabledByConfiguration,
+                screenshotMasking: .notApplicable,
+                javascriptCrash: crash
+            )
+        )
+        let root = try #require(JSONSerialization.jsonObject(with: envelope.data) as? [String: Any])
+        let recovered = try #require(root["javascript_crash"] as? [String: Any])
+        #expect(root["trigger"] as? String == "javascript_crash")
+        #expect(recovered["source"] as? String == "javascript")
+        #expect(recovered["message"] as? String == "JS exploded")
+        #expect(recovered["native_termination_wrapper_observed"] as? Bool == true)
+    }
+
+    @Test
     func preservesDeviceConnectivityWhenTheCrumbAPIIsUnavailable() throws {
         Crumb.resetForTesting()
         defer { Crumb.resetForTesting() }
@@ -442,7 +497,8 @@ struct CrumbCoreTests {
         triggeredAt: Date = Date(timeIntervalSince1970: 1_700_000_000),
         submittedAt: Date = Date(timeIntervalSince1970: 1_700_000_002),
         artifactKind: String = "screenshot",
-        healthCheckSucceeded: Bool = true
+        healthCheckSucceeded: Bool = true,
+        javascriptCrash: CrumbJavaScriptCrash? = nil
     ) -> CrumbReportBuildInput {
         let reportID = CrumbReportEnvelopeBuilder.makeReportID(
             uuid: UUID(uuidString: "01234567-89AB-CDEF-0123-456789ABCDEF")!
@@ -476,7 +532,8 @@ struct CrumbCoreTests {
                     redactionState: "masked",
                     uploadID: "upl_0123456789AB"
                 )
-            ]
+            ],
+            javascriptCrash: javascriptCrash
         )
     }
 

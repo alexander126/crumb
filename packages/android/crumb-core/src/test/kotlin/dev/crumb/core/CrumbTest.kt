@@ -343,6 +343,44 @@ class CrumbTest {
     }
 
     @Test
+    fun buildsRecoveredJavaScriptCrashAsOneStructuredOccurrence() {
+        Crumb.start(
+            configuration(
+                diagnostics = CrumbDiagnosticsOptions(javascriptCrashCaptureEnabled = true),
+            ),
+        )
+        val occurredAt = 1_700_000_000_000L
+        val crash = CrumbJavaScriptCrash(
+            recordId = "jsc_0123456789ABCDEF",
+            fingerprint = "0123456789abcdef",
+            source = "javascript",
+            kind = "exception",
+            type = "TypeError",
+            message = "JS exploded",
+            stack = "TypeError: JS exploded\n    at screen (bundle.js:10:4)",
+            occurredAt = java.time.Instant.ofEpochMilli(occurredAt),
+            release = CrumbJavaScriptCrashRelease("1.2.3", "42", "ota-17"),
+            breadcrumbs = emptyList(),
+            context = mapOf("account_tier" to "trial"),
+            isFatal = true,
+            nativeTerminationWrapperObserved = true,
+        )
+        val envelope = Crumb.buildReport(
+            reportInput(
+                triggeredAtMillis = occurredAt,
+                submittedAtMillis = occurredAt + 2_000,
+                javascriptCrash = crash,
+            ),
+        )
+        val root = JSONObject(envelope.json)
+        val recovered = root.getJSONObject("javascript_crash")
+        assertEquals("javascript_crash", root.getString("trigger"))
+        assertEquals("javascript", recovered.getString("source"))
+        assertEquals("JS exploded", recovered.getString("message"))
+        assertTrue(recovered.getBoolean("native_termination_wrapper_observed"))
+    }
+
+    @Test
     fun preservesDeviceConnectivityWhenTheCrumbApiIsUnavailable() {
         Crumb.start(
             configuration(
@@ -384,6 +422,7 @@ class CrumbTest {
         submittedAtMillis: Long = 1_700_000_002_000,
         artifactKind: String = "screenshot",
         healthCheckSucceeded: Boolean = true,
+        javascriptCrash: CrumbJavaScriptCrash? = null,
     ) = CrumbReportBuildInput(
         reportId = CrumbReportEnvelopeBuilder.makeReportId(
             UUID.fromString("01234567-89ab-cdef-0123-456789abcdef"),
@@ -413,6 +452,7 @@ class CrumbTest {
                 uploadId = "upl_0123456789AB",
             ),
         ),
+        javascriptCrash = javascriptCrash,
     )
 
     private fun diagnostics(

@@ -15,6 +15,10 @@ Semantic Versioning while the public API is released.
   `console.error` capture. Entries are mirrored into native memory as they are
   written, so native report presentation never waits on a blocked JavaScript
   thread.
+- Added disabled-by-default React Native JavaScript crash capture for fatal
+  exceptions and unhandled promise rejections, with chained host handlers,
+  bounded sanitized native persistence, relaunch recovery, and deduplication of
+  native termination wrappers.
 
 ### Fixed
 

@@ -29,7 +29,8 @@ move independently.
 
 - iOS and Android are the product implementations.
 - React Native is a thin Nitro Module adapter over the proven native SDKs, with
-  an Expo development-build example and bounded JavaScript log capture.
+  an Expo development-build example, bounded JavaScript log capture, and an
+  opt-in JavaScript-only crash handoff that is disabled by default.
 - Both native demos stay idle until a button or foreground shake opens the
   reporter. They then mask text inputs in a screenshot and collect a one-time
   CPU, memory, thread, thermal, network, and bounded recent-log snapshot for a
@@ -53,6 +54,9 @@ move independently.
 - A report is one occurrence; related occurrences may later form an issue.
 - Diagnostics and screenshot artifacts stay on-device until explicit submission;
   upload never runs before the local atomic commit succeeds.
+- When enabled by a React Native host, fatal JavaScript exceptions and
+  unhandled promise rejections survive a relaunch as one deduplicated,
+  sanitized report occurrence. Native crash hooks remain outside the SDK.
 - Model-driven investigation is intentionally out of scope until ingestion and
   diagnostic quality are reliable.
 

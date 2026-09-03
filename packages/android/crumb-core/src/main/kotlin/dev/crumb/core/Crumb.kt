@@ -1,5 +1,7 @@
 package dev.crumb.core
 
+import android.content.Context
+
 data class CrumbConfiguration(
     val projectKey: String,
     val environment: String,
@@ -35,6 +37,8 @@ data class CrumbDiagnosticsOptions(
     val healthCheckUrl: String? = null,
     val timeoutMillis: Long = 2_000,
     val logs: CrumbLogOptions = CrumbLogOptions(),
+    /** Set only by the React Native adapter; native SDKs install no crash hooks. */
+    val javascriptCrashCaptureEnabled: Boolean = false,
 )
 
 enum class CrumbLogLevel { DEBUG, INFO, NOTICE, WARNING, ERROR, FAULT }
@@ -252,6 +256,29 @@ object Crumb {
     fun canCollectLogs(): Boolean = synchronized(lock) {
         val activeConfiguration = configuration ?: return@synchronized false
         effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
+    }
+
+    /** Synchronously accepts the React Native adapter's sanitized JS failure. */
+    @JvmStatic
+    fun recordJavaScriptCrash(context: Context, recordJson: String) {
+        synchronized(lock) {
+            val activeConfiguration = configuration ?: return@synchronized
+            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return@synchronized
+            CrumbJavaScriptCrashStore(
+                context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
+            ).record(recordJson)
+        }
+    }
+
+    /** Moves pending JS failures into the normal durable report queue. */
+    @JvmStatic
+    fun recoverJavaScriptCrashes(context: Context): Boolean {
+        val settings = synchronized(lock) {
+            val activeConfiguration = configuration ?: return false
+            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return false
+            reportSettings()
+        }
+        return CrumbJavaScriptCrashRecovery.recover(context.applicationContext, settings)
     }
 
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
