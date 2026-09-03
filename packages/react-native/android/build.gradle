@@ -32,7 +32,6 @@ def reactNativeArchitectures() {
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 apply from: "../nitrogen/generated/android/crumbsdk_reactnative+autolinking.gradle"
-apply plugin: "com.facebook.react"
 
 def packageJson = new JsonSlurper().parseText(file("../package.json").getText("UTF-8"))
 def crumbNativeVersion = packageJson.crumbNativeVersion

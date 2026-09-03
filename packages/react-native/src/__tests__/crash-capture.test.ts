@@ -32,6 +32,20 @@ type UnhandledRejectionEvent = {
   promise: Promise<unknown>;
 };
 
+type HermesRejectionTrackingOptions = {
+  allRejections: boolean;
+  onUnhandled: (id: number, rejection?: unknown) => void;
+  onHandled: (id: number) => void;
+};
+
+type HermesInternalLike = {
+  hasPromise: jest.Mock<boolean, []>;
+  enablePromiseRejectionTracker: jest.Mock<
+    void,
+    [HermesRejectionTrackingOptions]
+  >;
+};
+
 const mockNative = (
   jest.requireMock('react-native-nitro-modules') as {
     nativeMock: {
@@ -50,6 +64,8 @@ const mockNative = (
 const globalObject = globalThis as typeof globalThis & {
   ErrorUtils?: ErrorUtilsLike;
   onunhandledrejection?: (event: UnhandledRejectionEvent) => unknown;
+  HermesInternal?: HermesInternalLike;
+  __DEV__?: boolean;
 };
 
 describe('React Native JavaScript crash capture', () => {
@@ -57,13 +73,18 @@ describe('React Native JavaScript crash capture', () => {
   let originalUnhandledRejection:
     | ((event: UnhandledRejectionEvent) => unknown)
     | undefined;
+  let originalHermesInternal: HermesInternalLike | undefined;
+  let originalDevelopmentFlag: boolean | undefined;
 
   beforeEach(() => {
     resetJavaScriptCrashCaptureForTesting();
     originalErrorUtils = globalObject.ErrorUtils;
     originalUnhandledRejection = globalObject.onunhandledrejection;
+    originalHermesInternal = globalObject.HermesInternal;
+    originalDevelopmentFlag = globalObject.__DEV__;
     delete globalObject.ErrorUtils;
     delete globalObject.onunhandledrejection;
+    delete globalObject.HermesInternal;
     Crumb.disableConsoleCapture();
     Crumb.clearLogs();
     jest.clearAllMocks();
@@ -80,6 +101,16 @@ describe('React Native JavaScript crash capture', () => {
     } else {
       delete globalObject.onunhandledrejection;
     }
+    if (originalHermesInternal) {
+      globalObject.HermesInternal = originalHermesInternal;
+    } else {
+      delete globalObject.HermesInternal;
+    }
+    if (originalDevelopmentFlag === undefined) {
+      delete globalObject.__DEV__;
+    } else {
+      globalObject.__DEV__ = originalDevelopmentFlag;
+    }
     Crumb.disableConsoleCapture();
   });
 
@@ -87,6 +118,14 @@ describe('React Native JavaScript crash capture', () => {
     const getGlobalHandler = jest.fn(() => jest.fn());
     const setGlobalHandler = jest.fn();
     globalObject.ErrorUtils = { getGlobalHandler, setGlobalHandler };
+    const enablePromiseRejectionTracker = jest.fn<
+      void,
+      [HermesRejectionTrackingOptions]
+    >();
+    globalObject.HermesInternal = {
+      hasPromise: jest.fn(() => true),
+      enablePromiseRejectionTracker,
+    };
 
     await Crumb.start({
       projectKey: 'crumb_sdk_test',
@@ -95,6 +134,7 @@ describe('React Native JavaScript crash capture', () => {
 
     expect(getGlobalHandler).not.toHaveBeenCalled();
     expect(setGlobalHandler).not.toHaveBeenCalled();
+    expect(enablePromiseRejectionTracker).not.toHaveBeenCalled();
     expect(globalObject.onunhandledrejection).toBeUndefined();
     expect(mockNative.recordJavaScriptCrash).not.toHaveBeenCalled();
     expect(mockNative.recoverJavaScriptCrashes).not.toHaveBeenCalled();
@@ -218,6 +258,77 @@ describe('React Native JavaScript crash capture', () => {
       kind: 'unhandled_rejection',
       type: 'AbortError',
       message: 'request failed',
+      stack: reason.stack,
+      is_fatal: false,
+    });
+  });
+
+  it('does not replace React Native Hermes rejection tracking in development', async () => {
+    globalObject.__DEV__ = true;
+    const enablePromiseRejectionTracker = jest.fn<
+      void,
+      [HermesRejectionTrackingOptions]
+    >();
+    globalObject.HermesInternal = {
+      hasPromise: jest.fn(() => true),
+      enablePromiseRejectionTracker,
+    };
+
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      diagnostics: {
+        javascriptCrashCapture: { enabled: true },
+      },
+    });
+
+    expect(enablePromiseRejectionTracker).not.toHaveBeenCalled();
+  });
+
+  it('enables Hermes rejection tracking in release-style runtimes and preserves the global handler chain', async () => {
+    globalObject.__DEV__ = false;
+    const existingHandler = jest.fn();
+    const getGlobalHandler = jest.fn(() => existingHandler);
+    globalObject.ErrorUtils = {
+      getGlobalHandler,
+      setGlobalHandler: jest.fn((handler) =>
+        getGlobalHandler.mockReturnValue(handler)
+      ),
+    };
+    const enablePromiseRejectionTracker = jest.fn<
+      void,
+      [HermesRejectionTrackingOptions]
+    >();
+    globalObject.HermesInternal = {
+      hasPromise: jest.fn(() => true),
+      enablePromiseRejectionTracker,
+    };
+
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      diagnostics: {
+        javascriptCrashCapture: { enabled: true },
+      },
+    });
+
+    const options = enablePromiseRejectionTracker.mock.calls[0]?.[0];
+    if (!options) throw new Error('Hermes rejection tracker was not installed');
+    const reason = new Error('offline request failed');
+    reason.stack = 'Error: offline request failed\n    at sync (bundle.js:9:3)';
+    options.onUnhandled(17, reason);
+
+    expect(options.allRejections).toBe(true);
+    expect(existingHandler).toHaveBeenCalledTimes(1);
+    expect(existingHandler.mock.calls[0]?.[1]).toBe(false);
+    expect(mockNative.recordJavaScriptCrash).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.parse(mockNative.recordJavaScriptCrash.mock.calls[0]?.[0] ?? '{}')
+    ).toMatchObject({
+      source: 'javascript',
+      kind: 'unhandled_rejection',
+      type: 'Error',
+      message: 'offline request failed',
       stack: reason.stack,
       is_fatal: false,
     });

@@ -59,6 +59,10 @@ export default function App() {
     }, 0);
   };
 
+  const triggerUnhandledRejectionFixture = () => {
+    Promise.reject(new Error('Crumb React Native unhandled rejection fixture'));
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="auto" />
@@ -88,6 +92,11 @@ export default function App() {
           <Action
             label="Trigger JS fatal fixture"
             onPress={triggerJavaScriptFatalFixture}
+            disabled={!isStarted}
+          />
+          <Action
+            label="Trigger unhandled rejection fixture"
+            onPress={triggerUnhandledRejectionFixture}
             disabled={!isStarted}
           />
         </View>

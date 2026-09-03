@@ -8,6 +8,7 @@ import type {
 import type { CrumbReactNative } from './CrumbReactNative.nitro';
 
 declare const require: ((moduleName: string) => unknown) | undefined;
+declare const __DEV__: boolean | undefined;
 
 const DEFAULT_MAXIMUM_BREADCRUMBS = 32;
 const DEFAULT_MAXIMUM_BREADCRUMB_BYTES = 16_384;
@@ -47,6 +48,15 @@ interface ReactNativeExceptionsManagerLike {
   handleException: (error: unknown, isFatal: boolean) => unknown;
 }
 
+interface HermesInternalLike {
+  hasPromise?: () => boolean;
+  enablePromiseRejectionTracker?: (options: {
+    allRejections: boolean;
+    onUnhandled: (id: number, rejection?: unknown) => void;
+    onHandled: (id: number) => void;
+  }) => void;
+}
+
 interface GlobalObjectLike {
   ErrorUtils?: ErrorUtilsLike;
   onunhandledrejection?: UnhandledRejectionHandler;
@@ -59,6 +69,7 @@ interface GlobalObjectLike {
     handler: UnhandledRejectionHandler
   ) => void;
   process?: ProcessLike;
+  HermesInternal?: HermesInternalLike;
 }
 
 interface CrashCaptureState {
@@ -137,6 +148,7 @@ export function configureJavaScriptCrashCapture(
   installErrorUtilsHandler();
   installReactNativeExceptionsManagerHandler();
   installUnhandledRejectionHandler();
+  installHermesPromiseRejectionTracker();
 }
 
 export async function recoverJavaScriptCrashes(): Promise<void> {
@@ -279,6 +291,55 @@ function installUnhandledRejectionHandler(): void {
   } catch {
     // A runtime without a usable rejection hook remains unsupported safely.
   }
+}
+
+function installHermesPromiseRejectionTracker(): void {
+  // React Native and Expo already install their Hermes tracker in development.
+  // Release builds leave it disabled, which is the gap Crumb needs to fill.
+  if (typeof __DEV__ !== 'undefined' && __DEV__) return;
+
+  const hermes = globalObject.HermesInternal;
+  if (
+    !hermes?.hasPromise?.() ||
+    typeof hermes.enablePromiseRejectionTracker !== 'function'
+  ) {
+    return;
+  }
+
+  const exceptionsManager = state.reactNativeExceptionsManager?.target;
+  const errorUtils = state.errorUtils?.target;
+
+  try {
+    hermes.enablePromiseRejectionTracker({
+      allRejections: true,
+      onUnhandled: (id, rejection) => {
+        captureFailure('unhandled_rejection', rejection, false);
+
+        const error = unhandledRejectionError(id, rejection);
+        if (errorUtils) {
+          errorUtils.getGlobalHandler()(error, false);
+          return;
+        }
+        exceptionsManager?.handleException(error, false);
+      },
+      onHandled: (id) => {
+        console.warn(
+          `Promise rejection handled (id: ${id}); the earlier unhandled-rejection record may be ignored.`
+        );
+      },
+    });
+  } catch {
+    // Runtimes without a usable Hermes tracker keep the other handlers.
+  }
+}
+
+function unhandledRejectionError(id: number, rejection: unknown): Error {
+  const normalized = normalizeFailure(rejection);
+  const prefix = `Uncaught (in promise, id: ${id})`;
+  const error = new Error(`${prefix}: ${normalized.message}`);
+  (error as Error & { cause?: unknown }).cause = rejection;
+  if (normalized.stack) error.stack = `${prefix} ${normalized.stack}`;
+  return error;
 }
 
 function restoreErrorUtilsHandler(): void {
