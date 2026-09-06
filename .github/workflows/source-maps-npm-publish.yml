@@ -1,0 +1,65 @@
+name: Publish source-map CLI to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact immutable release tag matching VERSION
+        required: true
+        type: string
+      dist_tag:
+        description: npm distribution channel
+        required: true
+        default: next
+        type: choice
+        options: [next, latest]
+      confirmation:
+        description: Type "publish @crumbsdk/source-maps@<version>"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: source-maps-npm-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: packages/source-maps
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Validate immutable tag and explicit confirmation
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: node scripts/check-publication.mjs
+      - name: Install an OIDC-capable npm CLI
+        run: npm install --global npm@12.0.2
+      - run: npm ci
+      - run: npm ci
+        working-directory: .
+      - run: npm run contracts:check
+        working-directory: .
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run pack:check
+      - name: Publish with npm trusted publishing
+        env:
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: npm publish --access public --tag "${DIST_TAG}"
