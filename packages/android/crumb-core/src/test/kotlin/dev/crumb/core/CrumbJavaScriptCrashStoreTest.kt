@@ -1,5 +1,6 @@
 package dev.crumb.core
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -172,6 +173,29 @@ class CrumbJavaScriptCrashStoreTest {
         assertEquals(0.0, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(0, 20_000_000))
         assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(10, 0))
         assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(-1, 20_000_000))
+    }
+
+    @Test fun stacksSurviveRestartAndAreDroppedBeforeMetricsAtTheRecordLimit() {
+        val root = kotlin.io.path.createTempDirectory("crumb-stacks").toFile()
+        try {
+            val store = CrumbJavaScriptCrashStore(root)
+            assertTrue(store.record(recordJson(), failureContext()))
+            val metricsBytes = root.listFiles()!!.single().length().toInt()
+            assertTrue(store.remove("jsc_0123456789ABCDEF"))
+            val stacks = CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.CAPTURED, "managed_threads",
+                listOf(CrumbThreadStackDiagnostic(1, "main", "waiting", listOf("Synthetic.run(File.kt:1)"))), false, null)
+            val rendering = """{"source":"android_frame_metrics","sample_count":100,"slow_frame_count":2,"mean_frame_ms":17,"max_frame_ms":60,"gpu_sample_count":0,"last_frame_age_ms":20}"""
+            val context = failureContext().copy(stacks = stacks, rendering = rendering)
+            assertTrue(store.record(recordJson(), context))
+            assertEquals(stacks, CrumbJavaScriptCrashStore(root).records().single().failureContext?.stacks)
+            assertEquals(100, JSONObject(requireNotNull(CrumbJavaScriptCrashStore(root).records().single().failureContext?.rendering)).getInt("sample_count"))
+            assertTrue(store.remove("jsc_0123456789ABCDEF"))
+            val limited = CrumbJavaScriptCrashStore(root, CrumbJavaScriptCrashStoreLimits(maximumRecordBytes = metricsBytes))
+            assertTrue(limited.record(recordJson(), context))
+            assertEquals(null, limited.records().single().failureContext?.stacks)
+            assertEquals(777, limited.records().single().failureContext?.processId)
+            assertTrue(limited.records().single().stack != null)
+        } finally { root.deleteRecursively() }
     }
 
     private fun failureContext() = CrumbJavaScriptFailureContext(

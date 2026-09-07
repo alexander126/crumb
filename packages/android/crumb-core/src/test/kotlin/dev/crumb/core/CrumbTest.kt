@@ -346,8 +346,13 @@ class CrumbTest {
     fun recoveryReappliesDisabledEvidenceToPreviouslyCapturedContext() {
         Crumb.start(configuration(evidence = emptySet()))
         val settings = Crumb.reportSettings()
+        CrumbRenderingEvidence.provider = { "should be ignored while disabled" }
+        assertEquals(null, CrumbRenderingEvidence.snapshot(settings))
+        CrumbRenderingEvidence.provider = null
         val context = CrumbJavaScriptFailureContext(1_700_000_000_000, "SyntheticApp", 777,
-            12.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false)
+            12.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false,
+            CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.CAPTURED, "managed_threads",
+                listOf(CrumbThreadStackDiagnostic(1, "main", "waiting", listOf("Synthetic.run(File.kt:1)"))), false, null))
         val time = java.time.Instant.ofEpochMilli(context.capturedAtMillis)
         val crash = CrumbJavaScriptCrash("jsc_0123456789ABCDEF", "0123456789abcdef",
             "javascript", "exception", "Error", "Synthetic failure", null, time,
@@ -364,6 +369,7 @@ class CrumbTest {
         assertFalse(diagnostics.has("cpu_usage_percent"))
         assertFalse(diagnostics.has("memory"))
         assertEquals("unknown", diagnostics.getJSONObject("network").getString("status"))
+        assertEquals(0, diagnostics.getJSONObject("stack_traces").getJSONArray("threads").length())
     }
 
     @Test

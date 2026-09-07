@@ -6,9 +6,11 @@ the rules may not change accidentally.
 1. A human explicitly initiates every on-demand report. An opted-in React Native
    JavaScript failure may be recovered as a separate crash occurrence after a
    process relaunch.
-2. Crumb does not continuously sample performance or track product activity.
-   Diagnostics are collected only after report invocation or during the explicitly
-   opted-in JavaScript failure handoff; there is no continuous sampler.
+2. Crumb does not track product activity. Diagnostics are collected after report
+   invocation or during the explicitly opted-in JavaScript failure handoff. An
+   explicitly enabled rendering observer may retain five seconds of numeric frame
+   aggregates in memory; it is off by default, clears on background, obeys the
+   performance evidence policy, and never records screens or navigation.
 3. Sanitization happens on-device before upload and again on the server.
 4. Text inputs are masked by default.
 5. Network bodies, authorization headers, cookies, tokens, and arbitrary query

@@ -61,6 +61,7 @@ internal object OnDemandDiagnosticsCollector {
 
         val memory = if (capturesPerformance) Debug.MemoryInfo().also(Debug::getMemoryInfo) else null
         return CrumbDiagnosticsSnapshot(
+            rendering = if (options.renderingEnabled && CrumbEvidenceCategory.PERFORMANCE in evidence) dev.crumb.core.CrumbRenderingEvidence.provider?.invoke(true) else null,
             capturedAtMillis = System.currentTimeMillis(),
             location = location,
             processName = processName(context),

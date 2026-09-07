@@ -21,6 +21,7 @@ export default function App() {
         environment: 'development',
         release: { bundleVersion: 'expo-development-build' },
         diagnostics: {
+          renderingEnabled: true,
           logs: { captureConsole: true },
           // Opt-in: the next launch recovers this JavaScript failure.
           javascriptCrashCapture: { enabled: true },

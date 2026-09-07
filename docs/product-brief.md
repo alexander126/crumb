@@ -11,7 +11,7 @@ The product promise is:
 
 > When something goes wrong, a person can report it immediately and understand
 > what will be shared. The engineering team receives enough bounded, trustworthy
-> context to begin investigating, without Crumb continuously monitoring the app.
+> context to begin investigating, with collection choices controlled by the host app.
 
 Crumb is embedded by mobile product teams in their own applications. The person
 reporting a problem interacts with Crumb's native reporting flow; an engineer or
@@ -25,7 +25,7 @@ what the app was doing at the time. Engineering teams then spend time asking for
 details or trying to reproduce an issue that may have been transient.
 
 Existing observability products often solve a different problem through crash
-capture, analytics, continuous performance monitoring, or session replay. Crumb
+capture, analytics, broad performance monitoring, or session replay. Crumb
 is intentionally narrower: a human explicitly asks to report one occurrence,
 and Crumb gathers one bounded snapshot at that moment.
 
@@ -33,8 +33,9 @@ and Crumb gathers one bounded snapshot at that moment.
 
 1. **Human initiated.** Every report begins with an explicit action by the
    reporter. Crumb does not silently create reports.
-2. **Idle until invoked.** Crumb does not continuously sample performance,
-   record sessions, track navigation, or collect product analytics.
+2. **Idle by default.** Optional rendering diagnostics retain a five-second
+   numeric frame buffer only when explicitly enabled. Crumb does not record
+   sessions, track navigation, or collect product analytics.
 3. **Immediate reporting UI.** The form opens immediately. Diagnostics finish
    independently and must not make the reporter wait to start describing the
    problem.
@@ -232,7 +233,7 @@ release.
 - crash reporting;
 - session replay;
 - analytics and navigation tracking;
-- continuous performance or freeze monitoring;
+- broad performance or freeze monitoring beyond optional numeric rendering evidence;
 - user identity management;
 - arbitrary breadcrumbs or application-state capture;
 - automatic report creation;

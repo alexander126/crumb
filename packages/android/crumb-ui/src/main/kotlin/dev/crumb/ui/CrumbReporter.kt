@@ -64,9 +64,11 @@ object CrumbReporter {
 
     /** Installs foreground shake invocation and Activity lifecycle recovery. Call once after Crumb.start. */
     @JvmStatic
-    fun install(application: Application): Boolean {
+    @JvmOverloads
+    fun install(application: Application, activity: Activity? = null): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) return false
         val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
+        RenderingMonitor.install(application, activity)
         if (installedApplication === application) {
             syncShakeDetection(settings.invocation)
             return true

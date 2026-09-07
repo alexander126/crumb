@@ -395,7 +395,7 @@ struct CrumbCoreTests {
         defer { Crumb.resetForTesting() }
         try Crumb.start(makeConfiguration(evidence: []))
         let settings = try Crumb.reportSettings()
-        let context = CrumbJavaScriptFailureContext(capturedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        let context = CrumbJavaScriptFailureContext(rendering: CrumbRenderingSnapshot(source: "ios_display_link", sampleCount: 100, slowFrameCount: 2, meanFrameMs: 17, maxFrameMs: 60, lastFrameAgeMs: 20), stacks: CrumbFailureStacks(threads: [.init(index: 0, name: "Thread 0", state: "capture_thread", frames: ["SyntheticApp + 0x1234"])], truncated: false), capturedAt: Date(timeIntervalSince1970: 1_700_000_000),
             processName: "SyntheticApp", processID: 777, cpuUsagePercent: 12,
             residentMemoryBytes: 12_000_000, physicalFootprintBytes: 10_000_000,
             threadCount: 12, thermalState: "nominal", networkStatus: "reachable",
@@ -420,6 +420,11 @@ struct CrumbCoreTests {
         let disabledSnapshot = CrumbJavaScriptFailureContext.capture(settings: settings)
         #expect(disabledSnapshot.cpuUsagePercent == nil)
         #expect(disabledSnapshot.residentMemoryBytes == nil)
+        #expect(disabledSnapshot.rendering == nil)
+        #expect(diagnostics["rendering"] == nil)
+        #expect(disabledSnapshot.stacks == nil)
+        #expect((diagnostics["stack_traces"] as? [String: Any])?["threads"] as? [String] == [])
+        #expect(root["schema_version"] as? String == "1.0")
         #expect(disabledSnapshot.threadCount == nil)
         #expect(disabledSnapshot.networkStatus == "unknown")
     }

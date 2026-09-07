@@ -162,6 +162,29 @@ struct CrumbJavaScriptCrashStoreTests {
         #expect(records.first(where: { $0.recordID == "jsc_AAAAAAAAAAAAAAAA" })?.failureContext == nil)
     }
 
+    @Test
+    func stacksSurviveRestartAndAreDroppedBeforeMetricsAtTheRecordLimit() throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = CrumbJavaScriptCrashStore(rootURL: root)
+        #expect(store.record(recordJSON(), failureContext: failureContext()))
+        let metricsBytes = try Data(contentsOf: root.appendingPathComponent("jsc_0123456789ABCDEF.json")).count
+        #expect(store.remove(recordID: "jsc_0123456789ABCDEF"))
+        var context = failureContext()
+        context.rendering = CrumbRenderingSnapshot(source: "ios_display_link", sampleCount: 100, slowFrameCount: 2, meanFrameMs: 17, maxFrameMs: 60, lastFrameAgeMs: 20)
+        context.stacks = CrumbFailureStacks(threads: [.init(index: 0, name: "Thread 0", state: "capture_thread", frames: ["SyntheticApp + 0x1234"])], truncated: false)
+        #expect(store.record(recordJSON(), failureContext: context))
+        #expect(CrumbJavaScriptCrashStore(rootURL: root).records().first?.failureContext?.stacks == context.stacks)
+        #expect(CrumbJavaScriptCrashStore(rootURL: root).records().first?.failureContext?.rendering == context.rendering)
+        #expect(store.remove(recordID: "jsc_0123456789ABCDEF"))
+        let limited = CrumbJavaScriptCrashStore(rootURL: root, limits: .init(maximumRecordBytes: metricsBytes))
+        #expect(limited.record(recordJSON(), failureContext: context))
+        #expect(limited.records().first?.failureContext?.rendering == nil)
+        #expect(limited.records().first?.failureContext?.stacks == nil)
+        #expect(limited.records().first?.failureContext?.processID == 777)
+        #expect(limited.records().first?.stack != nil)
+    }
+
     private func failureContext() -> CrumbJavaScriptFailureContext {
         .init(capturedAt: Date(timeIntervalSince1970: 1_788_350_400), processName: "SyntheticApp", processID: 777,
               cpuUsagePercent: 0, residentMemoryBytes: 12_000_000, physicalFootprintBytes: 15_000_000,

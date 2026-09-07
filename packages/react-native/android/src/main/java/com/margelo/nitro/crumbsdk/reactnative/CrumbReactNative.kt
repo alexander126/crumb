@@ -69,6 +69,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
                 invocation = payload.invocations(),
                 capture = payload.captureOptions(),
                 diagnostics = CrumbDiagnosticsOptions(
+                    renderingEnabled = diagnostics?.optBoolean("renderingEnabled", false) ?: false,
                     healthCheckUrl = diagnostics?.optionalString("healthCheckUrl"),
                     timeoutMillis = diagnostics?.optionalLong("timeoutMs") ?: 2_000,
                     javascriptCrashCaptureEnabled = diagnostics
@@ -104,7 +105,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
             runCatching {
                 val context = requireNotNull(NitroModules.applicationContext)
                 val application = context.applicationContext as Application
-                CrumbReporter.install(application)
+                CrumbReporter.install(application, context.getCurrentActivity())
             }.onSuccess(promise::resolve)
                 .onFailure(promise::reject)
         }

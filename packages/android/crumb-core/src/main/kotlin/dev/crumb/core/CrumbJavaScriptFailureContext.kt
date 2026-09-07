@@ -23,8 +23,12 @@ internal data class CrumbJavaScriptFailureContext(
     val networkTransport: String,
     val networkExpensive: Boolean,
     val networkConstrained: Boolean,
+    val stacks: CrumbStackTraceDiagnostic? = null,
+    val rendering: String? = null,
 ) {
     fun encode(): JSONObject = JSONObject().apply {
+        rendering?.let { put("rendering", JSONObject(it)) }
+        stacks?.let { put("stacks", CrumbFailureStacks.encode(it)) }
         put("captured_at_millis", capturedAtMillis)
         put("process_name", processName)
         put("process_id", processId)
@@ -47,7 +51,8 @@ internal data class CrumbJavaScriptFailureContext(
         network = CrumbNetworkDiagnostic(networkStatus, networkTransport, null,
             networkExpensive, networkConstrained, null),
         logs = CrumbLogDiagnostic(CrumbLogCaptureStatus.UNAVAILABLE, emptyList(), emptyList(), false, 0, emptyList()),
-        stackTraces = CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.UNAVAILABLE, "none",
+        rendering = rendering,
+        stackTraces = stacks ?: CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.UNAVAILABLE, "none",
             emptyList(), false, "native_stacks_not_captured_during_javascript_failure"),
     )
 
@@ -64,6 +69,8 @@ internal data class CrumbJavaScriptFailureContext(
                 networkTransport = value.getString("network_transport"),
                 networkExpensive = value.getBoolean("network_expensive"),
                 networkConstrained = value.getBoolean("network_constrained"),
+                rendering = CrumbRenderingEvidence.validate(value.optJSONObject("rendering")?.toString()),
+                stacks = CrumbFailureStacks.decode(value.optJSONObject("stacks")),
             )
             require(result.capturedAtMillis > 0 && result.processId > 0)
             require(result.processName.isNotBlank() && result.processName.toByteArray().size <= 128)
@@ -82,9 +89,10 @@ internal data class CrumbJavaScriptFailureContext(
             return (cpuMillis / elapsedMillis * 100.0).takeIf { it.isFinite() && it in 0.0..100_000.0 }
         }
 
-        /** A bounded, on-demand snapshot. No HTTP, app callbacks, global stack walks or ongoing sampler. */
+        /** A bounded, on-demand snapshot. No HTTP, app callbacks or ongoing sampler. */
         fun capture(context: Context, settings: CrumbReportSettings): CrumbJavaScriptFailureContext {
             val capturedAt = System.currentTimeMillis()
+            val rendering = CrumbRenderingEvidence.snapshot(settings)
             val performance = CrumbEvidenceCategory.PERFORMANCE in settings.evidence
             val status = if (performance) runCatching {
                 File("/proc/self/status").bufferedReader().use { reader ->
@@ -135,7 +143,8 @@ internal data class CrumbJavaScriptFailureContext(
             return CrumbJavaScriptFailureContext(capturedAt, context.packageName.take(128), Process.myPid(),
                 cpu, statusNumber("VmRSS")?.times(1024), statusNumber("Threads")?.toInt(), thermal,
                 connectivity?.status ?: "unknown", connectivity?.transport ?: "unknown",
-                connectivity?.expensive ?: false, connectivity?.constrained ?: false)
+                connectivity?.expensive ?: false, connectivity?.constrained ?: false,
+                if (CrumbEvidenceCategory.THREAD_STACKS in settings.evidence) CrumbFailureStacks.capture() else null, rendering)
         }
     }
 }

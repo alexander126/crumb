@@ -39,6 +39,7 @@ data class CrumbDiagnosticsOptions(
     val logs: CrumbLogOptions = CrumbLogOptions(),
     /** Set only by the React Native adapter; native SDKs install no crash hooks. */
     val javascriptCrashCaptureEnabled: Boolean = false,
+    val renderingEnabled: Boolean = false,
 )
 
 enum class CrumbLogLevel { DEBUG, INFO, NOTICE, WARNING, ERROR, FAULT }
@@ -177,6 +178,7 @@ data class CrumbDiagnosticsSnapshot(
     val network: CrumbNetworkDiagnostic,
     val logs: CrumbLogDiagnostic,
     val stackTraces: CrumbStackTraceDiagnostic,
+    val rendering: String? = null,
 )
 
 class CrumbReportSettings internal constructor(
@@ -366,6 +368,7 @@ object Crumb {
             CrumbPolicySource.FRESH -> CrumbPolicyStatus.FRESH
             CrumbPolicySource.CACHED -> CrumbPolicyStatus.CACHED
         }
+        CrumbRenderingEvidence.snapshot(reportSettings())
         true
     }
 

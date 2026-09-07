@@ -190,7 +190,10 @@ iOS reads task/thread counters (at most 256 threads for CPU) and waits at most
 30 ms for a local connectivity observation. Android takes one 20 ms CPU sample
 and reads current process/network metadata. Neither runs continuously, calls
 app-provided log/health callbacks, probes HTTP, captures GPU utilization or
-walks native thread stacks. An unavailable measurement remains unavailable.
+installs native fatal handlers. With thread-stack evidence enabled, iOS also
+captures bounded native frames using PLCrashReporter's live report API, and
+Android captures managed Java/Kotlin stacks. Native image offsets are not dSYM
+source locations. An unavailable measurement remains unavailable.
 
 Breadcrumbs come from `Crumb.log` and optional console capture. They remain
 bounded and sanitized; disabling logs removes them at handoff and recovery.
@@ -198,11 +201,20 @@ Corrupt or oversized optional snapshot data is discarded without discarding an
 otherwise valid crash. Existing records without snapshots still recover their
 original JavaScript cause and breadcrumbs.
 
-A release-demo spot check on an iPhone 17 Pro Max simulator (iOS 26.4) measured
-about 2 ms for the native snapshot; an Android API 36 arm64 emulator measured
-about 37 ms. These single-run figures measure snapshot collection, excluding
-serialization, disk persistence and host error handling. They are not physical
-device benchmarks or latency guarantees; scheduling may extend the short wait.
+Opt into recent rendering evidence separately with
+`diagnostics.renderingEnabled: true` (default `false`) and install the reporter.
+This enables a foreground-only buffer of five one-second numeric buckets, capped
+at 1,000 observations per bucket, cleared on background or disabled performance
+evidence. The snapshot is frozen before failure stack collection and survives
+relaunch only while current settings still allow it. No frame images are stored.
+
+iOS reports `CADisplayLink` intervals and slow observations. Android reports
+window frame duration and, on API 31+ when supplied by the OS, GPU frame duration.
+Slow observations exceed 1.5 times the relevant frame budget. These are bounded
+observations, not complete frame coverage, FPS, or GPU utilization. iOS GPU time
+remains unavailable. Android zero GPU time is distinct from missing GPU time.
+Envelopes with native stacks or rendering use version 1.1; upgrade the consuming
+service before distributing an enabled SDK. Existing 1.0 reports remain valid.
 
 The breadcrumb limits default to 32 entries and 16 KiB. They can be lowered or
 raised within the package bounds (50 entries and 65,536 bytes maximum). A
