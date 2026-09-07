@@ -80,6 +80,9 @@ npm test
 
 ## Integration references
 
+The [source-map upload guide](docs/source-maps.md) covers preparing exact React
+Native release artifacts and the CI upload CLI implementation preview.
+
 Run the native demos from [examples/ios](examples/ios/README.md) and
 [packages/android](packages/android/README.md). The React Native API and its
 JavaScript log boundary are documented in

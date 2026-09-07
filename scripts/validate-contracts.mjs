@@ -16,6 +16,12 @@ addFormats(ajv);
 
 const fixtures = [
   {
+    name: "source-map-upload",
+    schema: "schemas/source-map-upload.schema.json",
+    valid: "schemas/examples/source-map-upload.valid.json",
+    invalid: "schemas/examples/source-map-upload.invalid.json",
+  },
+  {
     name: "report-envelope",
     schema: "schemas/report-envelope.schema.json",
     valid: "schemas/examples/report-envelope.valid.json",
@@ -80,4 +86,4 @@ if ([...effectiveContext].some((item) => !localContext.has(item) || !policyConte
 }
 
 if (failed) process.exitCode = 1;
-else console.log("Configuration, workspace-policy, and report-envelope contract fixtures passed.");
+else console.log("Public contract fixtures passed.");

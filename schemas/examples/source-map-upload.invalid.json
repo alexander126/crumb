@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "release": {
+    "platform": "ios",
+    "app_version": "1.0.0",
+    "native_build": "42"
+  },
+  "bundle": {
+    "byte_size": 32,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "source_map": {
+    "byte_size": 120,
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

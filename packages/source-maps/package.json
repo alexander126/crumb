@@ -1,0 +1,38 @@
+{
+  "name": "@crumbsdk/source-maps",
+  "version": "0.0.1-rc.3",
+  "description": "Explicit, CI-safe bundle and source-map uploads for Crumb",
+  "type": "module",
+  "bin": {
+    "crumb-source-maps": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexander126/crumb.git",
+    "directory": "packages/source-maps"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('node:fs').chmodSync('dist/cli.js', 0o755)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "pack:check": "npm run build && node test/pack-check.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "typescript": "7.0.2"
+  }
+}
