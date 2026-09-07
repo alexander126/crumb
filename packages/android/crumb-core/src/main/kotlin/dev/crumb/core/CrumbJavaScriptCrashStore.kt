@@ -38,7 +38,9 @@ data class CrumbJavaScriptCrash(
     val context: Map<String, String>,
     val isFatal: Boolean,
     val nativeTerminationWrapperObserved: Boolean,
-)
+) {
+    internal var failureContext: CrumbJavaScriptFailureContext? = null
+}
 
 data class CrumbJavaScriptCrashStoreLimits(
     val maximumRecords: Int = 50,
@@ -53,33 +55,33 @@ class CrumbJavaScriptCrashStore internal constructor(
     private val root: File,
     private val limits: CrumbJavaScriptCrashStoreLimits = CrumbJavaScriptCrashStoreLimits(),
 ) {
-    fun record(recordJson: String): Boolean = synchronized(STORAGE_LOCK) {
+    fun record(recordJson: String): Boolean = record(recordJson, null)
+
+    internal fun record(recordJson: String, failureContext: CrumbJavaScriptFailureContext?, includeBreadcrumbs: Boolean = true): Boolean = synchronized(STORAGE_LOCK) {
         if (!validLimits()) return false
         val bytes = recordJson.toByteArray(StandardCharsets.UTF_8)
         if (bytes.size > limits.maximumRecordBytes) return false
-        val incoming = parse(recordJson) ?: return false
+        val parsed = parse(recordJson) ?: return false
+        val incoming = if (includeBreadcrumbs) parsed else parsed.copy(breadcrumbs = emptyList())
+        // Never accept native context supplied by the JS payload.
+        incoming.failureContext = failureContext
+        if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) {
+            incoming.failureContext = null
+        }
         return runCatching {
             if (!root.exists() && !root.mkdirs() && !root.isDirectory) return false
             val existing = readAll()
             val match = existing.firstOrNull { it.record.fingerprint == incoming.fingerprint }
             if (match != null) {
                 val merged = merge(match.record, incoming)
-                val mergedBytes = encode(merged).toByteArray(StandardCharsets.UTF_8)
-                val total = existing.sumOf { encode(it.record).toByteArray(StandardCharsets.UTF_8).size.toLong() } -
-                    encode(match.record).toByteArray(StandardCharsets.UTF_8).size + mergedBytes.size
-                if (mergedBytes.size > limits.maximumRecordBytes || total > limits.maximumTotalBytes) {
-                    return false
-                }
+                val otherBytes = existing.filter { it.file != match.file }.sumOf { it.file.length() }
+                val mergedBytes = encodeFitting(merged, limits.maximumTotalBytes - otherBytes) ?: return false
                 write(File(root, "${match.record.recordId}.json"), mergedBytes)
                 true
             } else {
-                val encoded = encode(incoming).toByteArray(StandardCharsets.UTF_8)
-                val total = existing.sumOf { encode(it.record).toByteArray(StandardCharsets.UTF_8).size.toLong() }
-                if (
-                    existing.size >= limits.maximumRecords ||
-                    encoded.size > limits.maximumRecordBytes ||
-                    total + encoded.size > limits.maximumTotalBytes
-                ) {
+                val total = existing.sumOf { it.file.length() }
+                val encoded = encodeFitting(incoming, limits.maximumTotalBytes - total)
+                if (existing.size >= limits.maximumRecords || encoded == null) {
                     false
                 } else {
                     write(File(root, "${incoming.recordId}.json"), encoded)
@@ -87,6 +89,15 @@ class CrumbJavaScriptCrashStore internal constructor(
                 }
             }
         }.getOrDefault(false)
+    }
+
+    private fun encodeFitting(record: CrumbJavaScriptCrash, remainingBytes: Long): ByteArray? {
+        val budget = minOf(limits.maximumRecordBytes.toLong(), remainingBytes)
+        val full = encode(record).toByteArray(StandardCharsets.UTF_8)
+        if (full.size <= budget) return full
+        val core = record.copy() // Optional native context is outside the primary constructor.
+        val fallback = encode(core).toByteArray(StandardCharsets.UTF_8)
+        return fallback.takeIf { it.size <= budget }
     }
 
     fun records(): List<CrumbJavaScriptCrash> = synchronized(STORAGE_LOCK) {
@@ -191,7 +202,7 @@ class CrumbJavaScriptCrashStore internal constructor(
                 "native_termination_wrapper_observed",
                 false,
             ) || source == "native_termination_wrapper",
-        )
+        ).also { it.failureContext = CrumbJavaScriptFailureContext.decode(objectValue.optJSONObject("failure_context")) }
     }.getOrNull()
 
     private fun boundedBreadcrumbs(array: JSONArray?): List<CrumbJavaScriptBreadcrumb> {
@@ -241,10 +252,11 @@ class CrumbJavaScriptCrashStore internal constructor(
             isFatal = existing.isFatal || incoming.isFatal,
             nativeTerminationWrapperObserved = existing.nativeTerminationWrapperObserved ||
                 incoming.nativeTerminationWrapperObserved,
-        )
+        ).also { it.failureContext = preferred.failureContext }
     }
 
     private fun encode(record: CrumbJavaScriptCrash): String = JSONObject().apply {
+        record.failureContext?.let { put("failure_context", it.encode()) }
         put("schema_version", "1.0")
         put("record_id", record.recordId)
         put("fingerprint", record.fingerprint)

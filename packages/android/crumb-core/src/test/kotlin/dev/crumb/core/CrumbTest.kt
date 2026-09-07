@@ -343,6 +343,30 @@ class CrumbTest {
     }
 
     @Test
+    fun recoveryReappliesDisabledEvidenceToPreviouslyCapturedContext() {
+        Crumb.start(configuration(evidence = emptySet()))
+        val settings = Crumb.reportSettings()
+        val context = CrumbJavaScriptFailureContext(1_700_000_000_000, "SyntheticApp", 777,
+            12.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false)
+        val time = java.time.Instant.ofEpochMilli(context.capturedAtMillis)
+        val crash = CrumbJavaScriptCrash("jsc_0123456789ABCDEF", "0123456789abcdef",
+            "javascript", "exception", "Error", "Synthetic failure", null, time,
+            CrumbJavaScriptCrashRelease("1", "1", null),
+            listOf(CrumbJavaScriptBreadcrumb(time, "crumb", "test", "previously allowed")), emptyMap(), true, false)
+        crash.failureContext = context
+        val input = CrumbJavaScriptCrashRecovery.recoveryInput(crash, settings,
+            CrumbReportRuntime("test", "Synthetic device", "en-US", "UTC"))
+        assertEquals(777, input.diagnostics.processId)
+        assertEquals(context.capturedAtMillis, input.diagnostics.capturedAtMillis)
+        val root = JSONObject(CrumbReportEnvelopeBuilder.build(settings, input).json)
+        val diagnostics = root.getJSONObject("diagnostics")
+        assertEquals(0, root.getJSONObject("javascript_crash").getJSONArray("breadcrumbs").length())
+        assertFalse(diagnostics.has("cpu_usage_percent"))
+        assertFalse(diagnostics.has("memory"))
+        assertEquals("unknown", diagnostics.getJSONObject("network").getString("status"))
+    }
+
+    @Test
     fun buildsRecoveredJavaScriptCrashAsOneStructuredOccurrence() {
         Crumb.start(
             configuration(

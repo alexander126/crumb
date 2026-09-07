@@ -393,6 +393,30 @@ describe('React Native JavaScript crash capture', () => {
     expect(existingHandler).toHaveBeenCalledWith(error, true);
   });
 
+  it('discards buffered breadcrumbs when native policy disables logging before failure', async () => {
+    const hostHandler = jest.fn();
+    let handler = hostHandler;
+    globalObject.ErrorUtils = {
+      getGlobalHandler: jest.fn(() => handler),
+      setGlobalHandler: jest.fn((next) => {
+        handler = next;
+      }),
+    };
+    await Crumb.start({
+      projectKey: 'crumb_sdk_test',
+      environment: 'test',
+      diagnostics: { javascriptCrashCapture: { enabled: true } },
+    });
+    Crumb.log('info', 'previously allowed breadcrumb');
+    mockNative.canCollectLogs.mockReturnValue(false);
+    handler(new Error('policy changed'), true);
+    const record = JSON.parse(
+      mockNative.recordJavaScriptCrash.mock.calls.at(-1)?.[0] ?? '{}'
+    );
+    expect(record.breadcrumbs).toEqual([]);
+    expect(hostHandler).toHaveBeenCalled();
+  });
+
   it('bounds breadcrumbs and context before the synchronous native handoff', async () => {
     await Crumb.start({
       projectKey: 'crumb_sdk_test',

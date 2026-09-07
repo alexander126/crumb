@@ -14,50 +14,7 @@ package enum CrumbJavaScriptCrashRecovery {
                 recovered = store.remove(recordID: crash.recordID) || recovered
                 continue
             }
-            let release = CrumbRelease(
-                appVersion: crash.release.appVersion ?? settings.release.appVersion,
-                nativeBuild: crash.release.nativeBuild ?? settings.release.nativeBuild,
-                bundleVersion: crash.release.bundleVersion ?? settings.release.bundleVersion
-            )
-            let reportCrash = CrumbJavaScriptCrash(
-                recordID: crash.recordID,
-                fingerprint: crash.fingerprint,
-                source: crash.source,
-                kind: crash.kind,
-                type: crash.type,
-                message: crash.message,
-                stack: crash.stack,
-                occurredAt: crash.occurredAt,
-                release: CrumbJavaScriptCrashRelease(
-                    appVersion: release.appVersion,
-                    nativeBuild: release.nativeBuild,
-                    bundleVersion: release.bundleVersion
-                ),
-                breadcrumbs: crash.breadcrumbs,
-                context: settings.evidence.contains(.customContext)
-                    ? crash.context.filter { settings.customContext[$0.key] != nil }
-                    : [:],
-                isFatal: crash.isFatal,
-                nativeTerminationWrapperObserved: crash.nativeTerminationWrapperObserved
-            )
-            let occurredAt = crash.occurredAt
-            let description = "JavaScript \(crash.kind): \(crash.message)"
-            let input = CrumbReportBuildInput(
-                reportID: reportID,
-                trigger: .programmatic,
-                triggeredAt: occurredAt,
-                submittedAt: Date(),
-                runtime: recoveryRuntime(),
-                category: "Bug",
-                description: String(description.prefix(4_000)),
-                diagnostics: recoveryDiagnostics(),
-                screenshotCapture: .disabledByConfiguration,
-                screenshotMasking: .notApplicable,
-                customContext: settings.customContext,
-                policyStatus: settings.policyStatus,
-                workspacePolicyVersion: settings.workspacePolicyVersion,
-                javascriptCrash: reportCrash
-            )
+            let input = recoveryInput(crash: crash, settings: settings)
 
             do {
                 let envelope = try CrumbReportEnvelopeBuilder.build(settings: settings, input: input)
@@ -71,6 +28,53 @@ package enum CrumbJavaScriptCrashRecovery {
             }
         }
         return recovered
+    }
+
+    package static func recoveryInput(crash: CrumbJavaScriptCrash, settings: CrumbReportSettings) -> CrumbReportBuildInput {
+        let release = CrumbRelease(
+            appVersion: crash.release.appVersion ?? settings.release.appVersion,
+            nativeBuild: crash.release.nativeBuild ?? settings.release.nativeBuild,
+            bundleVersion: crash.release.bundleVersion ?? settings.release.bundleVersion
+        )
+        let reportCrash = CrumbJavaScriptCrash(
+            recordID: crash.recordID,
+            fingerprint: crash.fingerprint,
+            source: crash.source,
+            kind: crash.kind,
+            type: crash.type,
+            message: crash.message,
+            stack: crash.stack,
+            occurredAt: crash.occurredAt,
+            release: CrumbJavaScriptCrashRelease(
+                appVersion: release.appVersion,
+                nativeBuild: release.nativeBuild,
+                bundleVersion: release.bundleVersion
+            ),
+            breadcrumbs: settings.diagnostics.logs.enabled && settings.evidence.contains(.logs) ? crash.breadcrumbs : [],
+            context: settings.evidence.contains(.customContext)
+                ? crash.context.filter { settings.customContext[$0.key] != nil }
+                : [:],
+            isFatal: crash.isFatal,
+            nativeTerminationWrapperObserved: crash.nativeTerminationWrapperObserved
+        )
+        let occurredAt = crash.occurredAt
+        let description = "JavaScript \(crash.kind): \(crash.message)"
+        return CrumbReportBuildInput(
+            reportID: recoveryReportID(for: crash.recordID),
+            trigger: .programmatic,
+            triggeredAt: occurredAt,
+            submittedAt: Date(),
+            runtime: recoveryRuntime(),
+            category: "Bug",
+            description: String(description.prefix(4_000)),
+            diagnostics: crash.failureContext?.diagnostics() ?? recoveryDiagnostics(),
+            screenshotCapture: .disabledByConfiguration,
+            screenshotMasking: .notApplicable,
+            customContext: settings.customContext,
+            policyStatus: settings.policyStatus,
+            workspacePolicyVersion: settings.workspacePolicyVersion,
+            javascriptCrash: reportCrash
+        )
     }
 
     private static func recoveryReportID(for recordID: String) -> String {

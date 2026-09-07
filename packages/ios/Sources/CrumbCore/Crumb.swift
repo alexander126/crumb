@@ -9,16 +9,17 @@ public enum Crumb {
     /// to be collected at this moment.
     public static func canCollectLogs() -> Bool {
         guard let settings = try? CrumbRuntime.shared.reportSettings() else { return false }
-        return settings.evidence.contains(.logs)
+        return settings.diagnostics.logs.enabled && settings.evidence.contains(.logs)
     }
 
     /// Synchronously accepts a sanitized JavaScript failure from the React
     /// Native adapter. Native uncaught-exception hooks are never installed.
     public static func recordJavaScriptCrash(_ recordJSON: String) {
-        guard (try? CrumbRuntime.shared.reportSettings().diagnostics.javascriptCrashCaptureEnabled) == true else {
+        guard let settings = try? CrumbRuntime.shared.reportSettings(),
+              settings.diagnostics.javascriptCrashCaptureEnabled else {
             return
         }
-        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON)
+        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON, failureContext: CrumbJavaScriptFailureContext.capture(settings: settings), includeBreadcrumbs: settings.diagnostics.logs.enabled && settings.evidence.contains(.logs))
     }
 
     /// Moves pending JavaScript failures into the regular durable report queue.

@@ -255,19 +255,21 @@ object Crumb {
     @JvmStatic
     fun canCollectLogs(): Boolean = synchronized(lock) {
         val activeConfiguration = configuration ?: return@synchronized false
-        effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
+        activeConfiguration.diagnostics.logs.enabled && effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
     }
 
     /** Synchronously accepts the React Native adapter's sanitized JS failure. */
     @JvmStatic
     fun recordJavaScriptCrash(context: Context, recordJson: String) {
-        synchronized(lock) {
-            val activeConfiguration = configuration ?: return@synchronized
-            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return@synchronized
-            CrumbJavaScriptCrashStore(
-                context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
-            ).record(recordJson)
+        val settings = synchronized(lock) {
+            val activeConfiguration = configuration ?: return
+            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return
+            reportSettings()
         }
+        val snapshot = runCatching { CrumbJavaScriptFailureContext.capture(context.applicationContext, settings) }.getOrNull()
+        CrumbJavaScriptCrashStore(
+            context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
+        ).record(recordJson, snapshot, settings.diagnostics.logs.enabled && CrumbEvidenceCategory.LOGS in settings.evidence)
     }
 
     /** Moves pending JS failures into the normal durable report queue. */

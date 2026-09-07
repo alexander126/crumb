@@ -182,6 +182,28 @@ identity, recent Crumb breadcrumbs, and only custom-context keys explicitly
 allowlisted by the host. It does not include native crash data, arbitrary
 memory, Redux/store state, request bodies, or response bodies.
 
+The native handoff also saves a bounded snapshot of the original process ID,
+capture time, CPU, memory, thread count, thermal state and connectivity when the
+corresponding evidence categories are enabled. These are measurements taken
+while handling the JavaScript failure, not measurements from the next launch.
+iOS reads task/thread counters (at most 256 threads for CPU) and waits at most
+30 ms for a local connectivity observation. Android takes one 20 ms CPU sample
+and reads current process/network metadata. Neither runs continuously, calls
+app-provided log/health callbacks, probes HTTP, captures GPU utilization or
+walks native thread stacks. An unavailable measurement remains unavailable.
+
+Breadcrumbs come from `Crumb.log` and optional console capture. They remain
+bounded and sanitized; disabling logs removes them at handoff and recovery.
+Corrupt or oversized optional snapshot data is discarded without discarding an
+otherwise valid crash. Existing records without snapshots still recover their
+original JavaScript cause and breadcrumbs.
+
+A release-demo spot check on an iPhone 17 Pro Max simulator (iOS 26.4) measured
+about 2 ms for the native snapshot; an Android API 36 arm64 emulator measured
+about 37 ms. These single-run figures measure snapshot collection, excluding
+serialization, disk persistence and host error handling. They are not physical
+device benchmarks or latency guarantees; scheduling may extend the short wait.
+
 The breadcrumb limits default to 32 entries and 16 KiB. They can be lowered or
 raised within the package bounds (50 entries and 65,536 bytes maximum). A
 native termination wrapper with the same fingerprint is folded into the

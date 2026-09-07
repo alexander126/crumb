@@ -7,7 +7,8 @@ the rules may not change accidentally.
    JavaScript failure may be recovered as a separate crash occurrence after a
    process relaunch.
 2. Crumb does not continuously sample performance or track product activity.
-   Diagnostics are collected only after report invocation.
+   Diagnostics are collected only after report invocation or during the explicitly
+   opted-in JavaScript failure handoff; there is no continuous sampler.
 3. Sanitization happens on-device before upload and again on the server.
 4. Text inputs are masked by default.
 5. Network bodies, authorization headers, cookies, tokens, and arbitrary query
