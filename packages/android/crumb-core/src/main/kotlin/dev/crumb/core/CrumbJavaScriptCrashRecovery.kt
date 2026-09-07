@@ -22,39 +22,7 @@ internal object CrumbJavaScriptCrashRecovery {
                 recovered = store.remove(crash.recordId) || recovered
                 return@forEach
             }
-            val release = CrumbRelease(
-                appVersion = crash.release.appVersion ?: settings.release.appVersion,
-                nativeBuild = crash.release.nativeBuild ?: settings.release.nativeBuild,
-                bundleVersion = crash.release.bundleVersion ?: settings.release.bundleVersion,
-            )
-            val reportCrash = crash.copy(
-                release = CrumbJavaScriptCrashRelease(
-                    appVersion = release.appVersion,
-                    nativeBuild = release.nativeBuild,
-                    bundleVersion = release.bundleVersion,
-                ),
-                context = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in settings.evidence) {
-                    crash.context.filterKeys { it in settings.customContext }
-                } else {
-                    emptyMap()
-                },
-            )
-            val input = CrumbReportBuildInput(
-                reportId = reportId,
-                trigger = CrumbInvocation.PROGRAMMATIC,
-                triggeredAtMillis = crash.occurredAt.toEpochMilli(),
-                submittedAtMillis = System.currentTimeMillis(),
-                runtime = recoveryRuntime(),
-                category = "Bug",
-                description = "JavaScript ${crash.kind}: ${crash.message}".take(4_000),
-                diagnostics = recoveryDiagnostics(),
-                screenshotCapture = CrumbScreenshotCaptureState.DISABLED_BY_CONFIGURATION,
-                screenshotMasking = CrumbScreenshotMaskingState.NOT_APPLICABLE,
-                customContext = settings.customContext,
-                policyStatus = settings.policyStatus,
-                workspacePolicyVersion = settings.workspacePolicyVersion,
-                javascriptCrash = reportCrash,
-            )
+            val input = recoveryInput(crash, settings)
             runCatching {
                 val envelope = CrumbReportEnvelopeBuilder.build(settings, input)
                 CrumbReportQueue.from(context).enqueue(envelope, emptyList())
@@ -64,6 +32,43 @@ internal object CrumbJavaScriptCrashRecovery {
             }
         }
         return recovered
+    }
+
+    internal fun recoveryInput(crash: CrumbJavaScriptCrash, settings: CrumbReportSettings, runtime: CrumbReportRuntime = recoveryRuntime()): CrumbReportBuildInput {
+        val release = CrumbRelease(
+            appVersion = crash.release.appVersion ?: settings.release.appVersion,
+            nativeBuild = crash.release.nativeBuild ?: settings.release.nativeBuild,
+            bundleVersion = crash.release.bundleVersion ?: settings.release.bundleVersion,
+        )
+        val reportCrash = crash.copy(
+            release = CrumbJavaScriptCrashRelease(
+                appVersion = release.appVersion,
+                nativeBuild = release.nativeBuild,
+                bundleVersion = release.bundleVersion,
+            ),
+            breadcrumbs = if (settings.diagnostics.logs.enabled && CrumbEvidenceCategory.LOGS in settings.evidence) crash.breadcrumbs else emptyList(),
+            context = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in settings.evidence) {
+                crash.context.filterKeys { it in settings.customContext }
+            } else {
+                emptyMap()
+            },
+        )
+        return CrumbReportBuildInput(
+            reportId = recoveryReportId(crash.recordId),
+            trigger = CrumbInvocation.PROGRAMMATIC,
+            triggeredAtMillis = crash.occurredAt.toEpochMilli(),
+            submittedAtMillis = System.currentTimeMillis(),
+            runtime = runtime,
+            category = "Bug",
+            description = "JavaScript ${crash.kind}: ${crash.message}".take(4_000),
+            diagnostics = crash.failureContext?.diagnostics() ?: recoveryDiagnostics(),
+            screenshotCapture = CrumbScreenshotCaptureState.DISABLED_BY_CONFIGURATION,
+            screenshotMasking = CrumbScreenshotMaskingState.NOT_APPLICABLE,
+            customContext = settings.customContext,
+            policyStatus = settings.policyStatus,
+            workspacePolicyVersion = settings.workspacePolicyVersion,
+            javascriptCrash = reportCrash,
+        )
     }
 
     private fun recoveryReportId(recordId: String): String = "rpt_${recordId.drop(4)}"

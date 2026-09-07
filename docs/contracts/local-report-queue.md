@@ -89,3 +89,20 @@ replace an already queued report.
 The JavaScript crash handoff defaults to 50 occurrences, 2 MiB total, 32 KiB
 per occurrence, 32 breadcrumbs, and 16 KiB of breadcrumb data. It also never
 evicts an existing occurrence to accept a new one.
+
+### Optional JavaScript failure context
+
+The private local crash record may carry `failure_context`, captured natively
+before the existing JavaScript error handler is called. JavaScript-supplied
+values for that field are ignored. It preserves the original process/time and
+opted-in CPU, memory, thread count, thermal and connectivity observations.
+Recovery maps valid context into existing envelope 1.0 diagnostics with location
+`react_native_javascript_failure`; legacy/fallback diagnostics retain
+`react_native_recovery`. No wire schema change is required.
+
+Optional context is validated on read and dropped before the core crash if it
+would exceed the per-record or remaining total-store budget. Deduplication keeps the context belonging
+to the preferred JavaScript cause, never a later termination wrapper. Current
+collection settings are applied again at recovery, including removal of saved
+breadcrumbs when logs are disabled. Native stacks, GPU metrics, provider log
+callbacks and HTTP health checks are not attempted during failure handling.
