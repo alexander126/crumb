@@ -113,6 +113,7 @@ public struct CrumbDiagnosticsSnapshot: Equatable, Sendable {
     public let thermalState: String
     public let threadCount: Int
     public let busiestThreads: [CrumbThreadDiagnostic]
+    public let rendering: CrumbRenderingSnapshot?
     public let gpuStatus: String
     public let network: CrumbNetworkDiagnostic
     public let logs: CrumbLogDiagnostic
@@ -132,7 +133,8 @@ public struct CrumbDiagnosticsSnapshot: Equatable, Sendable {
         gpuStatus: String,
         network: CrumbNetworkDiagnostic,
         logs: CrumbLogDiagnostic,
-        stackTraces: CrumbStackTraceDiagnostic
+        stackTraces: CrumbStackTraceDiagnostic,
+        rendering: CrumbRenderingSnapshot? = nil
     ) {
         self.capturedAt = capturedAt
         self.location = location
@@ -148,5 +150,6 @@ public struct CrumbDiagnosticsSnapshot: Equatable, Sendable {
         self.network = network
         self.logs = logs
         self.stackTraces = stackTraces
+        self.rendering = rendering
     }
 }

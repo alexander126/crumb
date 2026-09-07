@@ -8,6 +8,7 @@ import Network
 
 /// Local persistence only. Native stack evidence uses envelope 1.1.
 package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
+    package var rendering: CrumbRenderingSnapshot? = nil
     package var stacks: CrumbFailureStacks? = nil
     package let capturedAt: Date
     package let processName: String
@@ -34,6 +35,7 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
         else { return nil }
         var result = self
         result.stacks = stacks?.validated()
+        result.rendering = rendering?.validated()
         return result
     }
 
@@ -50,18 +52,19 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
             logs: CrumbLogDiagnostic(status: .unavailable, sources: [], entries: [],
                 truncated: false, droppedEntryCount: 0, failures: []),
             stackTraces: stacks?.diagnostic ?? CrumbStackTraceDiagnostic(status: .unavailable, scope: "none",
-                threads: [], truncated: false, unavailableReason: "native_stacks_not_captured_during_javascript_failure")
+                threads: [], truncated: false, unavailableReason: "native_stacks_not_captured_during_javascript_failure"), rendering: rendering
         )
     }
 
     /// Only invoked for an opted-in JavaScript handoff. No provider callbacks or HTTP probes.
     package static func capture(settings: CrumbReportSettings) -> Self {
         let capturedAt = Date()
+        let rendering = CrumbRenderingBuffer.capture(settings: settings)
         let performance = settings.evidence.contains(.performance)
         let memory = performance ? memorySnapshot() : nil
         let threads = performance ? threadSnapshot() : (nil, nil)
         let network = settings.evidence.contains(.network) ? networkSnapshot() : nil
-        return Self(stacks: settings.evidence.contains(.threadStacks) ? CrumbFailureStacks.capture() : nil, capturedAt: capturedAt,
+        return Self(rendering: rendering, stacks: settings.evidence.contains(.threadStacks) ? CrumbFailureStacks.capture() : nil, capturedAt: capturedAt,
             processName: String(CrumbLogSanitizer.sanitize(ProcessInfo.processInfo.processName).prefix(128)),
             processID: ProcessInfo.processInfo.processIdentifier,
             cpuUsagePercent: threads.1, residentMemoryBytes: memory?.0,

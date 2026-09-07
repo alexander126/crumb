@@ -56,7 +56,9 @@ public enum Crumb {
         _ policy: CrumbWorkspacePolicy,
         source: CrumbPolicySource
     ) -> Bool {
-        CrumbRuntime.shared.applyWorkspacePolicy(policy, source: source)
+        let applied = CrumbRuntime.shared.applyWorkspacePolicy(policy, source: source)
+        if (try? reportSettings().evidence.contains(.performance)) != true { CrumbRenderingBuffer.shared.clear() }
+        return applied
     }
 
     package static func markWorkspacePolicyUnavailable() {

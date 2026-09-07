@@ -97,18 +97,21 @@ public struct CrumbDiagnosticsOptions: Equatable, Sendable {
     public let healthCheckURL: URL?
     public let timeout: TimeInterval
     public let logs: CrumbLogOptions
+    public let renderingEnabled: Bool
     package let javascriptCrashCaptureEnabled: Bool
 
     public init(
         healthCheckURL: URL? = nil,
         timeout: TimeInterval = 2,
         logs: CrumbLogOptions = .init(),
-        javascriptCrashCaptureEnabled: Bool = false
+        javascriptCrashCaptureEnabled: Bool = false,
+        renderingEnabled: Bool = false
     ) {
         self.healthCheckURL = healthCheckURL
         self.timeout = timeout
         self.logs = logs
         self.javascriptCrashCaptureEnabled = javascriptCrashCaptureEnabled
+        self.renderingEnabled = renderingEnabled
     }
 }
 

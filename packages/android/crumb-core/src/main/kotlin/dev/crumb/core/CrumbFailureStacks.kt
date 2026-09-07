@@ -8,10 +8,13 @@ internal object CrumbFailureStacks {
     private const val maximumBytes = 12_288
 
     fun capture(): CrumbStackTraceDiagnostic? = runCatching {
-        val stacks = Thread.getAllStackTraces().entries.sortedWith(
-            compareByDescending<Map.Entry<Thread, Array<StackTraceElement>>> { it.key == Thread.currentThread() }
-                .thenByDescending { it.key.name == "main" }.thenBy { it.key.id },
-        )
+        val current = Thread.currentThread()
+        val stacks = Thread.getAllStackTraces().entries.sortedWith { left, right ->
+            val leftRank = if (left.key === current) 0 else if (left.key.name == "main") 1 else 2
+            val rightRank = if (right.key === current) 0 else if (right.key.name == "main") 1 else 2
+            val rank = leftRank.compareTo(rightRank)
+            if (rank != 0) rank else left.key.id.compareTo(right.key.id)
+        }
         var truncated = stacks.size > 32
         val threads = mutableListOf<CrumbThreadStackDiagnostic>()
         for ((thread, frames) in stacks.take(32)) {

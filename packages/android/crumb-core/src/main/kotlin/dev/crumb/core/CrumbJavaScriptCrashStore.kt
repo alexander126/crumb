@@ -67,6 +67,7 @@ class CrumbJavaScriptCrashStore internal constructor(
         incoming.failureContext = failureContext
         if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) {
             incoming.failureContext = incoming.failureContext?.copy(stacks = null)
+            if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) incoming.failureContext = incoming.failureContext?.copy(rendering = null)
             if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) incoming.failureContext = null
         }
         return runCatching {
@@ -100,6 +101,9 @@ class CrumbJavaScriptCrashStore internal constructor(
         core.failureContext = record.failureContext?.copy(stacks = null)
         val metrics = encode(core).toByteArray(StandardCharsets.UTF_8)
         if (metrics.size <= budget) return metrics
+        core.failureContext = core.failureContext?.copy(rendering = null)
+        val withoutRendering = encode(core).toByteArray(StandardCharsets.UTF_8)
+        if (withoutRendering.size <= budget) return withoutRendering
         core.failureContext = null
         val fallback = encode(core).toByteArray(StandardCharsets.UTF_8)
         return fallback.takeIf { it.size <= budget }

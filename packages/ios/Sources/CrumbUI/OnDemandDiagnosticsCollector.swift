@@ -82,7 +82,8 @@ enum OnDemandDiagnosticsCollector {
             gpuStatus: "Unavailable on demand on iOS",
             network: network,
             logs: logs,
-            stackTraces: stackTraces
+            stackTraces: stackTraces,
+            rendering: options.renderingEnabled && capturesPerformance ? CrumbRenderingBuffer.shared.snapshot() : nil
         )
     }
 

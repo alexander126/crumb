@@ -67,7 +67,8 @@ application binary. It is not treated as a secret and never authorizes reads.
 - Removing a screenshot removes its bytes and manifest; it does not rewrite an
   enabled capture attempt as configuration-disabled.
 - CPU, memory, app-owned threads, thermal state, and network state are sampled
-  only after invocation. The SDK does not keep a rolling performance window.
+  only after invocation or an opted-in JavaScript failure. Optional rendering
+  keeps only five foreground one-second numeric buckets when explicitly enabled.
 - The optional Crumb API health check is a bounded `HEAD` probe. Only a final
   `2xx` is healthy. The stored diagnostic includes its host, outcome, status
   code, latency, and bounded failure classification—not response content.

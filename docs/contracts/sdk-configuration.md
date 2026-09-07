@@ -115,3 +115,14 @@ For a gradual migration:
 Contract fixtures and precedence checks run with `npm run contracts:check`.
 Native coverage for malformed, offline, fail-closed, and non-broadening
 behaviour is included in the iOS and Android core tests.
+
+## Optional rendering evidence
+
+`diagnostics.rendering_enabled` maps to `diagnostics.renderingEnabled` in Swift,
+Kotlin and React Native and defaults to false. Enabling it plus reporter
+installation starts a foreground-only numeric buffer of five one-second buckets
+(maximum 1,000 observations per bucket). Performance evidence must also be
+allowed by local and workspace settings. Backgrounding and policy denial clear
+it; recovery reapplies current consent. iOS captures display intervals, Android
+captures frame duration and optional API 31+ GPU duration. No GPU utilization,
+frame images, or application activity trail is inferred from these values.

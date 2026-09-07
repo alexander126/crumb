@@ -112,12 +112,12 @@ artifact verification failures are `422`; conflicting or terminal lifecycle
 operations are `409`; and reports outside the authenticated project resolve as
 `404`.
 
-## Native thread stacks (envelope 1.1)
+## Native thread stacks and rendering (envelope 1.1)
 
 `schemas/report-envelope.v1.1.schema.json` adds the `native_threads` stack scope.
 The original 1.0 schema remains unchanged and continues to cover managed
-Java/Kotlin and React Native frames. iOS emits 1.1 only when native stack
-evidence is present; reports without it retain 1.0. Deploy compatible ingestion
+Java/Kotlin and React Native frames. Both platforms emit 1.1 when rendering
+evidence is present; iOS also emits 1.1 for native stacks. Other reports retain 1.0. Deploy compatible ingestion
 before distributing an SDK that emits 1.1; a 1.0-only service rejects 1.1.
 
 During an explicitly enabled JavaScript failure handoff, `thread_stacks`
@@ -140,3 +140,16 @@ frames are retained by Crumb. Available symbols are resolved after other threads
 resume. Image basename, UUID and offset are retained when present; source files
 and line numbers require separate native symbolication and are not claimed.
 The dependency is pinned to the same published version for SwiftPM and CocoaPods.
+
+`diagnostics.rendering` contains only numeric aggregates plus a source enum:
+`ios_display_link` or `android_frame_metrics`. Required fields are `sample_count`
+(1–5,000), `slow_frame_count`, `mean_frame_ms`, `max_frame_ms`, `gpu_sample_count`
+and `last_frame_age_ms`. GPU durations (`mean_gpu_ms`, `max_gpu_ms`) are omitted
+without GPU observations. iOS always has zero GPU observations. Millisecond
+values are bounded to 5,000; capture requires a last observation younger than
+five seconds. Slow counts use each observation's frame budget × 1.5.
+Attached rendering uses `privacy.diagnostics_capture:
+on_demand_with_rendering_buffer`. It requires the explicit rendering option and
+performance evidence at capture and recovery; it does not represent GPU
+utilization. Storage pressure drops stacks, then rendering, then older optional
+metrics, preserving the original JavaScript failure.

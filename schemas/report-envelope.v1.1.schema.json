@@ -437,6 +437,9 @@
         },
         "stack_traces": {
           "$ref": "#/$defs/stackTraceDiagnostic"
+        },
+        "rendering": {
+          "$ref": "#/$defs/rendering"
         }
       }
     },
@@ -819,7 +822,10 @@
           ]
         },
         "diagnostics_capture": {
-          "const": "on_demand"
+          "enum": [
+            "on_demand",
+            "on_demand_with_rendering_buffer"
+          ]
         },
         "log_capture": {
           "type": "string",
@@ -898,6 +904,67 @@
         "upload_id": {
           "type": "string",
           "pattern": "^upl_[A-Za-z0-9_-]{12,80}$"
+        }
+      }
+    },
+    "rendering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "sample_count",
+        "slow_frame_count",
+        "gpu_sample_count",
+        "mean_frame_ms",
+        "max_frame_ms",
+        "last_frame_age_ms"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "ios_display_link",
+            "android_frame_metrics"
+          ]
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "slow_frame_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "gpu_sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "mean_frame_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "max_frame_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "mean_gpu_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "max_gpu_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "last_frame_age_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
         }
       }
     }

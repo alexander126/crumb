@@ -30,6 +30,7 @@ internal data class DemoCrumbConfiguration(
                     environment = if (uploadEnabled) environment.trim().ifEmpty { "staging" } else "local",
                     release = CrumbRelease(appVersion = appVersion, nativeBuild = nativeBuild),
                     diagnostics = CrumbDiagnosticsOptions(
+                    renderingEnabled = true,
                         healthCheckUrl = resolvedUrl?.let { "$it/health" }.takeIf { uploadEnabled },
                         logs = CrumbLogOptions(provider = logProvider),
                     ),

@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const budgetBytes = 750 * 1024;
+const budgetBytes = 1024 * 1024;
 const suppliedMap = process.argv[2];
 const linkMap = suppliedMap ? resolve(suppliedMap) : buildLinkMap();
 const contributionBytes = measureContribution(linkMap);

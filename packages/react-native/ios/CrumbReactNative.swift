@@ -57,7 +57,8 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                         provider: logBuffer
                     ),
                     javascriptCrashCaptureEnabled:
-                        payload.diagnostics?.javascriptCrashCapture?.enabled ?? false
+                        payload.diagnostics?.javascriptCrashCapture?.enabled ?? false,
+                    renderingEnabled: payload.diagnostics?.renderingEnabled ?? false
                 ),
                 privacy: CrumbPrivacyOptions(
                     maskAllTextInputs: payload.privacy?.maskAllTextInputs ?? true,
@@ -173,6 +174,7 @@ private struct DiagnosticsPayload: Decodable {
     let timeoutMs: Int?
     let logs: LogOptionsPayload?
     let javascriptCrashCapture: JavaScriptCrashCapturePayload?
+    let renderingEnabled: Bool?
 
     func healthCheckURL() throws -> URL? {
         guard let healthCheckUrl else { return nil }

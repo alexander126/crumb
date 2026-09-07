@@ -111,12 +111,21 @@
         }
       ],
       "truncated": false
+    },
+    "rendering": {
+      "source": "ios_display_link",
+      "sample_count": 120,
+      "slow_frame_count": 3,
+      "mean_frame_ms": 17.1,
+      "max_frame_ms": 55,
+      "gpu_sample_count": 0,
+      "last_frame_age_ms": 10
     }
   },
   "privacy": {
     "screenshot_capture": "enabled",
     "screenshot_masking": "applied",
-    "diagnostics_capture": "on_demand",
+    "diagnostics_capture": "on_demand_with_rendering_buffer",
     "log_capture": "enabled"
   },
   "artifacts": [],
