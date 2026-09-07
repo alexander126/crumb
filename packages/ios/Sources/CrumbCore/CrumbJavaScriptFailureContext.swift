@@ -8,6 +8,7 @@ import Network
 
 /// Local persistence only. Native stack evidence uses envelope 1.1.
 package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
+    package var screenContext: CrumbScreenContext? = nil
     package var rendering: CrumbRenderingSnapshot? = nil
     package var stacks: CrumbFailureStacks? = nil
     package let capturedAt: Date
@@ -36,6 +37,7 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
         var result = self
         result.stacks = stacks?.validated()
         result.rendering = rendering?.validated()
+        result.screenContext = screenContext?.validated()
         return result
     }
 
@@ -52,7 +54,7 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
             logs: CrumbLogDiagnostic(status: .unavailable, sources: [], entries: [],
                 truncated: false, droppedEntryCount: 0, failures: []),
             stackTraces: stacks?.diagnostic ?? CrumbStackTraceDiagnostic(status: .unavailable, scope: "none",
-                threads: [], truncated: false, unavailableReason: "native_stacks_not_captured_during_javascript_failure"), rendering: rendering
+                threads: [], truncated: false, unavailableReason: "native_stacks_not_captured_during_javascript_failure"), rendering: rendering, screenContext: screenContext
         )
     }
 
@@ -64,7 +66,7 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
         let memory = performance ? memorySnapshot() : nil
         let threads = performance ? threadSnapshot() : (nil, nil)
         let network = settings.evidence.contains(.network) ? networkSnapshot() : nil
-        return Self(rendering: rendering, stacks: settings.evidence.contains(.threadStacks) ? CrumbFailureStacks.capture() : nil, capturedAt: capturedAt,
+        return Self(screenContext: settings.screenContext, rendering: rendering, stacks: settings.evidence.contains(.threadStacks) ? CrumbFailureStacks.capture() : nil, capturedAt: capturedAt,
             processName: String(CrumbLogSanitizer.sanitize(ProcessInfo.processInfo.processName).prefix(128)),
             processID: ProcessInfo.processInfo.processIdentifier,
             cpuUsagePercent: threads.1, residentMemoryBytes: memory?.0,

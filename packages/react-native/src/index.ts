@@ -1,5 +1,13 @@
 import NativeCrumbReactNative from './NativeCrumbReactNative';
 import {
+  currentScreenJson,
+  setScreen,
+  trackReactNavigation,
+  useExpoRouterScreen,
+} from './screen-context';
+export { setScreen, trackReactNavigation, useExpoRouterScreen };
+export type { CrumbScreenOptions, CrumbNavigationRef } from './screen-context';
+import {
   configureJavaScriptCrashCapture,
   recoverJavaScriptCrashes,
 } from './javascript-crash-capture';
@@ -66,7 +74,7 @@ export function installReporter(): Promise<boolean> {
 }
 
 export function show(): Promise<boolean> {
-  return NativeCrumbReactNative.show();
+  return NativeCrumbReactNative.show(currentScreenJson());
 }
 
 export function log(
@@ -309,6 +317,9 @@ function assertPositiveInteger(value: number | undefined, field: string): void {
 }
 
 const Crumb = Object.freeze({
+  setScreen,
+  trackReactNavigation,
+  useExpoRouterScreen,
   start,
   installReporter,
   show,

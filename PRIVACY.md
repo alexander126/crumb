@@ -95,3 +95,11 @@ Applications integrating Crumb remain responsible for:
 
 Security or privacy questions should be sent through the support contact named
 in the customer's Crumb workspace until a public support address is announced.
+
+Active screen context is a separate, explicit integration. It replaces one
+bounded static screen name and focused hierarchy in memory, under the
+`custom_context` evidence policy. Reports freeze it when the reporter opens;
+JavaScript failures persist it at handoff, subject to the existing storage budget.
+Recovery reapplies policy. React Navigation parameters are never read; Expo Router
+uses template segments instead of actual paths or IDs. No navigation history is
+recorded. Applications must supply static labels to the manual API.

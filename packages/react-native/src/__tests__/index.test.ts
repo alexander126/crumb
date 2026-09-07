@@ -3,7 +3,8 @@ jest.mock('react-native-nitro-modules', () => {
     start: jest.fn<void, [string]>(),
     canCollectLogs: jest.fn<boolean, []>(() => true),
     installReporter: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
-    show: jest.fn<Promise<boolean>, []>(() => Promise.resolve(true)),
+    setScreenContext: jest.fn<void, [string]>(),
+    show: jest.fn<Promise<boolean>, [string]>(() => Promise.resolve(true)),
     addLog: jest.fn<void, [string]>(),
     clearLogs: jest.fn<void, []>(),
     recordJavaScriptCrash: jest.fn<void, [string]>(),
@@ -27,7 +28,7 @@ const mockNative = (
       start: jest.Mock<void, [string]>;
       canCollectLogs: jest.Mock<boolean, []>;
       installReporter: jest.Mock<Promise<boolean>, []>;
-      show: jest.Mock<Promise<boolean>, []>;
+      show: jest.Mock<Promise<boolean>, [string]>;
       addLog: jest.Mock<void, [string]>;
       clearLogs: jest.Mock<void, []>;
       recordJavaScriptCrash: jest.Mock<void, [string]>;
@@ -223,4 +224,17 @@ describe('Crumb React Native adapter', () => {
     ).rejects.toThrow('visibleFields');
     expect(mockNative.start).not.toHaveBeenCalled();
   });
+});
+
+test('report invocation freezes the screen before native presentation can be delayed', async () => {
+  Crumb.setScreen('Checkout');
+  const pending = Crumb.show();
+  Crumb.setScreen('Home');
+  await pending;
+  expect(
+    JSON.parse(mockNative.show.mock.calls.at(-1)?.[0] ?? 'null').name
+  ).toBe('Checkout');
+  Crumb.setScreen(null);
+  await Crumb.show();
+  expect(mockNative.show).toHaveBeenLastCalledWith('null');
 });

@@ -97,6 +97,10 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
         )
     }
 
+    override fun setScreenContext(screenJson: String) {
+        Crumb.setScreenContext(screenJson)
+    }
+
     override fun canCollectLogs(): Boolean = Crumb.canCollectLogs()
 
     override fun installReporter(): Promise<Boolean> {
@@ -112,13 +116,13 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
         return promise
     }
 
-    override fun show(): Promise<Boolean> {
+    override fun show(screenJson: String): Promise<Boolean> {
         val promise = Promise<Boolean>()
         UiThreadUtil.runOnUiThread {
             runCatching {
                 val context = requireNotNull(NitroModules.applicationContext)
                 val activity = context.getCurrentActivity() ?: return@runCatching false
-                CrumbReporter.show(activity)
+                CrumbReporter.show(activity, screenContextJSON = screenJson)
             }.onSuccess(promise::resolve)
                 .onFailure(promise::reject)
         }

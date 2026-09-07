@@ -68,6 +68,7 @@ class CrumbJavaScriptCrashStore internal constructor(
         if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) {
             incoming.failureContext = incoming.failureContext?.copy(stacks = null)
             if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) incoming.failureContext = incoming.failureContext?.copy(rendering = null)
+            if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) incoming.failureContext = incoming.failureContext?.copy(screenContext = null)
             if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) incoming.failureContext = null
         }
         return runCatching {
@@ -104,6 +105,9 @@ class CrumbJavaScriptCrashStore internal constructor(
         core.failureContext = core.failureContext?.copy(rendering = null)
         val withoutRendering = encode(core).toByteArray(StandardCharsets.UTF_8)
         if (withoutRendering.size <= budget) return withoutRendering
+        core.failureContext = core.failureContext?.copy(screenContext = null)
+        val withoutScreen = encode(core).toByteArray(StandardCharsets.UTF_8)
+        if (withoutScreen.size <= budget) return withoutScreen
         core.failureContext = null
         val fallback = encode(core).toByteArray(StandardCharsets.UTF_8)
         return fallback.takeIf { it.size <= budget }
@@ -350,7 +354,7 @@ class CrumbJavaScriptCrashStore internal constructor(
     private fun sanitizeText(value: String, preserveNewlines: Boolean = false): String =
         CrumbFailureText.sanitize(value, preserveNewlines)
 
-    private data class Entry(val file: File, val record: CrumbJavaScriptCrash)
+    private class Entry(val file: File, val record: CrumbJavaScriptCrash)
 
     private companion object {
         val STORAGE_LOCK = Any()

@@ -19,6 +19,32 @@ class CrumbTest {
     fun tearDown() = Crumb.resetForTesting()
 
     @Test
+    fun screenContextIsFrozenClearedAndPolicyGated() {
+        Crumb.setScreenContext("""{"name":"Checkout","route":["Shop","Checkout"],"source":"react_navigation"}""")
+        Crumb.start(configuration())
+        val captured = Crumb.reportSettings()
+        Crumb.setScreenContext("""{"name":"Home","route":["Home"],"source":"manual"}""")
+        assertEquals("Checkout", JSONObject(requireNotNull(captured.screenContext)).getString("name"))
+        assertEquals("Home", JSONObject(requireNotNull(Crumb.reportSettings().screenContext)).getString("name"))
+        val original = reportInput()
+        val savedInput = original.copy(diagnostics = original.diagnostics.copy(screenContext = captured.screenContext))
+        val report = JSONObject(Crumb.buildReport(savedInput).json)
+        assertEquals("1.2", report.getString("schema_version"))
+        assertEquals("Checkout", report.getJSONObject("diagnostics").getJSONObject("screen_context").getString("name"))
+        Crumb.resetForTesting()
+        Crumb.start(configuration(evidence = emptySet()))
+        assertFalse(JSONObject(Crumb.buildReport(savedInput).json).getJSONObject("diagnostics").has("screen_context"))
+        Crumb.setScreenContext("null")
+        assertNull(Crumb.reportSettings().screenContext)
+        Crumb.setScreenContext("""{"name":"/orders?id=123","route":["Orders"],"source":"manual"}""")
+        assertNull(Crumb.reportSettings().screenContext)
+        Crumb.resetForTesting()
+        Crumb.start(configuration(evidence = emptySet()))
+        Crumb.setScreenContext("""{"name":"Home","route":["Home"],"source":"manual"}""")
+        assertNull(Crumb.reportSettings().screenContext)
+    }
+
+    @Test
     fun defaultsArePrivateAndOnDemand() {
         assertTrue(CrumbPrivacyOptions().maskAllTextInputs)
         assertTrue(CrumbPrivacyOptions().maskScreenshotsBeforeUpload)

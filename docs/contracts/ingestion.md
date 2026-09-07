@@ -153,3 +153,26 @@ on_demand_with_rendering_buffer`. It requires the explicit rendering option and
 performance evidence at capture and recovery; it does not represent GPU
 utilization. Storage pressure drops stacks, then rendering, then older optional
 metrics, preserving the original JavaScript failure.
+
+## Active screen context (envelope 1.2)
+
+`schemas/report-envelope.v1.2.schema.json` adds optional
+`diagnostics.screen_context`: `{ name, route, source }`. `route` is the focused
+root-to-leaf hierarchy (one to eight static labels); every label and `name` is
+nonblank, printable and at most 128 UTF-8 bytes in SDK and consumer validation.
+`source` is `manual`, `react_navigation` or `expo_router`. There are no route
+parameters, IDs, query strings, fragments, URLs, history or inferred screen names.
+Native bridge input is additionally bounded to 2 KiB of JSON and reconstructs
+only recognized fields. Redaction occurs before persistence and serialization.
+
+The context is opted in by the integration and gated by `custom_context` evidence.
+It is frozen before asynchronous report capture, or at the JavaScript failure
+handoff, and persisted with that failure. Recovery revalidates the saved value
+and reapplies current evidence policy. Missing context stays missing. The
+existing `diagnostics.location` retains native capture provenance; it is not a
+logical React Native route. Screen context does not change the nine diagnostic
+coverage categories and is not a claim about the crash's cause.
+
+Schemas 1.0 and 1.1 remain unchanged. Emit 1.2 only when screen context survives
+privacy filtering. Consumers must accept 1.2 before applications enable tracking;
+older consumers correctly reject this new version.

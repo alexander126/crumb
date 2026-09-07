@@ -131,3 +131,18 @@ JavaScript failure.
 Storage, capture, sanitization, transport, and clocks remain internal seams.
 They are not exposed through the external interface merely to support tests.
 Production and in-memory adapters may satisfy those seams inside each native SDK.
+
+## Opt-in React Native screen context
+
+`setScreen(name, { route }?)` replaces the current static screen label;
+`setScreen(null)` clears it. `trackReactNavigation(containerRef)` observes only
+focused route names and returns cleanup. `useExpoRouterScreen(useSegments())`
+observes file-route templates in the root layout. None adds a mandatory router
+dependency or captures parameters or navigation history.
+
+Programmatic `show()` passes its current snapshot across native UI dispatch;
+shake invocation snapshots native-held context when the reporter opens. The
+review preview displays the captured logical name where available. JavaScript
+failure handoff persists its own immutable snapshot. The native evidence policy
+and serializer remain authoritative. See ingestion envelope 1.2 and the adapter
+README for limits, privacy behavior and rollout order.

@@ -9,7 +9,8 @@ enum OnDemandDiagnosticsCollector {
     static func capture(
         location: String,
         options: CrumbDiagnosticsOptions,
-        evidence: Set<CrumbEvidenceCategory> = Set(CrumbEvidenceCategory.allCases)
+        evidence: Set<CrumbEvidenceCategory> = Set(CrumbEvidenceCategory.allCases),
+        screenContext: CrumbScreenContext? = nil
     ) -> CrumbDiagnosticsSnapshot {
         let capturesPerformance = evidence.contains(.performance)
         let threads = capturesPerformance ? threadDiagnostics() : []
@@ -83,7 +84,8 @@ enum OnDemandDiagnosticsCollector {
             network: network,
             logs: logs,
             stackTraces: stackTraces,
-            rendering: options.renderingEnabled && capturesPerformance ? CrumbRenderingBuffer.shared.snapshot() : nil
+            rendering: options.renderingEnabled && capturesPerformance ? CrumbRenderingBuffer.shared.snapshot() : nil,
+            screenContext: evidence.contains(.customContext) ? screenContext : nil
         )
     }
 

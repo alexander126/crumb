@@ -93,13 +93,14 @@ object CrumbReporter {
     fun show(
         activity: Activity,
         trigger: CrumbInvocation = CrumbInvocation.PROGRAMMATIC,
+        screenContextJSON: String? = null,
     ): Boolean {
         val invocationStartedAtNanos = SystemClock.elapsedRealtimeNanos()
         if (Looper.myLooper() != Looper.getMainLooper()) return false
         if (activity.isFinishing || activity.isDestroyed || activeSession != null) return false
 
         ensureInstalled(activity.application)
-        val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
+        val settings = runCatching { Crumb.reportSettings(screenContextJSON) }.getOrNull() ?: return false
         if (trigger !in settings.invocation) return false
         CrumbUploadCoordinator.resume(activity.application)
         resumedActivity = WeakReference(activity)
@@ -143,6 +144,7 @@ object CrumbReporter {
                 location = session.location,
                 options = session.settings.diagnostics,
                 evidence = session.settings.evidence,
+                screenContext = session.settings.screenContext,
             )
             CrumbQualityInstrumentation.record(
                 CrumbQualityEventKind.DIAGNOSTICS_READY,
@@ -733,7 +735,8 @@ object CrumbReporter {
             "${info.versionName ?: activity.getString(R.string.crumb_unavailable)} ($build)"
         }.getOrDefault(activity.getString(R.string.crumb_unavailable))
         addAttachmentRow(activity, attachmentCard, activity.getString(R.string.crumb_app_release), appVersion)
-        addAttachmentRow(activity, attachmentCard, activity.getString(R.string.crumb_screen), diagnostics.location)
+        addAttachmentRow(activity, attachmentCard, activity.getString(R.string.crumb_screen),
+            diagnostics.screenContext?.let { runCatching { org.json.JSONObject(it).getString("name") }.getOrNull() } ?: diagnostics.location)
         addAttachmentRow(
             activity,
             attachmentCard,
