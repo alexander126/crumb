@@ -12,7 +12,7 @@ const suppliedMap = process.argv[2];
 const linkMap = suppliedMap ? resolve(suppliedMap) : buildLinkMap();
 const contributionBytes = measureContribution(linkMap);
 
-console.log(`PASS iOS Crumb link contribution: ${contributionBytes} / ${budgetBytes} bytes`);
+console.log(`${contributionBytes > budgetBytes ? "FAIL" : "PASS"} iOS Crumb link contribution: ${contributionBytes} / ${budgetBytes} bytes`);
 console.log(`Link map: ${linkMap}`);
 
 if (contributionBytes > budgetBytes) process.exitCode = 1;
@@ -62,6 +62,7 @@ function findFiles(directory, name) {
 function measureContribution(path) {
   const lines = readFileSync(path, "utf8").split(/\r?\n/);
   const crumbObjectIndexes = new Set();
+  const directObjectIndexes = new Set();
   let inObjectFiles = false;
   let inLiveSymbols = false;
   let total = 0;
@@ -87,6 +88,10 @@ function measureContribution(path) {
     if (inObjectFiles) {
       const object = /^\[\s*(\d+)\]\s+(.+)$/.exec(line);
       if (object && /\/(?:CrumbCore|CrumbUI)\.o$/.test(object[2])) {
+        directObjectIndexes.add(Number(object[1]));
+        crumbObjectIndexes.add(Number(object[1]));
+      }
+      if (object && /(?:\/CrashReporter\.o$|\/CrashReporter\.build\/|\/libCrashReporter\.a\()/.test(object[2])) {
         crumbObjectIndexes.add(Number(object[1]));
       }
       continue;
@@ -100,7 +105,7 @@ function measureContribution(path) {
     }
   }
 
-  if (crumbObjectIndexes.size !== 2) {
+  if (directObjectIndexes.size !== 2) {
     throw new Error("The linker map did not contain both CrumbCore.o and CrumbUI.o.");
   }
   return total;

@@ -111,3 +111,32 @@ failures are `401`; malformed idempotency keys are `400`; invalid reports and
 artifact verification failures are `422`; conflicting or terminal lifecycle
 operations are `409`; and reports outside the authenticated project resolve as
 `404`.
+
+## Native thread stacks (envelope 1.1)
+
+`schemas/report-envelope.v1.1.schema.json` adds the `native_threads` stack scope.
+The original 1.0 schema remains unchanged and continues to cover managed
+Java/Kotlin and React Native frames. iOS emits 1.1 only when native stack
+evidence is present; reports without it retain 1.0. Deploy compatible ingestion
+before distributing an SDK that emits 1.1; a 1.0-only service rejects 1.1.
+
+During an explicitly enabled JavaScript failure handoff, `thread_stacks`
+evidence captures native iOS frames or Android Java/Kotlin stacks. It does not
+capture arbitrary native crashes or install a native exception handler.
+Android C/C++ stacks and the original JavaScript failure stack are separate
+from managed stacks. iOS thread IDs are indexes within this snapshot and
+`capture_thread` identifies the handoff thread, not the origin of a native crash.
+
+Saved optional stacks are capped at 12 KiB, 32 threads, 16 frames per thread,
+and 512 UTF-8 bytes per frame, with a truncation marker. Empty frames are not
+counted as evidence. Capture and recovery obey the thread-stack privacy policy;
+record pressure drops stacks before existing metrics and then drops optional
+metrics before the core JavaScript failure. No health probe is performed.
+
+The iOS implementation uses PLCrashReporter 1.12.0 live reports, without enabling
+its crash handler or asynchronous local symbolication. Its bounded temporary
+report (at most 1 MiB) is removed by the live-report API. Only sanitized stack
+frames are retained by Crumb. Available symbols are resolved after other threads
+resume. Image basename, UUID and offset are retained when present; source files
+and line numbers require separate native symbolication and are not claimed.
+The dependency is pinned to the same published version for SwiftPM and CocoaPods.

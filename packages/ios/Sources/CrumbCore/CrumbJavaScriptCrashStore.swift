@@ -305,6 +305,9 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
         let full = try encoded(record)
         if full.count <= budget { return full }
         var core = record
+        core.failureContext?.stacks = nil
+        let metrics = try encoded(core)
+        if metrics.count <= budget { return metrics }
         core.failureContext = nil
         let fallback = try encoded(core)
         return fallback.count <= budget ? fallback : nil

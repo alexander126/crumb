@@ -174,6 +174,27 @@ class CrumbJavaScriptCrashStoreTest {
         assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(-1, 20_000_000))
     }
 
+    @Test fun stacksSurviveRestartAndAreDroppedBeforeMetricsAtTheRecordLimit() {
+        val root = kotlin.io.path.createTempDirectory("crumb-stacks").toFile()
+        try {
+            val store = CrumbJavaScriptCrashStore(root)
+            assertTrue(store.record(recordJson(), failureContext()))
+            val metricsBytes = root.listFiles()!!.single().length().toInt()
+            assertTrue(store.remove("jsc_0123456789ABCDEF"))
+            val stacks = CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.CAPTURED, "managed_threads",
+                listOf(CrumbThreadStackDiagnostic(1, "main", "waiting", listOf("Synthetic.run(File.kt:1)"))), false, null)
+            val context = failureContext().copy(stacks = stacks)
+            assertTrue(store.record(recordJson(), context))
+            assertEquals(stacks, CrumbJavaScriptCrashStore(root).records().single().failureContext?.stacks)
+            assertTrue(store.remove("jsc_0123456789ABCDEF"))
+            val limited = CrumbJavaScriptCrashStore(root, CrumbJavaScriptCrashStoreLimits(maximumRecordBytes = metricsBytes))
+            assertTrue(limited.record(recordJson(), context))
+            assertEquals(null, limited.records().single().failureContext?.stacks)
+            assertEquals(777, limited.records().single().failureContext?.processId)
+            assertTrue(limited.records().single().stack != null)
+        } finally { root.deleteRecursively() }
+    }
+
     private fun failureContext() = CrumbJavaScriptFailureContext(
         1_788_350_400_000, "SyntheticApp", 777, 0.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false,
     )

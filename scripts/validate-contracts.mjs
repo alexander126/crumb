@@ -87,3 +87,13 @@ if ([...effectiveContext].some((item) => !localContext.has(item) || !policyConte
 
 if (failed) process.exitCode = 1;
 else console.log("Public contract fixtures passed.");
+
+const validateNativeStacks = ajv.compile(await readJson("schemas/report-envelope.v1.1.schema.json"));
+const nativeStacks = await readJson("schemas/examples/report-envelope.native-stacks.valid.json");
+const validateLegacyStacks = ajv.getSchema("https://schemas.example.invalid/mobile-report-envelope/1.0/schema.json");
+if (!validateNativeStacks(nativeStacks) || validateLegacyStacks(nativeStacks) ||
+    validateLegacyStacks({ ...nativeStacks, schema_version: "1.0" }) ||
+    validateNativeStacks({ ...nativeStacks, schema_version: "1.2" })) {
+  console.error("Versioned native stack compatibility failed", validateNativeStacks.errors);
+  process.exitCode = 1;
+}

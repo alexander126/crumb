@@ -6,8 +6,9 @@ import Darwin
 import Network
 #endif
 
-/// Local persistence only. Serialized reports continue to use envelope 1.0 diagnostics.
+/// Local persistence only. Native stack evidence uses envelope 1.1.
 package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
+    package var stacks: CrumbFailureStacks? = nil
     package let capturedAt: Date
     package let processName: String
     package let processID: Int32
@@ -31,7 +32,9 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
               ["reachable", "unreachable", "unknown"].contains(networkStatus),
               ["wifi", "cellular", "ethernet", "other", "none", "unknown"].contains(networkTransport)
         else { return nil }
-        return self
+        var result = self
+        result.stacks = stacks?.validated()
+        return result
     }
 
     package func diagnostics() -> CrumbDiagnosticsSnapshot {
@@ -46,7 +49,7 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
                 isConstrained: networkConstrained, healthCheck: nil),
             logs: CrumbLogDiagnostic(status: .unavailable, sources: [], entries: [],
                 truncated: false, droppedEntryCount: 0, failures: []),
-            stackTraces: CrumbStackTraceDiagnostic(status: .unavailable, scope: "none",
+            stackTraces: stacks?.diagnostic ?? CrumbStackTraceDiagnostic(status: .unavailable, scope: "none",
                 threads: [], truncated: false, unavailableReason: "native_stacks_not_captured_during_javascript_failure")
         )
     }
@@ -58,7 +61,7 @@ package struct CrumbJavaScriptFailureContext: Codable, Equatable, Sendable {
         let memory = performance ? memorySnapshot() : nil
         let threads = performance ? threadSnapshot() : (nil, nil)
         let network = settings.evidence.contains(.network) ? networkSnapshot() : nil
-        return Self(capturedAt: capturedAt,
+        return Self(stacks: settings.evidence.contains(.threadStacks) ? CrumbFailureStacks.capture() : nil, capturedAt: capturedAt,
             processName: String(CrumbLogSanitizer.sanitize(ProcessInfo.processInfo.processName).prefix(128)),
             processID: ProcessInfo.processInfo.processIdentifier,
             cpuUsagePercent: threads.1, residentMemoryBytes: memory?.0,

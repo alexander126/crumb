@@ -66,7 +66,8 @@ class CrumbJavaScriptCrashStore internal constructor(
         // Never accept native context supplied by the JS payload.
         incoming.failureContext = failureContext
         if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) {
-            incoming.failureContext = null
+            incoming.failureContext = incoming.failureContext?.copy(stacks = null)
+            if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) incoming.failureContext = null
         }
         return runCatching {
             if (!root.exists() && !root.mkdirs() && !root.isDirectory) return false
@@ -96,6 +97,10 @@ class CrumbJavaScriptCrashStore internal constructor(
         val full = encode(record).toByteArray(StandardCharsets.UTF_8)
         if (full.size <= budget) return full
         val core = record.copy() // Optional native context is outside the primary constructor.
+        core.failureContext = record.failureContext?.copy(stacks = null)
+        val metrics = encode(core).toByteArray(StandardCharsets.UTF_8)
+        if (metrics.size <= budget) return metrics
+        core.failureContext = null
         val fallback = encode(core).toByteArray(StandardCharsets.UTF_8)
         return fallback.takeIf { it.size <= budget }
     }
@@ -338,15 +343,8 @@ class CrumbJavaScriptCrashStore internal constructor(
         return result
     }
 
-    private fun sanitizeText(value: String, preserveNewlines: Boolean = false): String {
-        var sanitized = value
-        REDACTIONS.forEach { (pattern, replacement) -> sanitized = pattern.replace(sanitized, replacement) }
-        return sanitized.map { character ->
-            if (character == '\n' && preserveNewlines) character
-            else if (character == '\t' && preserveNewlines) character
-            else if (character.isISOControl()) ' ' else character
-        }.joinToString("")
-    }
+    private fun sanitizeText(value: String, preserveNewlines: Boolean = false): String =
+        CrumbFailureText.sanitize(value, preserveNewlines)
 
     private data class Entry(val file: File, val record: CrumbJavaScriptCrash)
 
@@ -354,17 +352,6 @@ class CrumbJavaScriptCrashStore internal constructor(
         val STORAGE_LOCK = Any()
         val RECORD_ID_PATTERN = Regex("^jsc_[A-Za-z0-9_-]{16,80}$")
         val FINGERPRINT_PATTERN = Regex("^[a-f0-9]{16}$")
-        val REDACTIONS = listOf(
-            Regex("(?i)(https?://)[^/\\s:@]+:[^/@\\s]+@") to "$1[REDACTED]@",
-            Regex("(?i)\\bBearer\\s+[A-Za-z0-9._~+/=-]+") to "Bearer [REDACTED]",
-            Regex(
-                "(?i)\\b(authorization|cookie|set-cookie|password|passwd|secret|token|api[_-]?key)" +
-                    "\\s*[:=]\\s*(\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;]+)",
-            ) to "$1=[REDACTED]",
-            Regex("(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b") to "[REDACTED_EMAIL]",
-            Regex("\\b(?:\\d[ -]*?){13,19}\\b") to "[REDACTED_NUMBER]",
-            Regex("([?&][A-Za-z0-9._~-]+)=([^&#\\s]*)") to "$1=[REDACTED]",
-        )
 
         private fun JSONObject?.optionalString(name: String): String? =
             if (this != null && has(name) && !isNull(name)) getString(name) else null

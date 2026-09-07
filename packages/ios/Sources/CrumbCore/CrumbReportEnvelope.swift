@@ -180,7 +180,7 @@ package enum CrumbReportEnvelopeBuilder {
         let customContext = settings.customContext
 
         let envelope = EnvelopeDTO(
-            schemaVersion: "1.0",
+            schemaVersion: diagnostics.stackTraces.scope == "native_threads" ? "1.1" : "1.0",
             reportID: input.reportID,
             trigger: input.javascriptCrash == nil ? input.trigger.rawValue : "javascript_crash",
             triggeredAt: input.triggeredAt,
