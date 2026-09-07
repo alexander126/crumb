@@ -7,6 +7,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "plugins": [
+      "expo-router",
       "./with-crumb-local-native",
       [
         "expo-build-properties",
@@ -26,6 +27,7 @@
     },
     "android": {
       "package": "com.crumbsdk.reactnative.example"
-    }
+    },
+    "scheme": "crumb-navigation-demo"
   }
 }

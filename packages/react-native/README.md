@@ -317,3 +317,5 @@ crash interception.
 Screen context uses envelope **1.2**. Deploy a consumer supporting 1.2 before
 shipping an app with this integration. Reports without screen context retain
 their existing 1.0/1.1 format.
+
+Try the [automatic navigation demos](example/NAVIGATION.md) to validate React Navigation and Expo Router on real native builds.
