@@ -15,11 +15,30 @@ export default function App() {
   const [isStarted, setIsStarted] = useState(false);
 
   const startCrumb = async () => {
+    const projectKey = process.env.EXPO_PUBLIC_CRUMB_PROJECT_KEY;
+    if (!projectKey) {
+      Alert.alert(
+        'Demo configuration missing',
+        'Set EXPO_PUBLIC_CRUMB_PROJECT_KEY before building this demo.'
+      );
+      return;
+    }
     try {
       await Crumb.start({
-        projectKey: 'replace-with-your-project-key',
-        environment: 'development',
-        release: { bundleVersion: 'expo-development-build' },
+        projectKey,
+        environment: process.env.EXPO_PUBLIC_CRUMB_ENVIRONMENT || 'development',
+        release: {
+          bundleVersion:
+            process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION ||
+            'expo-development-build',
+        },
+        ...(process.env.EXPO_PUBLIC_CRUMB_INGESTION_URL
+          ? {
+              upload: {
+                ingestionUrl: process.env.EXPO_PUBLIC_CRUMB_INGESTION_URL,
+              },
+            }
+          : {}),
         diagnostics: {
           logs: { captureConsole: true },
           // Opt-in: the next launch recovers this JavaScript failure.
@@ -52,11 +71,16 @@ export default function App() {
   const triggerJavaScriptFatalFixture = () => {
     Alert.alert(
       'Fatal fixture',
-      'The app will terminate and recover this failure on relaunch.'
+      'The app will terminate. Relaunch it and choose Start Crumb to recover this failure.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Crash now',
+          style: 'destructive',
+          onPress: () => setTimeout(crashDemoAtKnownSourceLine, 250),
+        },
+      ]
     );
-    setTimeout(() => {
-      throw new Error('Crumb React Native fatal fixture');
-    }, 0);
   };
 
   const triggerUnhandledRejectionFixture = () => {
@@ -70,8 +94,8 @@ export default function App() {
         <Text style={styles.eyebrow}>CRUMB REACT NATIVE</Text>
         <Text style={styles.title}>Native reporting, one adapter.</Text>
         <Text style={styles.body}>
-          This Expo development build exercises the same Swift and Kotlin SDKs
-          used by native apps.
+          This demo build exercises the same Swift and Kotlin SDKs used by
+          native apps.
         </Text>
 
         <View style={styles.actions}>
@@ -103,6 +127,10 @@ export default function App() {
       </View>
     </SafeAreaView>
   );
+}
+
+function crashDemoAtKnownSourceLine() {
+  throw new Error('Crumb React Native fatal fixture');
 }
 
 interface ActionProps {
