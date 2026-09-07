@@ -171,9 +171,11 @@ struct CrumbJavaScriptCrashStoreTests {
         let metricsBytes = try Data(contentsOf: root.appendingPathComponent("jsc_0123456789ABCDEF.json")).count
         #expect(store.remove(recordID: "jsc_0123456789ABCDEF"))
         var context = failureContext()
+        context.screenContext = CrumbScreenContext(name: "Checkout", route: ["Shop", "Checkout"], source: "react_navigation")
         context.rendering = CrumbRenderingSnapshot(source: "ios_display_link", sampleCount: 100, slowFrameCount: 2, meanFrameMs: 17, maxFrameMs: 60, lastFrameAgeMs: 20)
         context.stacks = CrumbFailureStacks(threads: [.init(index: 0, name: "Thread 0", state: "capture_thread", frames: ["SyntheticApp + 0x1234"])], truncated: false)
         #expect(store.record(recordJSON(), failureContext: context))
+        #expect(CrumbJavaScriptCrashStore(rootURL: root).records().first?.failureContext?.screenContext == context.screenContext)
         #expect(CrumbJavaScriptCrashStore(rootURL: root).records().first?.failureContext?.stacks == context.stacks)
         #expect(CrumbJavaScriptCrashStore(rootURL: root).records().first?.failureContext?.rendering == context.rendering)
         #expect(store.remove(recordID: "jsc_0123456789ABCDEF"))

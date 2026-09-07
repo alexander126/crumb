@@ -109,7 +109,7 @@ class CrumbJavaScriptCrashStoreTest {
             val reopened = CrumbJavaScriptCrashStore(root)
             assertTrue(reopened.record(recordJson(source = "native_termination_wrapper", kind = "native_termination_wrapper")))
             val crash = reopened.records().single()
-            assertEquals(context, crash.failureContext)
+            assertEquals(context.encode().toString(), crash.failureContext?.encode()?.toString())
             val diagnostics = requireNotNull(crash.failureContext).diagnostics()
             assertEquals(777, diagnostics.processId)
             assertEquals(context.capturedAtMillis, diagnostics.capturedAtMillis)
@@ -200,6 +200,7 @@ class CrumbJavaScriptCrashStoreTest {
 
     private fun failureContext() = CrumbJavaScriptFailureContext(
         1_788_350_400_000, "SyntheticApp", 777, 0.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false,
+        screenContext = """{"name":"Checkout","route":["Shop","Checkout"],"source":"react_navigation"}""",
     )
 
     private fun temporaryRoot(): File = Files.createTempDirectory("crumb-js-crash-tests-").toFile()

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -13,6 +13,11 @@ import Crumb from '@crumbsdk/react-native';
 
 export default function App() {
   const [isStarted, setIsStarted] = useState(false);
+  const [screen, setScreen] = useState<'Home' | 'Checkout'>('Home');
+  useEffect(() => {
+    Crumb.setScreen(screen, { route: ['Demo', screen] });
+    return () => Crumb.setScreen(null);
+  }, [screen]);
 
   const startCrumb = async () => {
     try {
@@ -69,13 +74,17 @@ export default function App() {
       <StatusBar style="auto" />
       <View style={styles.container}>
         <Text style={styles.eyebrow}>CRUMB REACT NATIVE</Text>
-        <Text style={styles.title}>Native reporting, one adapter.</Text>
+        <Text style={styles.title}>{screen}</Text>
         <Text style={styles.body}>
           This Expo development build exercises the same Swift and Kotlin SDKs
           used by native apps.
         </Text>
 
         <View style={styles.actions}>
+          <Action
+            label={screen === 'Home' ? 'Open Checkout' : 'Go Home'}
+            onPress={() => setScreen(screen === 'Home' ? 'Checkout' : 'Home')}
+          />
           <Action
             label={isStarted ? 'Crumb started' : 'Start Crumb'}
             onPress={startCrumb}

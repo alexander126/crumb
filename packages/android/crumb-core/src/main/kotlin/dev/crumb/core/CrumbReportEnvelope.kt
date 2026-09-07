@@ -125,7 +125,7 @@ internal object CrumbReportEnvelopeBuilder {
         }
 
         val envelope = obj(
-            "schema_version" to if (diagnostics.rendering != null) "1.1" else "1.0",
+            "schema_version" to if (diagnostics.screenContext != null) "1.2" else if (diagnostics.rendering != null) "1.1" else "1.0",
             "report_id" to input.reportId,
             "trigger" to if (input.javascriptCrash == null) input.trigger.name.lowercase() else "javascript_crash",
             "triggered_at" to instant(input.triggeredAtMillis),
@@ -175,6 +175,10 @@ internal object CrumbReportEnvelopeBuilder {
                         )
                     },
                 ),
+                "screen_context" to diagnostics.screenContext?.let { org.json.JSONObject(it) }?.let { value ->
+                    mapOf("name" to value.getString("name"), "source" to value.getString("source"),
+                        "route" to value.getJSONArray("route").let { route -> (0 until route.length()).map { route.getString(it) } })
+                },
                 "rendering" to diagnostics.rendering?.let { org.json.JSONObject(it) }?.let { value -> value.keys().asSequence().associateWith { value.get(it) } },
                 "gpu" to obj("status" to "unavailable_on_demand"),
                 "network" to obj(
@@ -326,6 +330,7 @@ internal object CrumbReportEnvelopeBuilder {
             thermalState = if (performanceEnabled) input.thermalState else "unavailable",
             threadCount = if (performanceEnabled) input.threadCount else 0,
             busiestThreads = if (performanceEnabled) input.busiestThreads else emptyList(),
+            screenContext = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in settings.evidence) CrumbScreenContext.validate(input.screenContext) else null,
             rendering = if (performanceEnabled && settings.diagnostics.renderingEnabled) CrumbRenderingEvidence.validate(input.rendering) else null,
             gpuStatus = if (performanceEnabled) input.gpuStatus else "unavailable_by_policy",
             network = if (networkEnabled) {

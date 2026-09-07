@@ -1,6 +1,11 @@
 import Foundation
 
 public enum Crumb {
+    /// Adapter bridge. Replaces the current static screen context; malformed input clears it.
+    public static func setScreenContext(_ json: String) {
+        CrumbRuntime.shared.setScreenContext(json)
+    }
+
     public static func start(_ configuration: CrumbConfiguration) throws {
         try CrumbRuntime.shared.start(configuration)
     }

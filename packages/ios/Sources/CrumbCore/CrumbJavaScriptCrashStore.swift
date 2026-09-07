@@ -311,6 +311,9 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
         core.failureContext?.rendering = nil
         let withoutRendering = try encoded(core)
         if withoutRendering.count <= budget { return withoutRendering }
+        core.failureContext?.screenContext = nil
+        let withoutScreen = try encoded(core)
+        if withoutScreen.count <= budget { return withoutScreen }
         core.failureContext = nil
         let fallback = try encoded(core)
         return fallback.count <= budget ? fallback : nil

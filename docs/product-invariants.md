@@ -41,3 +41,9 @@ the rules may not change accidentally.
     monitoring remain outside the report SDK boundary. The React Native
     adapter's opt-in JavaScript-only failure record is the sole exception and
     never claims arbitrary native crash coverage.
+
+Explicit screen integrations may maintain one bounded static screen name and
+focused hierarchy under the custom-context evidence policy. This is separate
+from rendering measurement: it must not record navigation history, parameters,
+dynamic IDs or query strings. Reports freeze the current value at invocation and
+JavaScript failures at handoff; restart must never substitute the recovery screen.

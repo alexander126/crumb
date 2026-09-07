@@ -259,3 +259,61 @@ Configure the package's npm trusted publisher with these exact values:
 Use the `next` distribution tag for prereleases and `latest` for stable
 versions. The workflow verifies the package version, immutable Git tag,
 distribution tag, and explicit publication confirmation before it publishes.
+
+### Capture the active screen
+
+Opt in to a static screen label so reports and recovered JavaScript crashes show
+where the user was. This is separate from native controllers and the source file
+identified by a crash stack. Existing reports cannot gain screen context retroactively.
+
+For React Navigation, register once beside the root container. The helper handles
+initial readiness, focused nested routes, modals, subsequent state changes and
+listener cleanup without adding a navigation dependency to Crumb:
+
+```tsx
+import { useEffect } from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import Crumb from '@crumbsdk/react-native';
+
+function App() {
+  const navigationRef = useNavigationContainerRef();
+  useEffect(() => Crumb.trackReactNavigation(navigationRef), [navigationRef]);
+  return <NavigationContainer ref={navigationRef}>{/* navigators */}</NavigationContainer>;
+}
+```
+
+For Expo Router, put this in the root layout. `useSegments()` retains file-based
+templates such as `/orders/[id]`; do not pass `usePathname()` or search parameters:
+
+```tsx
+import { Slot, useSegments } from 'expo-router';
+import { useExpoRouterScreen } from '@crumbsdk/react-native';
+
+export default function RootLayout() {
+  useExpoRouterScreen(useSegments());
+  return <Slot />;
+}
+```
+
+For a custom navigator, set the current static label when the visible screen changes:
+
+```ts
+Crumb.setScreen('Checkout', { route: ['Shop', 'Checkout'] });
+Crumb.setScreen(null); // Clear when no app screen is active.
+```
+
+Choose one owner for the current context. Each label is limited to 128 UTF-8 bytes
+and the focused hierarchy to eight labels. Use static names, never user IDs,
+account names, full URLs or search strings. Invalid manual input clears the
+previous label and throws; integrations clear unavailable or invalid state.
+Crumb never reads route parameters or records a navigation history. Standard
+text redaction and the effective `custom_context` evidence policy apply.
+The reporter freezes this context when it opens, including shake invocation;
+a JavaScript failure freezes it at the native handoff. Recovery retains the
+original screen and reapplies current privacy policy, without substituting the
+relaunch screen. This does not identify the cause of a crash or add native fatal
+crash interception.
+
+Screen context uses envelope **1.2**. Deploy a consumer supporting 1.2 before
+shipping an app with this integration. Reports without screen context retain
+their existing 1.0/1.1 format.

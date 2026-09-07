@@ -180,7 +180,7 @@ package enum CrumbReportEnvelopeBuilder {
         let customContext = settings.customContext
 
         let envelope = EnvelopeDTO(
-            schemaVersion: (diagnostics.stackTraces.scope == "native_threads" || diagnostics.rendering != nil) ? "1.1" : "1.0",
+            schemaVersion: diagnostics.screenContext != nil ? "1.2" : (diagnostics.stackTraces.scope == "native_threads" || diagnostics.rendering != nil) ? "1.1" : "1.0",
             reportID: input.reportID,
             trigger: input.javascriptCrash == nil ? input.trigger.rawValue : "javascript_crash",
             triggeredAt: input.triggeredAt,
@@ -224,6 +224,7 @@ package enum CrumbReportEnvelopeBuilder {
                     }
                 ),
                 rendering: diagnostics.rendering,
+                screenContext: diagnostics.screenContext,
                 gpu: GPUDTO(status: "unavailable_on_demand"),
                 network: NetworkDTO(
                     status: diagnostics.network.status,
@@ -419,7 +420,8 @@ package enum CrumbReportEnvelopeBuilder {
                 threads: [],
                 truncated: false,
                 unavailableReason: "disabled_by_policy"
-            ), rendering: performanceEnabled && settings.diagnostics.renderingEnabled ? input.rendering?.validated() : nil
+            ), rendering: performanceEnabled && settings.diagnostics.renderingEnabled ? input.rendering?.validated() : nil,
+            screenContext: settings.evidence.contains(.customContext) ? input.screenContext?.validated() : nil
         )
     }
 
@@ -561,6 +563,7 @@ private struct DiagnosticsDTO: Encodable {
     let thermalState: String
     let threads: ThreadsDTO
     let rendering: CrumbRenderingSnapshot?
+    let screenContext: CrumbScreenContext?
     let gpu: GPUDTO
     let network: NetworkDTO
     let logs: LogsDTO

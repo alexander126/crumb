@@ -11,7 +11,7 @@ import org.json.JSONObject
 import java.io.File
 
 /** Local failure-time metadata; the public envelope still uses its existing diagnostics fields. */
-internal data class CrumbJavaScriptFailureContext(
+internal class CrumbJavaScriptFailureContext(
     val capturedAtMillis: Long,
     val processName: String,
     val processId: Int,
@@ -25,8 +25,16 @@ internal data class CrumbJavaScriptFailureContext(
     val networkConstrained: Boolean,
     val stacks: CrumbStackTraceDiagnostic? = null,
     val rendering: String? = null,
+    val screenContext: String? = null,
 ) {
+    // Only persistence budget fallbacks need copying; avoid unused data-class machinery.
+    fun copy(stacks: CrumbStackTraceDiagnostic? = this.stacks, rendering: String? = this.rendering, screenContext: String? = this.screenContext): CrumbJavaScriptFailureContext =
+        CrumbJavaScriptFailureContext(capturedAtMillis, processName, processId, cpuUsagePercent,
+            residentMemoryBytes, threadCount, thermalState, networkStatus, networkTransport,
+            networkExpensive, networkConstrained, stacks, rendering, screenContext)
+
     fun encode(): JSONObject = JSONObject().apply {
+        screenContext?.let { put("screen_context", JSONObject(it)) }
         rendering?.let { put("rendering", JSONObject(it)) }
         stacks?.let { put("stacks", CrumbFailureStacks.encode(it)) }
         put("captured_at_millis", capturedAtMillis)
@@ -52,6 +60,7 @@ internal data class CrumbJavaScriptFailureContext(
             networkExpensive, networkConstrained, null),
         logs = CrumbLogDiagnostic(CrumbLogCaptureStatus.UNAVAILABLE, emptyList(), emptyList(), false, 0, emptyList()),
         rendering = rendering,
+        screenContext = screenContext,
         stackTraces = stacks ?: CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.UNAVAILABLE, "none",
             emptyList(), false, "native_stacks_not_captured_during_javascript_failure"),
     )
@@ -69,6 +78,7 @@ internal data class CrumbJavaScriptFailureContext(
                 networkTransport = value.getString("network_transport"),
                 networkExpensive = value.getBoolean("network_expensive"),
                 networkConstrained = value.getBoolean("network_constrained"),
+                screenContext = CrumbScreenContext.validate(value.optJSONObject("screen_context")?.toString()),
                 rendering = CrumbRenderingEvidence.validate(value.optJSONObject("rendering")?.toString()),
                 stacks = CrumbFailureStacks.decode(value.optJSONObject("stacks")),
             )
@@ -144,9 +154,9 @@ internal data class CrumbJavaScriptFailureContext(
                 cpu, statusNumber("VmRSS")?.times(1024), statusNumber("Threads")?.toInt(), thermal,
                 connectivity?.status ?: "unknown", connectivity?.transport ?: "unknown",
                 connectivity?.expensive ?: false, connectivity?.constrained ?: false,
-                if (CrumbEvidenceCategory.THREAD_STACKS in settings.evidence) CrumbFailureStacks.capture() else null, rendering)
+                if (CrumbEvidenceCategory.THREAD_STACKS in settings.evidence) CrumbFailureStacks.capture() else null, rendering, settings.screenContext)
         }
     }
 }
 
-private data class NetworkSnapshot(val status: String, val transport: String, val expensive: Boolean, val constrained: Boolean)
+private class NetworkSnapshot(val status: String, val transport: String, val expensive: Boolean, val constrained: Boolean)

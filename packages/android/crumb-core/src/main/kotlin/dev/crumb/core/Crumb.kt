@@ -179,6 +179,7 @@ data class CrumbDiagnosticsSnapshot(
     val logs: CrumbLogDiagnostic,
     val stackTraces: CrumbStackTraceDiagnostic,
     val rendering: String? = null,
+    val screenContext: String? = null,
 )
 
 class CrumbReportSettings internal constructor(
@@ -194,6 +195,7 @@ class CrumbReportSettings internal constructor(
     val customContext: Map<String, String>,
     val policyStatus: CrumbPolicyStatus,
     val workspacePolicyVersion: Int?,
+    val screenContext: String? = null,
 )
 
 class CrumbUploadSettings internal constructor(
@@ -242,6 +244,12 @@ sealed class CrumbStartException(message: String) : IllegalArgumentException(mes
 object Crumb {
     private val lock = Any()
     private var configuration: CrumbConfiguration? = null
+    private var screenContext: String? = null
+
+    /** Adapter bridge; malformed input clears the current static screen. */
+    fun setScreenContext(json: String) = synchronized(lock) {
+        screenContext = CrumbScreenContext.validate(json)
+    }
     private var workspacePolicy: CrumbWorkspacePolicy? = null
     private val highestWorkspacePolicyVersionByScope = mutableMapOf<String, Int>()
     private var policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_FETCHED
@@ -287,7 +295,7 @@ object Crumb {
 
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
     @JvmSynthetic
-    fun reportSettings(): CrumbReportSettings = synchronized(lock) {
+    fun reportSettings(screenContextJSON: String? = null): CrumbReportSettings = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
         val effective = effectiveSettings(activeConfiguration)
         CrumbReportSettings(
@@ -305,6 +313,9 @@ object Crumb {
             customContext = effective.customContext,
             policyStatus = effective.status,
             workspacePolicyVersion = effective.workspacePolicyVersion,
+            screenContext = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in effective.evidence) {
+                if (screenContextJSON == null) screenContext else CrumbScreenContext.validate(screenContextJSON)
+            } else null,
         )
     }
 
@@ -422,6 +433,7 @@ object Crumb {
     @JvmSynthetic
     internal fun resetForTesting() = synchronized(lock) {
         configuration = null
+        screenContext = null
         workspacePolicy = null
         highestWorkspacePolicyVersionByScope.clear()
         policyStatus = CrumbPolicyStatus.NOT_FETCHED
