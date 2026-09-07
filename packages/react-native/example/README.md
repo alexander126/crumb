@@ -37,9 +37,17 @@ xcodebuild ONLY_ACTIVE_ARCH=YES ARCHS=arm64 \
   -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO
 
 cd android
+./gradlew :app:createBundleReleaseJsAndAssets --rerun-tasks \
+  -Dorg.gradle.jvmargs=-Xmx4g -PreactNativeArchitectures=arm64-v8a
 ./gradlew :app:assembleRelease -Dorg.gradle.jvmargs=-Xmx4g \
   -PreactNativeArchitectures=arm64-v8a
 ```
+
+The explicit Android bundle step is required after changing `.env.local`:
+Gradle can otherwise reuse an older bundle because those environment values
+are not tracked as task inputs. Package the regenerated bundle with the second
+command, then retain its final map and verify the report's bundle version and
+environment before uploading release files.
 
 The iOS command targets an Apple Silicon simulator. The Android command targets
 an arm64 emulator and uses the example's development signing configuration.
