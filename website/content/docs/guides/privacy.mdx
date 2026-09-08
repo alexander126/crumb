@@ -1,0 +1,75 @@
+---
+title: "Privacy and screenshots"
+description: "Collect useful evidence with clear limits and deliberate controls."
+---
+
+Crumb reports are explicitly initiated by a person. The separate React Native JavaScript failure recorder is opt-in and disabled by default. Sanitization happens on-device before upload and again when reports are processed.
+
+## Mask sensitive regions
+
+Text inputs are masked by default: `UITextField` and `UITextView` on iOS, and `EditText` on Android. This does not mean every piece of text or custom-rendered sensitive information is automatically safe.
+
+<Tabs items={['iOS', 'Android', 'React Native']}>
+<Tab value="iOS">
+
+Mark additional UIKit regions:
+
+```swift
+paymentCardView.crumbMaskInScreenshots = true
+```
+
+Or a SwiftUI region:
+
+```swift
+PaymentCardView()
+    .crumbMaskInScreenshots()
+```
+
+</Tab>
+<Tab value="Android">
+
+Mask an additional View:
+
+```kotlin
+import dev.crumb.ui.maskInCrumbScreenshots
+
+paymentCardView.maskInCrumbScreenshots()
+```
+
+A whole `ComposeView` or `WebView` can be marked. Crumb does not inspect individual composables or DOM elements in rc.3.
+
+</Tab>
+<Tab value="React Native">
+
+Native text-input masking applies underneath the adapter. There is no documented JavaScript masking wrapper in rc.3. For custom sensitive regions, use a native masking integration or disable screenshot capture:
+
+```ts
+const options = {
+  capture: { screenshot: false },
+};
+```
+
+This fragment belongs in `Crumb.start`. Test your own custom controls, images and WebViews; do not assume text-input masking covers them.
+
+</Tab>
+</Tabs>
+
+Always inspect a synthetic report after changing sensitive screens. The reporter permits removing the screenshot before submission.
+
+## What is excluded
+
+Crumb does not collect request or response bodies, authorization headers, cookies, arbitrary query values, whole application stores or arbitrary memory as report context. It does not record session replay or a navigation history. Avoid including secrets in the description or log messages in the first place; redaction is not a substitute for deliberate inputs.
+
+Native SDKs do not maintain a background application log buffer. The React Native adapter has a bounded, sanitized log buffer. Optional rendering observation retains a short window of numeric aggregates only.
+
+## Evidence controls · Preview
+
+An `evidence` allowlist restricts optional sources. A configured workspace policy can further reduce collection; it cannot turn on a source disabled by the application. A missing, malformed or expired configured policy leaves the description-only reporting path available while optional collection remains disabled.
+
+Read [configuration and policy](/docs/guides/configuration) before adding a policy URL. Leaving that URL unconfigured uses local SDK settings; adding a placeholder URL can intentionally suppress evidence until a valid policy is available.
+
+## Keys and source artifacts
+
+The embedded SDK key is write-only for ingestion. Source-map upload tokens are secrets for the build pipeline and must never ship in the app. Keep source maps and bundles private. See [keys and rotation](/docs/guides/keys).
+
+Crumb report data is not used for model training by default. Review your own collection notice and the actual evidence in representative reports before distributing an enabled build.

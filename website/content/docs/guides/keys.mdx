@@ -1,0 +1,27 @@
+---
+title: "Keys and rotation"
+description: "Keep app ingestion credentials separate from account and build access."
+---
+
+## SDK write key
+
+Copy the project write key from SDK setup. It is designed to be embedded in the application and grants ingestion access only. It cannot read reports or act as a dashboard sign-in credential.
+
+The full key is revealed at creation. Store the value in your app's intended configuration while it is available. If it is lost, create a replacement rather than trying to recover it from a report or log.
+
+## Rotate with the installed app in mind
+
+1. Create a new SDK key in the correct project.
+2. Put the replacement in a new application build and verify a synthetic report reaches that project.
+3. Distribute the updated application and account for users still running older builds.
+4. Revoke the old key when those installations no longer need ingestion access.
+
+Revoking a key still embedded in installed apps prevents those versions from uploading. Do not revoke your only working key before testing its replacement. Offline reports also need accepted credentials when they are eventually sent.
+
+## Source-map upload token · Preview
+
+A source-map upload token is a separate project-scoped build secret. Store it in CI and use it only for artifact upload. Never use the SDK write key in its place, and never put the upload token in the application or a public environment variable.
+
+When replacing a build token, update the secret store, validate an authorized upload and then revoke the old token. Source-map and account credentials do not belong in public issues, screenshots, documentation or app logs.
+
+See [source-map upload](/docs/guides/source-maps) for the preview CLI workflow.

@@ -96,7 +96,7 @@ workflows map to these commands:
 | React Native package | From `packages/react-native`: `corepack enable`, `yarn install --immutable`, `yarn quality`, and `yarn pack:check` |
 | React Native package native examples | From `packages/react-native`, run `yarn nitrogen` and the platform-specific Expo prebuild and example build used by `.github/workflows/react-native-ci.yml` |
 | Standalone React Native consumer example | From `examples/react-native`: `npm ci`, `npm run typecheck`, and the affected `npm run build:android` or `npm run build:ios` |
-| Documentation, templates, or policy only | Parse YAML, inspect rendered Markdown and relative links, and run any contract check affected by the edit; no documentation build is configured, so do not claim one was run |
+| Documentation, templates, or policy only | Parse YAML, inspect rendered Markdown and relative links, and run any contract check affected by the edit; for site changes, run the checks documented in `website/README.md` and `.github/workflows/docs-ci.yml` |
 
 The root `npm test` command runs the contract check and both native unit-test
 suites. The native CI workflow also runs the release gate and release artifact

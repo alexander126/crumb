@@ -1,0 +1,12 @@
+{
+  "title": "Build a better report",
+  "pages": [
+    "screen-context",
+    "diagnostics",
+    "javascript-crashes",
+    "source-maps",
+    "privacy",
+    "configuration",
+    "keys"
+  ]
+}

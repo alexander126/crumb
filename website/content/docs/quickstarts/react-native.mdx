@@ -1,0 +1,145 @@
+---
+title: "React Native"
+description: "One integration for Expo development builds and bare React Native apps."
+---
+
+This quickstart uses the published `@crumbsdk/react-native@0.0.1-rc.3`. It requires React Native **0.79 or newer**, iOS **15.1 or newer**, and Android **API 26 or newer**.
+
+The iOS adapter requires **Swift 6 / Xcode 16 or newer** to build.
+
+Crumb contains native code. **Expo Go is not supported.** Use an Expo development build or a bare React Native application.
+
+## 1. Install the packages
+
+From your application directory:
+
+```sh
+npm install @crumbsdk/react-native@0.0.1-rc.3 react-native-nitro-modules@0.37.1
+```
+
+Use your project's existing package manager if it is not npm. Keep Nitro pinned to the supported version.
+
+## 2. Build the native app
+
+Choose the setup that matches your application. Both paths use the same JavaScript configuration in step 3.
+
+<Tabs items={['Expo', 'Bare React Native']}>
+<Tab value="Expo">
+
+Install the development client and build configuration plugin:
+
+```sh
+npx expo install expo-dev-client expo-build-properties
+```
+
+Merge this into `app.json`, keeping existing plugins. These are minimum floors; retain a higher minimum required by your Expo version or other dependencies.
+
+```json title="app.json"
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": { "minSdkVersion": 26 },
+          "ios": { "deploymentTarget": "15.1" }
+        }
+      ]
+    ]
+  }
+}
+```
+
+No Crumb-specific config plugin is required. Build locally with Xcode or the Android toolchain installed:
+
+```sh
+npx expo run:ios
+# Or build Android:
+npx expo run:android
+```
+
+For an application already configured for EAS, use a development profile with `developmentClient: true`:
+
+```sh
+eas build --profile development --platform ios
+# Or build Android:
+eas build --profile development --platform android
+```
+
+Install that development build on the matching device, then run `npx expo start --dev-client`. For an iOS simulator, your EAS profile must also set `ios.simulator: true`. Rebuild the native client whenever Crumb or another native dependency changes; an OTA update cannot add a native module.
+
+</Tab>
+<Tab value="Bare React Native">
+
+Autolinking discovers Crumb after installation. Keep the iOS deployment target at least 15.1 and Android's `minSdk` at least 26. Do not lower a newer app's existing targets. Android requires Java 17 bytecode.
+
+Install pods, then rebuild the application:
+
+```sh
+npx pod-install
+npm run ios
+# Or build Android:
+npm run android
+```
+
+Use your application's equivalent build commands if these scripts differ. No manual Crumb registration in `AppDelegate`, `MainApplication`, or the package list is needed.
+
+</Tab>
+</Tabs>
+
+## 3. Configure Crumb once
+
+Copy the write key and ingestion URL from the project's SDK setup. The following values are placeholders. Both Expo and bare apps use this same code:
+
+```ts title="crumb.ts"
+import Crumb from "@crumbsdk/react-native";
+
+export async function configureCrumb(): Promise<void> {
+  await Crumb.start({
+    projectKey: "crumb_sdk_replace_me",
+    environment: __DEV__ ? "development" : "production",
+    upload: {
+      ingestionUrl: "https://api.example.com",
+    },
+  });
+  await Crumb.installReporter();
+}
+```
+
+Call and await `configureCrumb()` once in your existing app startup path. Enable your report button after it completes, and handle any rejected startup promise through your app's error handling. Repeated component renders should not restart the SDK.
+
+Crumb reads the native app version and build automatically. An OTA app should also provide an immutable `release.bundleVersion` for the running JavaScript bundle. See [release identity](/docs/guides/source-maps#match-the-running-build).
+
+## 4. Open the reporter
+
+Connect this handler to a button in your application:
+
+```ts
+async function reportProblem(): Promise<boolean> {
+  return Crumb.show();
+}
+```
+
+The returned boolean indicates whether presentation opened; it is not confirmation of submission or upload. The installed reporter also supports foreground shake invocation. A button is the easiest first check in a simulator or emulator.
+
+## 5. Verify the report
+
+1. Launch your newly built native app and let configuration finish.
+2. Open the reporter from your button.
+3. Inspect the screenshot. Text inputs should be masked; remove the screenshot if it contains sensitive information.
+4. Submit a synthetic description such as “Crumb integration check”.
+5. Open the same project in the dashboard, select the environment you configured, and find the report.
+
+Keep the app foregrounded while verifying delivery. If you submit offline, reconnect and return to the app so queued delivery can continue.
+
+## Troubleshooting
+
+| Symptom                                                    | Next check                                                                                                  |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Native module cannot be found in Expo                      | Open your rebuilt development client, not Expo Go.                                                          |
+| Native module cannot be found in a bare app                | Reinstall pods on iOS, then rebuild the native application. Restarting Metro alone is insufficient.         |
+| `Crumb.show()` returns false                               | Wait for startup and reporter installation, and check that no reporter is already open.                     |
+| Report saved but dashboard is empty                        | Check the ingestion URL, write key, project and environment. An omitted URL keeps reports local.            |
+| A preview configuration option or screen helper is missing | Check [release availability](/docs/releases); the published rc.3 package does not include the preview APIs. |
+
+Continue with [logs and diagnostics](/docs/guides/diagnostics), [privacy](/docs/guides/privacy), or the full [troubleshooting guide](/docs/troubleshooting).

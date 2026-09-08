@@ -1,0 +1,41 @@
+name: Public documentation checks
+
+on:
+  pull_request:
+    paths:
+      - website/**
+      - .github/workflows/docs-ci.yml
+  push:
+    branches: [main]
+    paths:
+      - website/**
+      - .github/workflows/docs-ci.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run types:check
+      - run: npm run build
+      - run: npm run links:check
+      - run: npx playwright install --with-deps chromium
+      - run: npm test

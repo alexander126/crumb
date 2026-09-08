@@ -1,0 +1,77 @@
+---
+title: "Configuration and policy"
+description: "Preview · Customize collection while preserving the reporting boundary."
+---
+
+**Preview:** reporter options, evidence allowlists, custom context and workspace policy are not included in published rc.3. The quickstarts intentionally omit them.
+
+## Keep the first setup small
+
+The required SDK setup is a project key and environment, plus native release metadata where required. Configure an ingestion URL for dashboard delivery. Add optional sources only after your first report succeeds.
+
+The health probe is separate and optional. Do not copy a health-check URL or workspace-policy URL unless you intend to use that service and have its correct value.
+
+## Reporter appearance and fields
+
+The SDK owns the reporter's layout, copy and Crumb branding. You can choose system, light or dark appearance and hide the optional category field. The description stays required.
+
+This fragment belongs in a preview React Native startup configuration:
+
+```ts
+import type { CrumbConfiguration } from "@crumbsdk/react-native";
+
+const options = {
+  reporter: {
+    theme: "system",
+    visibleFields: ["description"],
+  },
+} satisfies Partial<CrumbConfiguration>;
+```
+
+Swift uses `CrumbReporterOptions` and `.system`; Kotlin uses `CrumbReporterOptions` and `CrumbTheme.SYSTEM`. The [configuration contract](https://github.com/alexander126/crumb/blob/main/docs/contracts/sdk-configuration.md) maps names across platforms.
+
+## Choose evidence
+
+```ts
+import type { CrumbConfiguration } from "@crumbsdk/react-native";
+
+const options = {
+  evidence: ["screenshot", "performance", "network", "logs", "thread_stacks"],
+} satisfies Partial<CrumbConfiguration>;
+```
+
+Other optional categories are `health_check` and `custom_context`. An explicit array replaces the local evidence selection; include every source you intend to permit. Rendering still needs its own opt-in, and a health probe still needs a configured URL.
+
+To include permitted static custom context:
+
+```ts
+import type { CrumbConfiguration } from "@crumbsdk/react-native";
+
+const options = {
+  customContext: {
+    values: { account_tier: "paid" },
+    allowedKeys: ["account_tier"],
+  },
+} satisfies Partial<CrumbConfiguration>;
+```
+
+If you supply an explicit evidence array, include `custom_context` to permit this context and screen labels. Context is string-only: at most 16 keys, 64 ASCII bytes per key, 512 UTF-8 bytes per value and 8 KiB total. Sensitive names and control characters are removed or redacted. Never pass a full user or application-state object.
+
+## Workspace policy precedence
+
+A policy URL enables a bounded, asynchronous fetch. Until a valid policy is available, optional evidence is disabled; description-only reporting remains available. A valid cached policy is usable only until its expiry.
+
+| Policy state                       | Behavior                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| No URL configured                  | Local SDK configuration applies.                                         |
+| Fetching, unavailable or malformed | Description only; optional evidence and context disabled.                |
+| Valid fresh or cached policy       | Policy can narrow local evidence, optional fields and context allowlist. |
+| Expired                            | Description only until a valid policy is available.                      |
+
+Effective context keys are the intersection of the application's allowlist and the policy allowlist. A policy cannot enable locally disabled evidence or accept an older policy version over a newer valid one.
+
+Only add your real policy URL after its response follows the [public policy schema](https://github.com/alexander126/crumb/blob/main/schemas/workspace-policy.schema.json). Do not use arbitrary endpoints: the request sends the project write key as a bearer credential to the configured destination.
+
+## Invocation
+
+`invocation` selects `shake`, `programmatic`, or both. Native equivalents follow their platform naming. Keeping an explicit report button is useful for accessibility and emulator testing, even when shake is enabled.

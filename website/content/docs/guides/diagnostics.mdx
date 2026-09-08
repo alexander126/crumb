@@ -1,0 +1,74 @@
+---
+title: "Logs and diagnostics"
+description: "Understand the evidence available with each report—and what missing evidence means."
+---
+
+Crumb captures bounded diagnostics when a person opens the reporter. It does not continuously profile the app. Some measurements depend on the platform, supplied providers, privacy settings and the installed SDK version.
+
+## React Native logs
+
+Available in the published rc.3 adapter:
+
+```ts
+Crumb.log("info", "Checkout started", { cartItems: 3 });
+Crumb.log("error", "Checkout failed", { reason: "payment_declined" });
+```
+
+Use deliberate, non-sensitive messages. Metadata is bounded and sanitized before reaching native storage. Do not pass whole stores, requests, responses or user objects.
+
+To include warnings and errors from the console, merge these options into your existing startup configuration:
+
+```ts
+const options = {
+  diagnostics: {
+    logs: { captureConsole: true },
+  },
+};
+```
+
+Only `console.warn` and `console.error` are wrapped; their original behavior is preserved. `Crumb.disableConsoleCapture()` restores them. `Crumb.clearLogs()` clears the adapter's current log buffer.
+
+## Native log providers
+
+The Swift and Kotlin SDKs do not hook all logging calls or read system logs. Supply a `CrumbLogProvider` through `CrumbDiagnosticsOptions.logs` to return a prompt, in-memory snapshot of your recent application logs. The SDK invokes it after report opening and applies count, time, byte and sanitization limits.
+
+Use the public [Swift provider interface](https://github.com/alexander126/crumb/blob/main/packages/ios/Sources/CrumbCore/CrumbLogs.swift) or [Android provider example](https://github.com/alexander126/crumb/blob/main/packages/android/README.md) when adapting your existing logger. No provider means logs can be unavailable; it does not mean the app produced zero log entries.
+
+## Read availability accurately
+
+| Evidence                | What to expect                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| CPU and memory          | A bounded observation from the original process when the platform can provide one. |
+| Thread count and stacks | Platform-dependent capture; a count is distinct from readable source locations.    |
+| Network                 | Device connectivity, which may be unknown. It is not request/response recording.   |
+| Health check            | One optional probe after report opening, only with an explicitly configured URL.   |
+| Logs                    | App-provided native logs or the React Native adapter's bounded buffer.             |
+| Rendering               | Separate preview opt-in; numeric observations, with platform-specific limits.      |
+
+**Unavailable** means the evidence was not obtained. **Disabled** reflects collection settings. A measured zero and missing evidence are different states. An “X of Y” summary is an availability count, not an integration score; enabling every optional source is not required for a useful report.
+
+## Failure-time evidence · Preview
+
+Opted-in [JavaScript crashes](/docs/guides/javascript-crashes) can retain original process metadata, CPU, memory, thread count, thermal state and connectivity. Thread-stack evidence includes bounded native frames on iOS and managed Java/Kotlin stacks on Android. iOS image offsets are not dSYM-resolved source lines.
+
+Failure capture does not call app log providers or run an HTTP health probe. Recent Crumb logs are handed off as breadcrumbs. The next launch does not substitute its own CPU, memory or current screen for the original failure's evidence.
+
+## Rendering observations · Preview
+
+Merge these options into your startup configuration and install the reporter:
+
+```ts
+const options = {
+  diagnostics: {
+    renderingEnabled: true,
+  },
+};
+```
+
+Rendering is **off by default**. Enabling it retains up to five one-second buckets of numeric frame observations while foregrounded, bounded to 1,000 observations per bucket. Backgrounding or disabling performance evidence clears it.
+
+- iOS measures display intervals and slow observations; GPU duration is unavailable.
+- Android measures window frame duration, plus GPU frame duration on API 31+ when the OS supplies it.
+- Neither provides full GPU utilization, a complete FPS measurement, frame images or session replay.
+
+The local and workspace performance evidence settings must allow collection. Missing GPU data on iOS is expected, even when rendering is enabled.
