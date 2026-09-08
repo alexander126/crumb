@@ -62,7 +62,7 @@ object CrumbReporter {
     private var shakeDetector: CrumbShakeDetector? = null
     private var activeSession: ReporterSession? = null
 
-    /** Installs foreground shake invocation and Activity lifecycle recovery. Call once after Crumb.start. */
+    /** Installs lifecycle recovery after Crumb.start. Supply activity only when it is already resumed. */
     @JvmStatic
     @JvmOverloads
     fun install(application: Application, activity: Activity? = null): Boolean {
@@ -70,6 +70,9 @@ object CrumbReporter {
         val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
         RenderingMonitor.install(application, activity)
         if (installedApplication === application) {
+            activity?.takeUnless { it.isFinishing || it.isDestroyed }?.let {
+                lifecycleCallbacks?.onActivityResumed(it)
+            }
             syncShakeDetection(settings.invocation)
             return true
         }
@@ -84,6 +87,7 @@ object CrumbReporter {
         Thread({
             runCatching { CrumbReportQueue.from(application).recoverInterruptedUploads() }
         }, "Crumb queue recovery").start()
+        activity?.takeUnless { it.isFinishing || it.isDestroyed }?.let(callbacks::onActivityResumed)
         syncShakeDetection(settings.invocation)
         return true
     }
@@ -133,6 +137,14 @@ object CrumbReporter {
 
     private fun ensureInstalled(application: Application) {
         if (installedApplication == null) install(application)
+    }
+
+    /** Native adapter bridge. Call on a worker thread; delivery remains foreground-only. */
+    @JvmSynthetic
+    fun recoverJavaScriptCrashes(context: Context): Boolean {
+        val recovered = Crumb.recoverJavaScriptCrashes(context)
+        if (recovered) mainHandler.post { CrumbUploadCoordinator.reportDidQueue() }
+        return recovered
     }
 
     private fun startDiagnostics(session: ReporterSession, context: android.content.Context) {

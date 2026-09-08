@@ -18,6 +18,7 @@ internal object CrumbUploadCoordinator {
     private var application: Application? = null
     private var worker: CrumbReportUploadWorker? = null
     private var running = false
+    private var wakeRequested = false
     private var foreground = false
     private var retryStep = 0
     private var retryRunnable: Runnable? = null
@@ -38,6 +39,7 @@ internal object CrumbUploadCoordinator {
 
     fun pause() {
         foreground = false
+        wakeRequested = false
         retryRunnable?.let(mainHandler::removeCallbacks)
         retryRunnable = null
         worker?.cancel()
@@ -50,7 +52,13 @@ internal object CrumbUploadCoordinator {
 
     private fun wake() {
         val activeWorker = worker ?: return
-        if (!foreground || running) return
+        if (!foreground) return
+        if (running) {
+            // Recovery can commit after this pass took its queue snapshot.
+            wakeRequested = true
+            return
+        }
+        wakeRequested = false
         startConnectivityMonitoring()
         retryRunnable?.let(mainHandler::removeCallbacks)
         retryRunnable = null
@@ -66,12 +74,16 @@ internal object CrumbUploadCoordinator {
     }
 
     private fun handle(result: CrumbUploadPassResult) {
+        if (!foreground) return
+        if (wakeRequested) {
+            wake()
+            return
+        }
         if (result.remainingReportCount == 0) {
             retryStep = 0
             stopConnectivityMonitoring()
             return
         }
-        if (!foreground) return
         when {
             result.wasCancelled -> wake()
             result.shouldRetry -> scheduleRetry()

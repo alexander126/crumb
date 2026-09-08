@@ -3,6 +3,7 @@ package com.margelo.nitro.crumbsdk.reactnative
 import android.app.Application
 import android.os.Build
 import com.facebook.react.bridge.UiThreadUtil
+import com.facebook.react.common.LifecycleState
 import com.margelo.nitro.NitroModules
 import com.margelo.nitro.core.Promise
 import dev.crumb.core.Crumb
@@ -109,7 +110,9 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
             runCatching {
                 val context = requireNotNull(NitroModules.applicationContext)
                 val application = context.applicationContext as Application
-                CrumbReporter.install(application, context.getCurrentActivity())
+                val resumedActivity = context.getCurrentActivity()
+                    .takeIf { context.lifecycleState == LifecycleState.RESUMED }
+                CrumbReporter.install(application, resumedActivity)
             }.onSuccess(promise::resolve)
                 .onFailure(promise::reject)
         }
@@ -160,7 +163,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
             return promise
         }
         Thread({
-            runCatching { Crumb.recoverJavaScriptCrashes(context) }
+            runCatching { CrumbReporter.recoverJavaScriptCrashes(context) }
                 .onSuccess(promise::resolve)
                 .onFailure { promise.resolve(false) }
         }, "Crumb JavaScript crash recovery").start()

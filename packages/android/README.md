@@ -42,6 +42,13 @@ CrumbReporter.install(application)
 CrumbReporter.show(activity)
 ```
 
+If installation happens after the host Activity has already resumed, pass that
+Activity on the main thread: `CrumbReporter.install(application, activity)`.
+Otherwise, install with the Application alone and let lifecycle callbacks start
+delivery when the app resumes. The React Native adapter supplies its resumed
+Activity automatically. Recovered JavaScript failures wake foreground delivery
+when they enter the queue; an absent ingestion URL still keeps them local.
+
 Enable delivery by adding transport configuration. Leave `ingestionUrl` null
 for a local-only queue:
 
