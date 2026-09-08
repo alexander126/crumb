@@ -1,0 +1,47 @@
+---
+title: "JavaScript crashes"
+description: "Preview · Preserve a bounded failure record and recover it after relaunch."
+---
+
+**Preview:** crash capture is implemented in the main-branch React Native adapter and is not in the published rc.3 package.
+
+## Enable deliberately
+
+Add this to your existing `Crumb.start` configuration:
+
+```ts
+const options = {
+  diagnostics: {
+    javascriptCrashCapture: {
+      enabled: true,
+    },
+  },
+};
+```
+
+Crash capture is **disabled by default** and separate from opening the reporter. Before enabling it in a distributed app, review your collection notice and test its interaction with your existing error handlers.
+
+## What Crumb handles
+
+The adapter captures fatal JavaScript exceptions and unhandled promise rejections. It makes a bounded, sanitized synchronous native handoff, then calls the existing host handler. It is designed to coexist with existing observability SDKs; verify the combination in your application.
+
+After a process relaunch, Crumb validates and deduplicates a pending record and commits it to the durable report queue. With ingestion configured, normal delivery sends the recovered occurrence. Android foreground recovery wakes delivery when the record is queued, without requiring another background/foreground transition.
+
+The record can contain the failure type, message, bounded JavaScript stack, release identity, recent Crumb log breadcrumbs, permitted custom context and supported [failure-time diagnostics](/docs/guides/diagnostics#failure-time-evidence--preview). Breadcrumb defaults are 32 entries and 16 KiB, with configurable maxima of 50 entries and 65,536 bytes.
+
+## What it does not handle
+
+This option does not intercept arbitrary Swift, Objective-C, Java, Kotlin or native signal crashes. It does not capture an app's Redux state, arbitrary memory, request bodies or session replay. Native diagnostic frames captured alongside a JavaScript failure are not native fatal-crash coverage.
+
+A caught JavaScript exception is not automatically a fatal crash. A JavaScript development reload is also not the same as a process relaunch.
+
+## Verify one failure end to end
+
+1. Use a disposable native build and synthetic data. Enable capture before the test failure.
+2. Trigger a known fatal JavaScript fixture through your app's normal JavaScript error handler; developer overlays may affect behavior.
+3. Relaunch the process and initialize Crumb again.
+4. Keep the app foregrounded until the recovered report reaches the dashboard.
+5. Check that there is one occurrence with the original message, release and screen, if configured.
+6. Upload the exact [bundle and source map](/docs/guides/source-maps) to resolve the original source location.
+
+Submitting a normal report does not test crash recovery. Likewise, successful source-map upload alone does not prove the crash resolves to the correct line. Verify the resulting report.

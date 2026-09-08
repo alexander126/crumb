@@ -1,0 +1,112 @@
+---
+title: "Android"
+description: "Add the native reporter to your Kotlin application."
+---
+
+This quickstart uses **0.0.1-rc.3**, the published preview. Crumb requires **Android API 26 or newer** and **Java 17 bytecode**.
+
+## 1. Install from Maven Central
+
+Ensure your dependency repositories include Maven Central, usually under `dependencyResolutionManagement` in `settings.gradle.kts`:
+
+```kotlin
+repositories {
+    google()
+    mavenCentral()
+}
+```
+
+Add the UI artifact to your app module; Core is included transitively:
+
+```kotlin title="app/build.gradle.kts"
+dependencies {
+    implementation("com.crumbsdk:crumb-ui:0.0.1-rc.3")
+}
+
+android {
+    defaultConfig {
+        minSdk = 26
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+```
+
+Merge these settings into your existing blocks and keep a higher minimum if your app already requires one. Align your Kotlin JVM target with Java 17 if your project configures it separately.
+
+## 2. Configure in Application
+
+Copy your project's SDK setup values into the key and URL placeholders. Start once in your existing `Application.onCreate()` and install the reporter on the main thread:
+
+```kotlin title="App.kt"
+import android.app.Application
+import dev.crumb.core.Crumb
+import dev.crumb.core.CrumbConfiguration
+import dev.crumb.core.CrumbRelease
+import dev.crumb.core.CrumbUploadOptions
+import dev.crumb.ui.CrumbReporter
+
+class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        Crumb.start(
+            CrumbConfiguration(
+                projectKey = "crumb_sdk_replace_me",
+                environment = "development",
+                release = CrumbRelease(
+                    appVersion = BuildConfig.VERSION_NAME,
+                    nativeBuild = BuildConfig.VERSION_CODE.toString(),
+                ),
+                upload = CrumbUploadOptions(
+                    ingestionUrl = "https://api.example.com",
+                ),
+            ),
+        )
+        CrumbReporter.install(this)
+    }
+}
+```
+
+Use your app module's `BuildConfig`. If generation is disabled, enable `buildFeatures { buildConfig = true }` or supply version values from your existing release metadata.
+
+Register the class in the existing application element in `AndroidManifest.xml`:
+
+```xml
+<application android:name=".App">
+    <!-- Keep your existing activities and other declarations here. -->
+</application>
+```
+
+If your app already has an `Application` subclass, add initialization there instead of replacing it.
+
+## 3. Open the reporter
+
+From a foreground Activity's button handler:
+
+```kotlin
+CrumbReporter.show(this)
+```
+
+The installed reporter also supports foreground shake invocation. The explicit button is the simplest emulator check.
+
+## 4. Verify the report
+
+1. Rebuild and launch your app with the project's real setup values.
+2. Open the reporter from the button.
+3. Confirm the screenshot is useful and `EditText` contents are masked.
+4. Submit “Crumb integration check” and keep the app foregrounded while verifying delivery.
+5. Find the report in the matching dashboard project and `development` environment.
+
+## Troubleshooting
+
+| Symptom                                  | Next check                                                                                           |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Dependency does not resolve              | Add Maven Central to the repositories actually used by the app and check the exact artifact version. |
+| JVM target mismatch                      | Align Java and Kotlin compilation with Java 17.                                                      |
+| Reporter never installs                  | Confirm the manifest uses the correct `Application` class and startup executes.                      |
+| A report stays local                     | Check the ingestion URL and key. Reconnect and foreground the app after an offline submission.       |
+| Compose or WebView content needs masking | Mark the containing Android View; see [privacy](/docs/guides/privacy#mask-sensitive-regions).        |
+
+Crumb gathers diagnostics on demand. Native application logs need an explicit provider; see [logs and diagnostics](/docs/guides/diagnostics). The SDK does not install native fatal-crash handlers.

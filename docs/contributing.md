@@ -89,9 +89,8 @@ Use the commands already exercised by the package scripts and workflows:
 - Standalone consumer-example changes: from `examples/react-native`, run
   `npm ci`, `npm run typecheck`, and the affected Android or iOS build.
 - Documentation or template changes: parse YAML, inspect rendered Markdown and
-  relative links, and run any directly affected contract check. There is no
-  repository documentation build configured, so report that fact rather than
-  claiming a docs build.
+  relative links, and run any directly affected contract check. For site changes, run the build, type, formatting, link and browser checks
+  documented in `website/README.md` and `.github/workflows/docs-ci.yml`.
 
 The native CI workflow runs the release gate on every pull request. React
 Native package and consumer-example workflows run when their path filters
