@@ -4,7 +4,8 @@ An explicit CI command for uploading a React Native release bundle and its
 matching source map. Requires Node.js 22 or newer. It never runs inside your app
 and has no runtime dependencies.
 
-**Implementation preview:** this package is not yet published. Uploads require
+**rc.4 candidate:** confirm the exact package version is published before using
+a registry installation; source preparation alone does not establish availability. Uploads require
 a service implementing the [v1 upload contract](https://github.com/alexander126/crumb/blob/main/docs/contracts/source-map-upload.md)
 and a dedicated project-scoped upload credential. A local dry-run does not
 require either. Hosted compatibility and package publication are release gates.
@@ -19,8 +20,9 @@ node dist/cli.js --help
 ```
 
 After an approved package release, install its exact version as a development
-dependency and use `crumb-source-maps` from a package script. Do not resolve an
-unversioned package on each release build.
+dependency and use `crumb-source-maps` from a package script. For this candidate,
+that version is `@crumbsdk/source-maps@0.0.1-rc.4`. Do not resolve an unversioned
+package on each release build.
 
 ## Upload the exact release
 

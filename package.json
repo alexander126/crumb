@@ -25,7 +25,7 @@
     "browserstack:run:ios:current": "node scripts/browserstack.mjs run-ios-current",
     "browserstack:run:ios:legacy": "node scripts/browserstack.mjs run-ios-legacy",
     "browserstack:run:android": "node scripts/browserstack.mjs run-android",
-    "release:check": "npm run contracts:check && npm run version:check && npm run quality:verify && npm run distribution:verify",
+    "release:check": "npm run contracts:check && npm run version:check && npm run test:versioning && npm run quality:verify && npm run distribution:verify",
     "release:prepare": "node scripts/prepare-release.mjs",
     "release:verify": "node scripts/verify-release.mjs",
     "release:tag-check": "node scripts/check-release-tag.mjs",
@@ -33,7 +33,8 @@
     "registry:bundle:maven": "node scripts/prepare-maven-central-bundle.mjs",
     "registry:publish:maven": "node scripts/publish-maven-central.mjs",
     "registry:publish:cocoapods": "node scripts/publish-cocoapods.mjs",
-    "test": "npm run contracts:check && npm run test:ios && npm run test:android"
+    "test": "npm run contracts:check && npm run test:ios && npm run test:android",
+    "test:versioning": "node --test scripts/test/*.test.mjs"
   },
   "devDependencies": {
     "ajv": "8.20.0",

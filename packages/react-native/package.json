@@ -1,6 +1,6 @@
 {
   "name": "@crumbsdk/react-native",
-  "version": "0.0.1-rc.3",
+  "version": "0.0.1-rc.4",
   "description": "React Native adapter for the native Crumb issue-reporting SDK",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -72,7 +72,7 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "crumbNativeVersion": "0.0.1-rc.3",
+  "crumbNativeVersion": "0.0.1-rc.4",
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@eslint/compat": "2.1.0",
