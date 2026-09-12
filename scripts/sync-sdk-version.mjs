@@ -21,6 +21,20 @@ const generatedFiles = [
   },
 ];
 
+// These distributables are released from the same source commit as the natives.
+for (const packagePath of ["packages/react-native", "packages/source-maps"]) {
+  const path = join(root, packagePath, "package.json");
+  const metadata = JSON.parse(readFileSync(path, "utf8"));
+  metadata.version = version;
+  if (packagePath === "packages/react-native") metadata.crumbNativeVersion = version;
+  generatedFiles.push({ path, content: `${JSON.stringify(metadata, null, 2)}\n` });
+}
+const lockPath = join(root, "packages/source-maps/package-lock.json");
+const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+lock.version = version;
+lock.packages[""].version = version;
+generatedFiles.push({ path: lockPath, content: `${JSON.stringify(lock, null, 2)}\n` });
+
 let stale = false;
 for (const generatedFile of generatedFiles) {
   let current = null;
@@ -36,7 +50,7 @@ for (const generatedFile of generatedFiles) {
 }
 
 if (checkOnly && stale) {
-  throw new Error("Generated SDK version sources are stale. Run npm run version:sync.");
+  throw new Error("SDK package metadata or generated version sources are stale. Run npm run version:sync.");
 }
 
-console.log(`${checkOnly ? "Verified" : "Synchronized"} native SDK version ${version}.`);
+console.log(`${checkOnly ? "Verified" : "Synchronized"} SDK distribution versions ${version}.`);

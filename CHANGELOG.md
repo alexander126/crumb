@@ -5,26 +5,45 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+## [0.0.1-rc.4] - Candidate
+
+This candidate is prepared from current source; registry publication and the
+final installation/dogfood gates are tracked separately. See the
+[rc.4 release and migration notes](docs/releases/0.0.1-rc.4.md).
+
 ### Added
 
-- Added the strict-TypeScript `@crumbsdk/react-native` Nitro Module with
-  autolinked CocoaPods and Maven dependencies, native reporter invocation,
-  inferred native release identity, OTA bundle identity, and an Expo
-  development-build example.
-- Added bounded structured JavaScript logs and opt-in `console.warn` and
-  `console.error` capture. Entries are mirrored into native memory as they are
-  written, so native report presentation never waits on a blocked JavaScript
-  thread.
-- Added disabled-by-default React Native JavaScript crash capture for fatal
-  exceptions and unhandled promise rejections, with chained host handlers,
-  bounded sanitized native persistence, relaunch recovery, and deduplication of
-  native termination wrappers.
+- Opt-in React Native JavaScript fatal-exception and unhandled-rejection
+  capture, bounded native persistence, relaunch recovery and deduplication.
+- Failure-time native diagnostics and platform stacks, with separately opted-in
+  recent rendering measurements. Unavailable measurements remain explicit.
+- Manual screen labels, React Navigation and Expo Router integrations that
+  preserve the original screen in reports/crashes without route parameter values.
+- Reporter theme and field configuration, evidence selection, bounded custom
+  context and privacy-policy precedence.
+- The standalone `@crumbsdk/source-maps` CLI for explicit, authenticated uploads
+  of exact release bundles and final composed maps.
+- Configurable source-linked Release crash fixtures and navigation examples.
+
+### Changed
+
+- React Native npm archives now include Crumb's iOS sources and pinned
+  PLCrashReporter dependency. Expo uses the Crumb config plugin; bare React
+  Native uses the Podfile helper. Native Swift applications should use SPM.
+  New iOS SDK releases no longer require a new CocoaPods trunk publication.
+- Version synchronization and release checks cover Swift, Kotlin, the React
+  Native package/native dependency pin and the source-map CLI/lockfile.
+- React Native publication requires its tag and native tag to identify the same
+  source commit.
 
 ### Fixed
 
-- Made CocoaPods publication resilient to post-publication service errors and
-  removed ambiguous fuzzy package lookup from the public verification gate.
-- Declared the Swift language version on the dependency-only umbrella pod.
+- Android starts uploading recovered JavaScript failures without another
+  background/foreground transition.
+- Native Android demo accessibility tests apply dark appearance and large text
+  before Activity resources are created.
+- Source-linked demo Release instructions prepare bundled iOS dependencies and
+  regenerate Android bundles after configuration changes.
 
 ## [0.0.1-rc.3] - 2026-08-31
 

@@ -1,6 +1,6 @@
 {
   "name": "@crumbsdk/source-maps",
-  "version": "0.0.1-rc.3",
+  "version": "0.0.1-rc.4",
   "description": "Explicit, CI-safe bundle and source-map uploads for Crumb",
   "type": "module",
   "bin": {

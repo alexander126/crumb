@@ -13,7 +13,7 @@ screenshot masking, diagnostics, durable storage, and upload.
 
 Crumb contains native code and therefore does not run in Expo Go.
 
-## Install
+## Published rc.3 installation
 
 Install the public package and its required Nitro runtime as direct
 dependencies:
@@ -81,11 +81,17 @@ The [complete all-platform guide](../../docs/getting-started.md) covers Expo,
 bare React Native, native iOS, and native Android from installation through a
 submitted test report.
 
-## Upcoming iOS packaging (Preview)
+## rc.4 candidate installation and migration
 
-This setup applies to the next release and reviewed source builds, **not the
-published rc.3 package**. Until a new version is published, keep using the rc.3
-quickstart above.
+This setup applies to **0.0.1-rc.4** and reviewed candidate builds, not rc.3.
+Confirm rc.4 is published before installing it from npm. Until then, the rc.3
+quickstart above remains the published path. Full [candidate release notes](../../docs/releases/0.0.1-rc.4.md) describe the release gates.
+
+After rc.4 publication:
+
+```sh
+npm install @crumbsdk/react-native@0.0.1-rc.4 react-native-nitro-modules@0.37.1
+```
 
 The npm artifact includes Crumb's iOS sources, resource bundles and its pinned
 PLCrashReporter dependency. CocoaPods builds those files locally; new Crumb
