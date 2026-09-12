@@ -136,7 +136,11 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
             onFinish: { [weak self] in self?.finish(sessionID: sessionID) }
         )
         let navigationController = UINavigationController(rootViewController: reporter)
-        navigationController.modalPresentationStyle = .pageSheet
+        // A system page sheet promotes itself for the keyboard. The reporter owns
+        // its content-sized panel instead, coordinating one keyboard transition.
+        navigationController.modalPresentationStyle = .overFullScreen
+        navigationController.modalTransitionStyle = .crossDissolve
+        navigationController.view.backgroundColor = .clear
         navigationController.overrideUserInterfaceStyle = context.settings.reporter.theme.uiStyle
         navigationController.setNavigationBarHidden(true, animated: false)
         let appearance = CrumbDesign.navigationAppearance()
@@ -145,22 +149,6 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         navigationController.navigationBar.compactAppearance = appearance
         navigationController.navigationBar.tintColor = CrumbDesign.Color.accentDark
         navigationController.view.accessibilityViewIsModal = true
-        if let sheet = navigationController.sheetPresentationController {
-            if #available(iOS 16.0, *) {
-                let formDetent = UISheetPresentationController.Detent.Identifier("crumb.form")
-                sheet.detents = [
-                    .custom(identifier: formDetent) { context in
-                        min(628, context.maximumDetentValue)
-                    }
-                ]
-                sheet.selectedDetentIdentifier = formDetent
-            } else {
-                sheet.detents = [.large()]
-            }
-            sheet.prefersGrabberVisible = true
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-            sheet.preferredCornerRadius = 26
-        }
         presentedController = navigationController
         navigationController.presentationController?.delegate = self
         presenter.present(navigationController, animated: true)
@@ -539,6 +527,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private let reviewHeaderButton = UIButton(type: .system)
     private let keyboardStatusRow = UIStackView()
     private let formSurfaceView = UIView()
+    private var composerHeightConstraint: NSLayoutConstraint?
+    private var composerBottomConstraint: NSLayoutConstraint?
+    private var keyboardFrameInScreen: CGRect?
+    private weak var formScrollView: UIScrollView?
     private weak var contentStack: UIStackView?
     private weak var descriptionCard: UIView?
     private weak var diagnosticsCard: UIView?
@@ -586,7 +578,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     override func viewDidLoad() {
         super.viewDidLoad()
         title = crumbLocalized("Report a problem")
-        view.backgroundColor = .clear
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
 
         formSurfaceView.backgroundColor = CrumbDesign.Color.canvas
         formSurfaceView.layer.cornerRadius = 26
@@ -595,10 +587,33 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         view.addSubview(formSurfaceView)
 
         NSLayoutConstraint.activate([
-            formSurfaceView.topAnchor.constraint(equalTo: view.topAnchor),
             formSurfaceView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             formSurfaceView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             formSurfaceView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        let grabber = UIButton(type: .system)
+        grabber.accessibilityLabel = crumbLocalized("Cancel")
+        grabber.accessibilityIdentifier = "crumb.reporter-grabber"
+        grabber.translatesAutoresizingMaskIntoConstraints = false
+        grabber.addAction(UIAction { [weak self] _ in self?.requestCancel() }, for: .touchUpInside)
+        grabber.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragGrabber(_:))))
+        formSurfaceView.addSubview(grabber)
+        let grabberLine = UIView()
+        grabberLine.isUserInteractionEnabled = false
+        grabberLine.backgroundColor = CrumbDesign.Color.disabled
+        grabberLine.layer.cornerRadius = 2.5
+        grabberLine.translatesAutoresizingMaskIntoConstraints = false
+        grabber.addSubview(grabberLine)
+        NSLayoutConstraint.activate([
+            grabber.topAnchor.constraint(equalTo: formSurfaceView.topAnchor),
+            grabber.centerXAnchor.constraint(equalTo: formSurfaceView.centerXAnchor),
+            grabber.widthAnchor.constraint(equalToConstant: 76),
+            grabber.heightAnchor.constraint(equalToConstant: 27),
+            grabberLine.centerXAnchor.constraint(equalTo: grabber.centerXAnchor),
+            grabberLine.centerYAnchor.constraint(equalTo: grabber.centerYAnchor),
+            grabberLine.widthAnchor.constraint(equalToConstant: 38),
+            grabberLine.heightAnchor.constraint(equalToConstant: 5)
         ])
 
         let content = UIStackView()
@@ -612,15 +627,20 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         view.addSubview(scrollView)
         scrollView.addSubview(content)
 
-        let scrollTopConstraint = scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: 11)
+        formScrollView = scrollView
+        let composerHeight = scrollView.heightAnchor.constraint(equalToConstant: 580)
+        composerHeight.priority = UILayoutPriority(999)
+        composerHeightConstraint = composerHeight
 
+        let composerBottom = scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        composerBottomConstraint = composerBottom
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollTopConstraint,
-            // Let UIKit follow the keyboard without changing the sheet detent or moving
-            // the form a second time after the first-responder transition.
-            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            composerHeight,
+            scrollView.topAnchor.constraint(equalTo: formSurfaceView.topAnchor, constant: 27),
+            formSurfaceView.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            composerBottom,
             content.leadingAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.leadingAnchor,
                 constant: 18
@@ -754,6 +774,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             style: .caption1,
             color: CrumbDesign.Color.secondaryText
         )
+        screenshotChip.accessibilityIdentifier = "crumb.keyboard-screenshot-status"
         screenshotChip.textAlignment = .center
         screenshotChip.font = .systemFont(ofSize: 13)
         screenshotChip.backgroundColor = CrumbDesign.Color.mutedSurface
@@ -885,12 +906,26 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         actionHelperLabel.numberOfLines = 0
         content.addArrangedSubview(actionHelperLabel)
 
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(keyboardWillChangeFrame(_:)),
+            name: UIResponder.keyboardWillChangeFrameNotification, object: nil
+        )
         gatherDiagnostics()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if !descriptionView.isFirstResponder {
+            keyboardFrameInScreen = nil
+            composerBottomConstraint?.constant = 0
+            setKeyboardLayout(false)
+            setExpandedControlsVisible(true)
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        updateFormDetent(animated: false)
+        updateComposerHeight(animated: false)
         guard !didMoveInitialAccessibilityFocus else { return }
         didMoveInitialAccessibilityFocus = true
         UIAccessibility.post(notification: .screenChanged, argument: navigationController?.navigationBar)
@@ -908,62 +943,112 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         descriptionPlaceholder.isHidden = !isEmpty
         descriptionHelperLabel.isHidden = isKeyboardVisible || !isEmpty
         updateSubmitButton()
-        DispatchQueue.main.async { [weak self] in self?.updateFormDetent(animated: true) }
+        updateComposerHeight(animated: false)
+        view.layoutIfNeeded()
+        if let caret = descriptionView.selectedTextRange.map({ descriptionView.caretRect(for: $0.end) }),
+           let formScrollView {
+            let visibleCaret = descriptionView.convert(caret, to: formScrollView).insetBy(dx: 0, dy: -12)
+            formScrollView.scrollRectToVisible(visibleCaret, animated: false)
+        }
     }
 
     func textViewDidBeginEditing(_ textView: UITextView) {
-        isKeyboardVisible = true
-        categoryControl.isHidden = true
-        diagnosticsCard?.isHidden = true
-        screenshotCard?.isHidden = true
-        submitButton.isHidden = true
-        actionHelperLabel.isHidden = true
-        keyboardStatusRow.isHidden = false
-        descriptionHelperLabel.isHidden = true
+        setExpandedControlsVisible(false)
         descriptionCard?.layer.borderWidth = 1.5
         descriptionCard?.layer.borderColor = CrumbDesign.Color.accent.cgColor
-        // UISheetPresentationController owns keyboard avoidance. Keep the existing
-        // detent and content origin stable throughout focus and typing.
     }
 
     func textViewDidEndEditing(_ textView: UITextView) {
-        isKeyboardVisible = false
-        categoryControl.isHidden = !settings.reporter.visibleFields.contains(.category)
-        diagnosticsCard?.isHidden = false
-        screenshotCard?.isHidden = screenshotArtifact == nil
-        submitButton.isHidden = false
-        keyboardStatusRow.isHidden = true
-        descriptionHelperLabel.isHidden = !descriptionView.text.isEmpty
+        setExpandedControlsVisible(true)
         descriptionCard?.layer.borderWidth = 1
         descriptionCard?.layer.borderColor = CrumbDesign.Color.divider.cgColor
-        updateSubmitButton()
     }
 
-    private func updateFormDetent(animated: Bool) {
-        guard !isKeyboardVisible, #available(iOS 16.0, *),
-              let contentStack,
-              let sheet = navigationController?.sheetPresentationController else { return }
+    private func setExpandedControlsVisible(_ visible: Bool) {
+        // Remove these pixels as soon as focus changes, but retain their layout
+        // until keyboardWillChangeFrame coordinates the panel's size and position.
+        let controls: [UIView?] = [categoryControl, diagnosticsCard, screenshotCard, submitButton, actionHelperLabel]
+        UIView.performWithoutAnimation {
+            for control in controls.compactMap({ $0 }) {
+                control.alpha = visible ? 1 : 0
+                control.isUserInteractionEnabled = visible
+                control.accessibilityElementsHidden = !visible
+            }
+        }
+    }
+
+    private func setKeyboardLayout(_ editing: Bool) {
+        isKeyboardVisible = editing
+        categoryControl.isHidden = editing || !settings.reporter.visibleFields.contains(.category)
+        diagnosticsCard?.isHidden = editing
+        screenshotCard?.isHidden = editing || screenshotArtifact == nil
+        submitButton.isHidden = editing
+        keyboardStatusRow.isHidden = !editing
+        descriptionHelperLabel.isHidden = editing || !descriptionView.text.isEmpty
+        updateSubmitButton()
+        updateComposerHeight(animated: false)
+    }
+
+    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
+        guard navigationController?.topViewController === self,
+              view.window != nil,
+              let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
         view.layoutIfNeeded()
-        let fittingWidth = max(0, view.bounds.width - 36)
+        keyboardFrameInScreen = frame
+        let overlap = keyboardOverlap()
+        // Collapse the form and move it above the keyboard in the SAME transaction.
+        // Updating the form in didBeginEditing first would move it down, then up.
+        setKeyboardLayout(descriptionView.isFirstResponder)
+        composerBottomConstraint?.constant = -overlap
+        let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 0
+        UIView.animate(withDuration: duration, delay: 0,
+                       options: [UIView.AnimationOptions(rawValue: curve << 16), .beginFromCurrentState, .allowUserInteraction]) {
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    private func keyboardOverlap() -> CGFloat {
+        guard let keyboardFrameInScreen, let window = view.window else { return 0 }
+        let windowFrame = window.convert(keyboardFrameInScreen, from: window.screen.coordinateSpace)
+        let frame = view.convert(windowFrame, from: window)
+        let intersection = view.bounds.intersection(frame)
+        // Undocked keyboards do not determine the panel's bottom edge.
+        guard !intersection.isNull, intersection.maxY >= view.bounds.maxY - 1,
+              intersection.width >= view.bounds.width * 0.8 else { return 0 }
+        return max(0, view.bounds.maxY - view.safeAreaInsets.bottom - intersection.minY)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        composerBottomConstraint?.constant = -keyboardOverlap()
+        updateComposerHeight(animated: false)
+    }
+
+    @objc private func dragGrabber(_ gesture: UIPanGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        if gesture.translation(in: view).y > 20 || gesture.velocity(in: view).y > 200 {
+            requestCancel()
+        }
+    }
+
+    private func updateComposerHeight(animated: Bool) {
+        guard let contentStack, view.bounds.width > 36 else { return }
         let fittingSize = contentStack.systemLayoutSizeFitting(
-            CGSize(width: fittingWidth, height: UIView.layoutFittingCompressedSize.height),
+            CGSize(width: view.bounds.width - 36, height: UIView.layoutFittingCompressedSize.height),
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
         )
-        let requestedHeight = fittingSize.height + 50
-        let formDetent = UISheetPresentationController.Detent.Identifier("crumb.form")
-        let changes = {
-            sheet.detents = [
-                .custom(identifier: formDetent) { context in
-                    min(requestedHeight, context.maximumDetentValue)
-                }
-            ]
-            sheet.selectedDetentIdentifier = formDetent
-        }
+        // Top/bottom scroll-content padding. The required safe-area constraint
+        // caps this preferred height; longer forms scroll rather than overflowing.
+        let requestedHeight = ceil(fittingSize.height) + 44
+        guard let composerHeightConstraint,
+              abs(composerHeightConstraint.constant - requestedHeight) > 0.5 else { return }
+        composerHeightConstraint.constant = requestedHeight
         if animated {
-            sheet.animateChanges(changes)
-        } else {
-            changes()
+            UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.view.layoutIfNeeded()
+            }
         }
     }
 
@@ -1018,7 +1103,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
                 argument: crumbLocalized("Report context is ready")
             )
             self.updateSubmitButton()
-            DispatchQueue.main.async { [weak self] in self?.updateFormDetent(animated: true) }
+            DispatchQueue.main.async { [weak self] in self?.updateComposerHeight(animated: true) }
         }
     }
 

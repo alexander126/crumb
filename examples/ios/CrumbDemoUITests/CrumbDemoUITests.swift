@@ -10,7 +10,7 @@ final class CrumbDemoUITests: XCTestCase {
         let reporter = app.staticTexts["crumb.reporter-title"]
         XCTAssertTrue(reporter.waitForExistence(timeout: 5))
 
-        app.buttons["Sheet Grabber"].swipeDown()
+        app.buttons["crumb.reporter-grabber"].swipeDown()
         let dismissed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"),
             object: reporter
@@ -62,7 +62,12 @@ final class CrumbDemoUITests: XCTestCase {
         let editingFrame = settledFrame(of: description)
         let title = app.staticTexts["crumb.reporter-title"]
         let titleY = title.frame.minY
-        XCTAssertLessThanOrEqual(editingFrame.maxY, app.keyboards.firstMatch.frame.minY)
+        let keyboardTop = app.keyboards.firstMatch.frame.minY
+        let statusBottom = app.staticTexts["crumb.keyboard-screenshot-status"].frame.maxY
+        XCTAssertGreaterThanOrEqual(keyboardTop - statusBottom, 0)
+        XCTAssertLessThanOrEqual(keyboardTop - statusBottom, 60,
+                                 "The editing controls must sit directly above the keyboard")
+        XCTAssertLessThanOrEqual(editingFrame.maxY, keyboardTop)
         description.typeText("A")
         XCTAssertEqual(description.frame.height, editingFrame.height, accuracy: 1,
                        "The first character must not collapse the input")
@@ -86,6 +91,15 @@ final class CrumbDemoUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Review"].firstMatch.isHittable)
         app.buttons["Review"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["crumb.review-title"].waitForExistence(timeout: 5))
+        app.buttons["Edit"].firstMatch.tap()
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["crumb.review-draft"].exists,
+                      "Returning from review must restore the normal form")
+        XCTAssertEqual(description.value as? String, "A synthetic keyboard regression")
+        app.buttons["Cancel"].firstMatch.tap()
+        XCTAssertTrue(app.alerts["Discard this report?"].waitForExistence(timeout: 3))
+        app.alerts.buttons["Keep editing"].tap()
+        XCTAssertEqual(description.value as? String, "A synthetic keyboard regression")
     }
 
     @MainActor
@@ -97,8 +111,16 @@ final class CrumbDemoUITests: XCTestCase {
         let description = app.textViews["crumb.description"]
         XCTAssertTrue(description.waitForExistence(timeout: 5))
         description.tap()
+        description.typeText(" ")
+        description.typeText(XCUIKeyboardKey.delete.rawValue)
+        let emptyFrame = settledFrame(of: description)
+        let emptyTitleY = app.staticTexts["crumb.reporter-title"].frame.minY
         let draft = String(repeating: "Synthetic description with enough words to wrap. ", count: 8)
         description.typeText(draft)
+        let populatedFrame = settledFrame(of: description)
+        XCTAssertGreaterThan(populatedFrame.height, emptyFrame.height)
+        XCTAssertLessThan(app.staticTexts["crumb.reporter-title"].frame.minY, emptyTitleY,
+                          "Wrapped text must grow the composer upwards")
         XCTAssertEqual(description.value as? String, draft)
         XCUIDevice.shared.orientation = .landscapeRight
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
