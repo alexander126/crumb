@@ -1,6 +1,8 @@
 package dev.crumb.demo
 
 import android.app.Activity
+import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
@@ -18,8 +20,20 @@ import dev.crumb.core.CrumbLogProvider
 import dev.crumb.ui.CrumbReporter
 
 class MainActivity : Activity() {
+    companion object {
+        // Demo-only instrumentation seam. Normal launches keep the system configuration.
+        @Volatile internal var appearanceOverrideForTesting: Configuration? = null
+    }
+
     private lateinit var activityLabel: TextView
     @Volatile private var cpuPressureRunning = false
+
+    override fun attachBaseContext(newBase: Context) {
+        val appearance = appearanceOverrideForTesting
+        super.attachBaseContext(
+            if (appearance == null) newBase else newBase.createConfigurationContext(appearance),
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
