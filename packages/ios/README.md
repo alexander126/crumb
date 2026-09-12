@@ -8,7 +8,7 @@ and report upload.
 
 The current public preview is `0.0.1-rc.3`.
 
-- Swift Package Manager: add `https://github.com/alexander126/crumb.git` at the
+- Swift Package Manager (preferred): add `https://github.com/alexander126/crumb.git` at the
   exact release and link both `CrumbCore` and `CrumbUI`.
 - CocoaPods: add `pod "CrumbSDK", "0.0.1-rc.3"`.
 

@@ -81,6 +81,50 @@ The [complete all-platform guide](../../docs/getting-started.md) covers Expo,
 bare React Native, native iOS, and native Android from installation through a
 submitted test report.
 
+## Upcoming iOS packaging (Preview)
+
+This setup applies to the next release and reviewed source builds, **not the
+published rc.3 package**. Until a new version is published, keep using the rc.3
+quickstart above.
+
+The npm artifact includes Crumb's iOS sources, resource bundles and its pinned
+PLCrashReporter dependency. CocoaPods builds those files locally; new Crumb
+releases do not need publication to the public CocoaPods registry. Other
+libraries in your application may still use that registry.
+
+### Expo development builds
+
+Add `"@crumbsdk/react-native"` to your existing Expo `plugins` array alongside
+`expo-build-properties`. Run a new native prebuild/development build. The plugin
+registers the bundled native dependencies and is safe to run repeatedly.
+Expo Go remains unsupported. Remove old Crumb local-pod plugins or manual
+Crumb pod declarations before enabling this plugin.
+
+### Bare React Native
+
+Inside each application target in `ios/Podfile`, before `use_react_native!`, add:
+
+```ruby
+require File.join(File.dirname(`node --print "require.resolve('@crumbsdk/react-native/package.json')"`.strip), 'scripts', 'ios')
+crumb_native_pods!
+```
+
+Then run `npx pod-install` and rebuild the app. When upgrading from rc.3, remove
+manual `CrumbSDK`, `CrumbSDKCore` and `CrumbSDKUI` declarations first. If CocoaPods
+reports a lockfile source/version conflict, run
+`bundle exec pod update CrumbSDKCore CrumbSDKUI PLCrashReporter --no-repo-update`
+(or `pod update` without Bundler), then review the lockfile changes. Do not
+remove the entire lockfile or update unrelated pods.
+
+If another dependency pins a different PLCrashReporter version, resolve that
+version conflict before installing; do not install two copies or rename the
+framework. The bundled dependency retains its upstream name for CocoaPods to
+check compatibility. Its license and privacy manifest ship with the package.
+
+Native Swift applications should use Swift Package Manager and link both
+`CrumbCore` and `CrumbUI`. Remove CocoaPods' Crumb products before adding the SPM
+products to avoid duplicate modules. SPM does not depend on CocoaPods trunk.
+
 ## Configure
 
 ```ts
