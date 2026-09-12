@@ -4,12 +4,20 @@ on:
   pull_request:
     paths:
       - "packages/react-native/**"
+      - "packages/ios/**"
+      - "CrumbSDK*.podspec"
+      - "Package.swift"
+      - "VERSION"
       - ".github/workflows/react-native-ci.yml"
       - ".github/workflows/react-native-npm-publish.yml"
   push:
     branches: [main]
     paths:
       - "packages/react-native/**"
+      - "packages/ios/**"
+      - "CrumbSDK*.podspec"
+      - "Package.swift"
+      - "VERSION"
       - ".github/workflows/react-native-ci.yml"
       - ".github/workflows/react-native-npm-publish.yml"
 
@@ -35,6 +43,7 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn quality
+      - run: yarn test:packaging
       - run: yarn pack:check
 
   android-example:
@@ -75,5 +84,6 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn nitrogen
-      - run: yarn example expo prebuild --platform ios --clean
-      - run: yarn example build:ios
+      - run: yarn prepare
+      - run: yarn pack:check:ios
+      - run: yarn pack:check:expo

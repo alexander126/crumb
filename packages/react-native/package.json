@@ -10,7 +10,8 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./app.plugin.js": "./app.plugin.js"
   },
   "files": [
     "src",
@@ -26,7 +27,11 @@
     "!ios/build",
     "!android/build",
     "!android/.cxx",
-    "!**/__tests__"
+    "!**/__tests__",
+    "native",
+    "scripts/ios.rb",
+    "app.plugin.js",
+    "plugin"
   ],
   "scripts": {
     "example": "yarn workspace @crumbsdk/react-native-example",
@@ -37,7 +42,12 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest --runInBand",
     "quality": "yarn lint && yarn typecheck && yarn test && yarn prepare",
-    "pack:check": "yarn pack --dry-run"
+    "pack:check": "node scripts/verify-pack.mjs",
+    "prepare:ios": "node scripts/prepare-ios.mjs",
+    "prepack": "yarn prepare:ios",
+    "test:packaging": "node --test test/packaging/*.test.cjs",
+    "pack:check:ios": "node scripts/verify-pack.mjs --ios",
+    "pack:check:expo": "node scripts/verify-expo-consumer.mjs"
   },
   "keywords": [
     "react-native",

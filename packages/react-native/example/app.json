@@ -8,6 +8,7 @@
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
+      "@crumbsdk/react-native",
       "./with-crumb-local-native",
       [
         "expo-build-properties",
