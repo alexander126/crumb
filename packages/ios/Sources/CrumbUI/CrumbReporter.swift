@@ -1175,6 +1175,9 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             envelope: envelope,
             onDone: { [weak self] in self?.finish() }
         )
+        // End editing explicitly so navigation does not restore keyboard focus
+        // before the expanded form is restored when returning from review.
+        descriptionView.resignFirstResponder()
         navigationController?.pushViewController(summary, animated: true)
     }
 
