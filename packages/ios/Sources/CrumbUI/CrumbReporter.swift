@@ -1223,7 +1223,7 @@ private final class DraftSummaryViewController: UIViewController {
                 constant: -18
             ),
             content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 14),
-            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -28),
             content.widthAnchor.constraint(
                 equalTo: scrollView.frameLayoutGuide.widthAnchor,
                 constant: -36
@@ -1272,7 +1272,7 @@ private final class DraftSummaryViewController: UIViewController {
         localBanner.axis = .horizontal
         localBanner.alignment = .top
         localBanner.spacing = 10
-        localBanner.layoutMargins = UIEdgeInsets(top: 16, left: 14, bottom: 16, right: 14)
+        localBanner.layoutMargins = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
         localBanner.isLayoutMarginsRelativeArrangement = true
         CrumbDesign.styleCard(localBanner, fill: CrumbDesign.Color.mutedSurface, border: .clear)
         localBanner.addArrangedSubview(CrumbDesign.statusDot(color: CrumbDesign.Color.ink))
