@@ -14,4 +14,6 @@ lib/
 nitrogen/generated/
 node_modules/
 package.tgz
+
+example/.env.local
 native/

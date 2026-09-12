@@ -4,7 +4,8 @@ These fixtures use real React Navigation 7 and Expo Router, independently of the
 manual screen example. Dependencies are example-only and are not shipped in the SDK.
 
 From `packages/react-native`, run `corepack yarn install --immutable` and
-`corepack yarn nitrogen`. In ignored `example/.env.local`, choose one entry:
+`corepack yarn nitrogen`, then `corepack yarn prepare:ios` to prepare the
+bundled native iOS dependencies. In ignored `example/.env.local`, choose one entry:
 
 ```dotenv
 EXPO_PUBLIC_CRUMB_NAVIGATION=react-navigation
