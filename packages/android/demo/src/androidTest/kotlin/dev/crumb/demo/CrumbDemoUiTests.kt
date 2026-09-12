@@ -1,6 +1,7 @@
 package dev.crumb.demo
 
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.net.TrafficStats
 import android.os.Debug
 import android.os.Process
@@ -361,11 +362,13 @@ class CrumbAccessibilityUiTest {
     fun launchWithAccessibleAppearance() {
         executeShell("settings put system accelerometer_rotation 0")
         executeShell("settings put system user_rotation 0")
-        executeShell("settings put system font_scale 2.0")
-        executeShell("cmd uimode night yes")
-        Thread.sleep(750)
+        // OEM global night-mode commands can succeed without updating the Activity.
+        // Configure the test host before its resources and views are created instead.
+        MainActivity.appearanceOverrideForTesting = Configuration().apply {
+            uiMode = Configuration.UI_MODE_NIGHT_YES
+            fontScale = 2.0f
+        }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        Thread.sleep(500)
         scenario.onActivity { activity ->
             val nightMode = activity.resources.configuration.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK
@@ -383,10 +386,11 @@ class CrumbAccessibilityUiTest {
 
     @After
     fun restoreAppearance() {
-        if (::scenario.isInitialized) scenario.close()
-        executeShell("settings put system font_scale 1.0")
-        executeShell("cmd uimode night no")
-        Thread.sleep(750)
+        try {
+            if (::scenario.isInitialized) scenario.close()
+        } finally {
+            MainActivity.appearanceOverrideForTesting = null
+        }
     }
 
     @Test
