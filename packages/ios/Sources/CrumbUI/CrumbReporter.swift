@@ -539,16 +539,11 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private let reviewHeaderButton = UIButton(type: .system)
     private let keyboardStatusRow = UIStackView()
     private let formSurfaceView = UIView()
-    private let typingGrabber = UIView()
-    private var descriptionHeightConstraint: NSLayoutConstraint?
-    private var formSurfaceTopConstraint: NSLayoutConstraint?
-    private var scrollTopConstraint: NSLayoutConstraint?
     private weak var contentStack: UIStackView?
     private weak var descriptionCard: UIView?
     private weak var diagnosticsCard: UIView?
     private weak var screenshotCard: UIView?
     private var isKeyboardVisible = false
-    private var keyboardHeight: CGFloat = 0
     private var diagnosticsTask: Task<Void, Never>?
     private var didNotifyFinish = false
     private var didMoveInitialAccessibilityFocus = false
@@ -599,23 +594,11 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         formSurfaceView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(formSurfaceView)
 
-        typingGrabber.backgroundColor = CrumbDesign.Color.disabled
-        typingGrabber.layer.cornerRadius = 2.5
-        typingGrabber.isHidden = true
-        typingGrabber.translatesAutoresizingMaskIntoConstraints = false
-        formSurfaceView.addSubview(typingGrabber)
-
-        let formSurfaceTopConstraint = formSurfaceView.topAnchor.constraint(equalTo: view.topAnchor)
-        self.formSurfaceTopConstraint = formSurfaceTopConstraint
         NSLayoutConstraint.activate([
-            formSurfaceTopConstraint,
+            formSurfaceView.topAnchor.constraint(equalTo: view.topAnchor),
             formSurfaceView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             formSurfaceView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            formSurfaceView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            typingGrabber.topAnchor.constraint(equalTo: formSurfaceView.topAnchor, constant: 10),
-            typingGrabber.centerXAnchor.constraint(equalTo: formSurfaceView.centerXAnchor),
-            typingGrabber.widthAnchor.constraint(equalToConstant: 38),
-            typingGrabber.heightAnchor.constraint(equalToConstant: 5)
+            formSurfaceView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
         let content = UIStackView()
@@ -630,13 +613,14 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         scrollView.addSubview(content)
 
         let scrollTopConstraint = scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: 11)
-        self.scrollTopConstraint = scrollTopConstraint
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollTopConstraint,
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            // Let UIKit follow the keyboard without changing the sheet detent or moving
+            // the form a second time after the first-responder transition.
+            scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             content.leadingAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.leadingAnchor,
                 constant: 18
@@ -726,7 +710,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             greaterThanOrEqualToConstant: 118
         )
         descriptionHeightConstraint.isActive = true
-        self.descriptionHeightConstraint = descriptionHeightConstraint
         descriptionCard.addArrangedSubview(descriptionView)
 
         descriptionHelperLabel.text = crumbLocalized(
@@ -902,31 +885,11 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         actionHelperLabel.numberOfLines = 0
         content.addArrangedSubview(actionHelperLabel)
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillShow(_:)),
-            name: UIResponder.keyboardWillShowNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillHide),
-            name: UIResponder.keyboardWillHideNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardDidShow),
-            name: UIResponder.keyboardDidShowNotification,
-            object: nil
-        )
-
         gatherDiagnostics()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        makePresentationChromeTransparent()
         updateFormDetent(animated: false)
         guard !didMoveInitialAccessibilityFocus else { return }
         didMoveInitialAccessibilityFocus = true
@@ -943,13 +906,12 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     func textViewDidChange(_ textView: UITextView) {
         let isEmpty = textView.text.isEmpty
         descriptionPlaceholder.isHidden = !isEmpty
-        descriptionHelperLabel.isHidden = !isEmpty
-        descriptionHeightConstraint?.constant = isEmpty ? 118 : 44
+        descriptionHelperLabel.isHidden = isKeyboardVisible || !isEmpty
         updateSubmitButton()
         DispatchQueue.main.async { [weak self] in self?.updateFormDetent(animated: true) }
     }
 
-    @objc private func keyboardWillShow(_ notification: Notification) {
+    func textViewDidBeginEditing(_ textView: UITextView) {
         isKeyboardVisible = true
         categoryControl.isHidden = true
         diagnosticsCard?.isHidden = true
@@ -960,77 +922,21 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         descriptionHelperLabel.isHidden = true
         descriptionCard?.layer.borderWidth = 1.5
         descriptionCard?.layer.borderColor = CrumbDesign.Color.accent.cgColor
-        formSurfaceTopConstraint?.constant = 250
-        scrollTopConstraint?.constant = 261
-        typingGrabber.isHidden = false
-        navigationController?.sheetPresentationController?.prefersGrabberVisible = false
-        if #available(iOS 16.0, *),
-           let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey]
-                as? CGRect {
-            keyboardHeight = keyboardFrame.height
-            view.layoutIfNeeded()
-            applyKeyboardDetent(animated: false)
-        }
+        // UISheetPresentationController owns keyboard avoidance. Keep the existing
+        // detent and content origin stable throughout focus and typing.
     }
 
-    @objc private func keyboardDidShow() {
-        // UIKit promotes page sheets while installing the first responder. Reassert the compact
-        // typing detent after that transition so the visible geometry stays faithful to the spec.
-        let compactSurfaceTop = max(0, view.bounds.height - keyboardHeight - 227)
-        formSurfaceTopConstraint?.constant = compactSurfaceTop
-        scrollTopConstraint?.constant = compactSurfaceTop + 11
-        view.layoutIfNeeded()
-        applyKeyboardDetent(animated: true)
-        DispatchQueue.main.async { [weak self] in self?.makePresentationChromeTransparent() }
-    }
-
-    private func makePresentationChromeTransparent() {
-        view.backgroundColor = .clear
-        navigationController?.view.backgroundColor = .clear
-        var ancestor = navigationController?.view.superview
-        while let current = ancestor, !(current is UIWindow) {
-            current.backgroundColor = .clear
-            ancestor = current.superview
-        }
-    }
-
-    private func applyKeyboardDetent(animated: Bool) {
-        guard isKeyboardVisible, keyboardHeight > 0, #available(iOS 16.0, *),
-              let sheet = navigationController?.sheetPresentationController else { return }
-        let keyboardDetent = UISheetPresentationController.Detent.Identifier("crumb.keyboard")
-        let requestedHeight = keyboardHeight + 226
-        let changes = {
-            sheet.detents = [
-                .custom(identifier: keyboardDetent) { context in
-                    min(requestedHeight, context.maximumDetentValue)
-                }
-            ]
-            sheet.selectedDetentIdentifier = keyboardDetent
-        }
-        if animated {
-            sheet.animateChanges(changes)
-        } else {
-            changes()
-        }
-    }
-
-    @objc private func keyboardWillHide() {
+    func textViewDidEndEditing(_ textView: UITextView) {
         isKeyboardVisible = false
-        formSurfaceTopConstraint?.constant = 0
-        scrollTopConstraint?.constant = 11
-        typingGrabber.isHidden = true
-        navigationController?.sheetPresentationController?.prefersGrabberVisible = true
         categoryControl.isHidden = !settings.reporter.visibleFields.contains(.category)
         diagnosticsCard?.isHidden = false
         screenshotCard?.isHidden = screenshotArtifact == nil
         submitButton.isHidden = false
         keyboardStatusRow.isHidden = true
-        let isEmpty = descriptionView.text.isEmpty
-        descriptionHelperLabel.isHidden = !isEmpty
+        descriptionHelperLabel.isHidden = !descriptionView.text.isEmpty
         descriptionCard?.layer.borderWidth = 1
         descriptionCard?.layer.borderColor = CrumbDesign.Color.divider.cgColor
         updateSubmitButton()
-        DispatchQueue.main.async { [weak self] in self?.updateFormDetent(animated: true) }
     }
 
     private func updateFormDetent(animated: Bool) {
@@ -1124,10 +1030,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         submitButton.isEnabled = isReady
         reviewHeaderButton.isEnabled = isReady
         if !hasDescription {
-            actionHelperLabel.isHidden = false
+            actionHelperLabel.isHidden = isKeyboardVisible
             actionHelperLabel.text = crumbLocalized("Add a description to continue.")
         } else if diagnostics == nil {
-            actionHelperLabel.isHidden = false
+            actionHelperLabel.isHidden = isKeyboardVisible
             actionHelperLabel.text = crumbLocalized("Finishing context collection…")
         } else {
             actionHelperLabel.isHidden = true

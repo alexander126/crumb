@@ -46,6 +46,73 @@ final class CrumbDemoUITests: XCTestCase {
     }
 
     @MainActor
+    func testDescriptionKeepsItsGeometryThroughTypingAndRefocus() {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["demo.report-problem"].tap()
+        let description = app.textViews["crumb.description"]
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        description.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+
+        // XCTest can report a hardware-keyboard placeholder before showing the
+        // software keyboard. Prime it, then restore the empty draft before measuring.
+        description.typeText(" ")
+        description.typeText(XCUIKeyboardKey.delete.rawValue)
+        let editingFrame = settledFrame(of: description)
+        let title = app.staticTexts["crumb.reporter-title"]
+        let titleY = title.frame.minY
+        XCTAssertLessThanOrEqual(editingFrame.maxY, app.keyboards.firstMatch.frame.minY)
+        description.typeText("A")
+        XCTAssertEqual(description.frame.height, editingFrame.height, accuracy: 1,
+                       "The first character must not collapse the input")
+        XCTAssertEqual(title.frame.minY, titleY, accuracy: 1,
+                       "Typing must not move the sheet header")
+        description.typeText(" synthetic keyboard regression")
+        description.typeText("\n")
+        let keyboardHidden = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [keyboardHidden], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["crumb.review-draft"].exists)
+        XCTAssertEqual(description.value as? String, "A synthetic keyboard regression")
+
+        description.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        description.typeText(" ")
+        description.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(settledFrame(of: description).height, editingFrame.height, accuracy: 1)
+        XCTAssertLessThanOrEqual(description.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        XCTAssertTrue(app.buttons["Review"].firstMatch.isHittable)
+        app.buttons["Review"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["crumb.review-title"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testLongDescriptionSurvivesRotationWhileEditing() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { XCUIDevice.shared.orientation = .portrait }
+        app.buttons["demo.report-problem"].tap()
+        let description = app.textViews["crumb.description"]
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        description.tap()
+        let draft = String(repeating: "Synthetic description with enough words to wrap. ", count: 8)
+        description.typeText(draft)
+        XCTAssertEqual(description.value as? String, draft)
+        XCUIDevice.shared.orientation = .landscapeRight
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(description.value as? String, draft)
+        XCUIDevice.shared.orientation = .portrait
+        description.typeText("\n")
+        let review = app.buttons["crumb.review-draft"]
+        for _ in 0..<5 where !review.isHittable { app.swipeUp() }
+        XCTAssertTrue(review.isHittable)
+        review.tap()
+        XCTAssertTrue(app.staticTexts["crumb.review-title"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testCreatesLocalReportDraft() {
         let app = XCUIApplication()
         app.launch()
@@ -206,6 +273,27 @@ final class CrumbDemoUITests: XCTestCase {
             XCTAssertLessThanOrEqual(tryMetric("retained_bytes", metrics), 20 * 1_024 * 1_024)
         }
         print("CrumbT10 \(results.label)")
+    }
+
+    @MainActor
+    private func settledFrame(of element: XCUIElement) -> CGRect {
+        // A keyboard can exist in the accessibility tree before its presentation
+        // animation finishes. Measure editing geometry only once it has settled.
+        var frame = element.frame
+        var stableSince = Date()
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            let current = element.frame
+            if current != frame {
+                frame = current
+                stableSince = Date()
+            } else if Date().timeIntervalSince(stableSince) >= 0.75 {
+                return frame
+            }
+        }
+        XCTFail("Input geometry did not settle")
+        return frame
     }
 
     private func parseMetrics(_ value: String) -> [String: Double] {
