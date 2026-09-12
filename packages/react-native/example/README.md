@@ -11,6 +11,7 @@ From `packages/react-native`:
 ```sh
 corepack yarn install --immutable
 corepack yarn nitrogen
+corepack yarn prepare:ios
 cp example/.env.example example/.env.local
 ```
 
