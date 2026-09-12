@@ -1,0 +1,29 @@
+---
+title: "Read and act on a report"
+description: "Move from the original report to a useful engineering action."
+---
+
+## Find the occurrence
+
+Open the correct project and environment. Start with the person's original description, capture time and application release. A report is one occurrence; do not assume similar descriptions have been automatically grouped into one issue.
+
+When supplied, the logical screen identifies where the person was. A native host is a fallback. Neither is proof of the cause of a bug.
+
+## Inspect the evidence
+
+Read the screenshot, available diagnostics and recent app logs together. Keep observations distinct from interpretation:
+
+- A recorded value was measured or explicitly supplied.
+- Unavailable evidence was not obtained; it should not be read as zero.
+- A screen label provides location context, while a resolved JavaScript frame provides a source location.
+- A missing or mismatched source map leaves raw failure evidence available.
+
+Do not expect a recovered JavaScript crash to include a fresh screenshot or a health probe from the next launch. Its original evidence is preserved within the feature's collection limits.
+
+## Track the work
+
+Use report close and reopen controls to reflect your team's investigation status. Closing a report does not fix or deploy the application. If you create an engineering issue, include the reproduction steps, affected release and relevant sanitized evidence.
+
+Treat dashboard report links as workspace access links, not anonymous public shares. Recipients need appropriate account and project access. If using an available export or issue integration, inspect its proposed content and audience before sending it outside the workspace.
+
+Automatic occurrence grouping, native crash interception and session replay are not promised by this SDK release. Use the [release availability guide](/docs/releases) to distinguish shipped package behavior from preview features.

@@ -57,3 +57,33 @@ npm run registry:bundle:maven
 The generated bundle is written beneath `dist/registry/maven/<version>/` and is
 ignored by Git. Never commit signing keys, registry tokens, or generated
 publication bundles.
+
+## CocoaPods trunk transition
+
+CocoaPods trunk is scheduled to become read-only on 2 December 2026, with a
+rehearsal on 1–7 November. Existing publications remain installable. New native
+iOS integrations should use SPM. CocoaPods publication is a legacy compatibility
+channel, not a prerequisite for future SPM or npm releases. Select `maven`, not
+`both`, when publishing native registries after the freeze.
+
+The React Native npm release bundles Crumb's canonical iOS sources, local
+podspecs and PLCrashReporter 1.12.0's official XCFramework, license and privacy
+manifest. `yarn prepare:ios` checks the native version and dependency pins and
+verifies the upstream archive SHA-256 before extraction. `prepack` runs it for
+both npm publication and Yarn packing; consumers do not run a download script.
+An optional `CRUMB_PLCRASH_ARCHIVE` points to an already-downloaded official
+archive for offline release preparation; the same checksum is mandatory.
+
+Run `yarn test:packaging`, `yarn pack:check` and, on macOS,
+`yarn pack:check:ios` from `packages/react-native`. The last check extracts a
+real npm archive outside the checkout, uses an empty local spec repository,
+rejects any resolved spec-repository dependencies and builds the native iOS
+products for the simulator. Expo CI uses the public config plugin instead of
+source-checkout pod overrides. Keep `crumbNativeVersion`, root `VERSION`,
+Swift source version and packaged sources aligned when preparing a release.
+
+When updating PLCrashReporter, review its source, release provenance, license,
+privacy manifest and compatibility first. Update the SPM/native podspec pins,
+packaging URL/SHA-256 and bundled podspec together, then rerun both SPM and packed
+consumer checks. Do not silently fall back to downloading a missing dependency
+on a customer's machine.

@@ -1,0 +1,127 @@
+---
+title: "iOS"
+description: "Send your first native report with Swift Package Manager or CocoaPods."
+---
+
+This quickstart uses **0.0.1-rc.3**, the published preview, and requires **iOS 15 or newer**. Build with **Swift 6 / Xcode 16 or newer**, as required by the package manifest. Install the UI product as well as Core so the app can show the reporter.
+
+Swift Package Manager is the preferred installation method for new native iOS integrations. CocoaPods plans to stop accepting new public registry releases on [2 December 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/); existing published versions remain available. SPM installations are independent of that registry.
+
+## 1. Install the SDK
+
+<Tabs items={['Swift Package Manager', 'CocoaPods']}>
+<Tab value="Swift Package Manager">
+
+In Xcode, select **File → Add Package Dependencies** and enter:
+
+```text
+https://github.com/alexander126/crumb.git
+```
+
+Choose the exact version `0.0.1-rc.3`. Add both **CrumbCore** and **CrumbUI** to your application target.
+
+For a manifest-managed project, add the dependency:
+
+```swift
+.package(
+    url: "https://github.com/alexander126/crumb.git",
+    exact: "0.0.1-rc.3"
+)
+```
+
+Then add these products to the target dependencies:
+
+```swift
+.product(name: "CrumbCore", package: "crumb"),
+.product(name: "CrumbUI", package: "crumb")
+```
+
+</Tab>
+<Tab value="CocoaPods">
+
+Add Crumb to your existing application target:
+
+```ruby title="Podfile"
+platform :ios, "15.0"
+
+target "YourApp" do
+  pod "CrumbSDK", "0.0.1-rc.3"
+end
+```
+
+Install and open the generated workspace:
+
+```sh
+bundle exec pod install
+open YourApp.xcworkspace
+```
+
+Use `pod install` if your application does not manage CocoaPods with Bundler. Keep a higher existing deployment target unchanged.
+
+</Tab>
+</Tabs>
+
+## 2. Configure at launch
+
+Replace the key and ingestion URL with your project's SDK setup values. Call this once from `application(_:didFinishLaunchingWithOptions:)` or your equivalent application startup path, on the main actor:
+
+```swift
+import CrumbCore
+import CrumbUI
+import Foundation
+
+@MainActor
+func configureCrumb() throws {
+    guard let apiURL = URL(string: "https://api.example.com") else {
+        return
+    }
+    let appVersion = Bundle.main.object(
+        forInfoDictionaryKey: "CFBundleShortVersionString"
+    ) as? String ?? "unknown"
+    let nativeBuild = Bundle.main.object(
+        forInfoDictionaryKey: "CFBundleVersion"
+    ) as? String ?? "unknown"
+
+    try Crumb.start(CrumbConfiguration(
+        projectKey: "crumb_sdk_replace_me",
+        environment: "development",
+        release: CrumbRelease(
+            appVersion: appVersion,
+            nativeBuild: nativeBuild
+        ),
+        upload: CrumbUploadOptions(ingestionURL: apiURL)
+    ))
+    Crumb.installReporter()
+}
+```
+
+Handle a thrown configuration error through your app's startup error handling. For a SwiftUI app, use an application delegate connected with `@UIApplicationDelegateAdaptor`, or another once-only main-actor startup path.
+
+## 3. Open the reporter
+
+From an application-owned button, on the main actor:
+
+```swift
+Crumb.show()
+```
+
+The installed reporter also supports shaking a foreground app. Use the explicit button for the first simulator check.
+
+## 4. Verify the report
+
+1. Build and launch the app with your real project setup values.
+2. Open the reporter and inspect the screenshot.
+3. Confirm `UITextField` and `UITextView` contents are masked.
+4. Submit “Crumb integration check” and leave the app foregrounded while delivery completes.
+5. Find the report in the matching project and `development` environment in the dashboard.
+
+## Troubleshooting
+
+| Symptom                                    | Next check                                                                                                  |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `CrumbUI` import fails                     | Link both SPM products, or install the `CrumbSDK` pod and open the workspace.                               |
+| Reporter does not open                     | Check that configuration succeeded and reporter installation ran on the main actor.                         |
+| No dashboard report                        | Check the key and ingestion URL. Without a URL, submitted reports stay in the local queue.                  |
+| A custom region is visible in a screenshot | Add explicit [screenshot masking](/docs/guides/privacy#mask-sensitive-regions), then verify another report. |
+
+Read [diagnostics](/docs/guides/diagnostics) for native log providers and availability limits. This SDK does not install native fatal-crash handlers.

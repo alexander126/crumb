@@ -82,7 +82,8 @@
         },
         "timeout_ms": { "type": "integer", "minimum": 250, "maximum": 5000 },
         "logs": { "$ref": "#/$defs/logs" },
-        "javascript_crash_capture": { "$ref": "#/$defs/javascriptCrashCapture" }
+        "javascript_crash_capture": { "$ref": "#/$defs/javascriptCrashCapture" },
+        "rendering_enabled": { "type": "boolean", "default": false }
       }
     },
     "javascriptCrashCapture": {

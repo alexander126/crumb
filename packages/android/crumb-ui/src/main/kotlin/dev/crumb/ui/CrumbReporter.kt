@@ -62,12 +62,17 @@ object CrumbReporter {
     private var shakeDetector: CrumbShakeDetector? = null
     private var activeSession: ReporterSession? = null
 
-    /** Installs foreground shake invocation and Activity lifecycle recovery. Call once after Crumb.start. */
+    /** Installs lifecycle recovery after Crumb.start. Supply activity only when it is already resumed. */
     @JvmStatic
-    fun install(application: Application): Boolean {
+    @JvmOverloads
+    fun install(application: Application, activity: Activity? = null): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) return false
         val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
+        RenderingMonitor.install(application, activity)
         if (installedApplication === application) {
+            activity?.takeUnless { it.isFinishing || it.isDestroyed }?.let {
+                lifecycleCallbacks?.onActivityResumed(it)
+            }
             syncShakeDetection(settings.invocation)
             return true
         }
@@ -82,6 +87,7 @@ object CrumbReporter {
         Thread({
             runCatching { CrumbReportQueue.from(application).recoverInterruptedUploads() }
         }, "Crumb queue recovery").start()
+        activity?.takeUnless { it.isFinishing || it.isDestroyed }?.let(callbacks::onActivityResumed)
         syncShakeDetection(settings.invocation)
         return true
     }
@@ -91,13 +97,14 @@ object CrumbReporter {
     fun show(
         activity: Activity,
         trigger: CrumbInvocation = CrumbInvocation.PROGRAMMATIC,
+        screenContextJSON: String? = null,
     ): Boolean {
         val invocationStartedAtNanos = SystemClock.elapsedRealtimeNanos()
         if (Looper.myLooper() != Looper.getMainLooper()) return false
         if (activity.isFinishing || activity.isDestroyed || activeSession != null) return false
 
         ensureInstalled(activity.application)
-        val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
+        val settings = runCatching { Crumb.reportSettings(screenContextJSON) }.getOrNull() ?: return false
         if (trigger !in settings.invocation) return false
         CrumbUploadCoordinator.resume(activity.application)
         resumedActivity = WeakReference(activity)
@@ -132,6 +139,14 @@ object CrumbReporter {
         if (installedApplication == null) install(application)
     }
 
+    /** Native adapter bridge. Call on a worker thread; delivery remains foreground-only. */
+    @JvmSynthetic
+    fun recoverJavaScriptCrashes(context: Context): Boolean {
+        val recovered = Crumb.recoverJavaScriptCrashes(context)
+        if (recovered) mainHandler.post { CrumbUploadCoordinator.reportDidQueue() }
+        return recovered
+    }
+
     private fun startDiagnostics(session: ReporterSession, context: android.content.Context) {
         if (session.diagnosticsStarted) return
         session.diagnosticsStarted = true
@@ -141,6 +156,7 @@ object CrumbReporter {
                 location = session.location,
                 options = session.settings.diagnostics,
                 evidence = session.settings.evidence,
+                screenContext = session.settings.screenContext,
             )
             CrumbQualityInstrumentation.record(
                 CrumbQualityEventKind.DIAGNOSTICS_READY,
@@ -731,7 +747,8 @@ object CrumbReporter {
             "${info.versionName ?: activity.getString(R.string.crumb_unavailable)} ($build)"
         }.getOrDefault(activity.getString(R.string.crumb_unavailable))
         addAttachmentRow(activity, attachmentCard, activity.getString(R.string.crumb_app_release), appVersion)
-        addAttachmentRow(activity, attachmentCard, activity.getString(R.string.crumb_screen), diagnostics.location)
+        addAttachmentRow(activity, attachmentCard, activity.getString(R.string.crumb_screen),
+            diagnostics.screenContext?.let { runCatching { org.json.JSONObject(it).getString("name") }.getOrNull() } ?: diagnostics.location)
         addAttachmentRow(
             activity,
             attachmentCard,

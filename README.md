@@ -8,19 +8,22 @@ engineer can inspect without asking the reporter to recreate basic context.
 
 The current public preview is `0.0.1-rc.3`.
 
-| Application | Install | Guide |
+| Application | Install | Full quickstart |
 | --- | --- | --- |
-| Native iOS | Swift Package Manager or `pod "CrumbSDK", "0.0.1-rc.3"` | [iOS setup](docs/getting-started.md#native-ios) |
-| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.3` from Maven Central | [Android setup](docs/getting-started.md#native-android) |
-| Expo | `@crumbsdk/react-native` in a development build | [Expo setup](docs/getting-started.md#expo-development-builds) |
-| Bare React Native | `@crumbsdk/react-native` with autolinking | [Bare setup](docs/getting-started.md#bare-react-native) |
+| React Native & Expo | `@crumbsdk/react-native@0.0.1-rc.3` + Nitro `0.37.1` | [React Native, including Expo](website/content/docs/quickstarts/react-native.mdx) |
+| Native iOS | SPM or `pod "CrumbSDK", "0.0.1-rc.3"` | [iOS](website/content/docs/quickstarts/ios.mdx) |
+| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.3` from Maven Central | [Android](website/content/docs/quickstarts/android.mdx) |
 
-The [complete installation guide](docs/getting-started.md) includes minimum
-platform versions, copy-paste configuration, privacy masking, and a verification
-checklist for all four paths. Expo Go is not supported because Crumb includes
-native Swift, Kotlin, and Nitro Module code.
+Each guide covers installation, configuration, invocation, verification and
+troubleshooting. Expo Go is unsupported because Crumb includes native code.
+[Run the branded documentation site locally](website/README.md), or browse the
+[public guides](website/content/docs/index.mdx). See [release availability](website/content/docs/releases.mdx)
+for the distinction between published rc.3 and unreleased main-branch features.
 
 ## Current status
+
+The following describes the main-branch implementation, including unreleased
+features. The quickstarts above target the published packages.
 
 This repository owns the distributable native SDKs and their public report
 protocol. The hosted API and customer dashboard live in the separate private
@@ -38,12 +41,12 @@ move independently.
 - Each host installs the native reporter once after configuration. Crumb owns
   foreground shake sensing, duplicate suppression, dismissal, and report state
   restoration across rotation and backgrounding.
-- iOS reads recent unified logs from the current application process. Android
-  accepts an application-owned log provider and never requests broad logcat
-  access.
-- Android also attaches bounded live Java/Kotlin thread stacks. iOS marks
-  all-thread stacks unavailable because obtaining them safely would require
-  continuous sampling or invasive thread suspension.
+- Native iOS and Android use application-owned log providers; neither hooks
+  logging calls or requests broad system-log access. The React Native adapter
+  supplies a bounded, sanitized JavaScript log buffer.
+- JavaScript failure handoff can attach bounded iOS native frames and Android
+  managed Java/Kotlin stacks. Native frame offsets are not symbolicated source
+  locations; unsupported measurements remain unavailable.
 - Explicitly submitted reports are atomically persisted in an app-private,
   size-bounded queue and survive restart. When an ingestion URL is configured,
   the native uploader drains that queue with idempotent lifecycle requests,
@@ -69,6 +72,7 @@ packages/react-native/ Thin adapter (starts after native parity)
 schemas/            Versioned wire contracts and fixtures
 examples/           Native integration applications
 docs/               Public integration contracts, invariants, and decisions
+website/            Fumadocs site and customer integration guides
 ```
 
 ## Checks

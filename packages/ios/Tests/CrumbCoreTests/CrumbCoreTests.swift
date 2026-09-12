@@ -5,6 +5,35 @@ import Testing
 @Suite(.serialized)
 struct CrumbCoreTests {
     @Test
+    func screenIsFrozenBeforeCaptureAndSurvivesRestart() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        let screen = #"{"name":"Checkout","route":["Shop","Checkout"],"source":"react_navigation"}"#
+        Crumb.setScreenContext(screen) // Integration may mount before start.
+        try Crumb.start(makeConfiguration())
+        let settings = try Crumb.reportSettings()
+        Crumb.setScreenContext(#"{"name":"Home","route":["Home"],"source":"manual"}"#)
+        let context = CrumbJavaScriptFailureContext.capture(settings: settings)
+        #expect(context.screenContext?.name == "Checkout")
+        let saved = try JSONEncoder().encode(context)
+        Crumb.resetForTesting()
+        try Crumb.start(makeConfiguration())
+        Crumb.setScreenContext(#"{"name":"Home","route":["Home"],"source":"manual"}"#)
+        let restored = try JSONDecoder().decode(CrumbJavaScriptFailureContext.self, from: saved)
+        let input = makeReportInput(diagnosticsOverride: restored.diagnostics())
+        let envelope = try Crumb.buildReport(input)
+        let json = try #require(JSONSerialization.jsonObject(with: envelope.data) as? [String: Any])
+        #expect(json["schema_version"] as? String == "1.2")
+        #expect(((json["diagnostics"] as? [String: Any])?["screen_context"] as? [String: Any])?["name"] as? String == "Checkout")
+        #expect(restored.validated()?.diagnostics().screenContext?.route == ["Shop", "Checkout"])
+        #expect(try Crumb.reportSettings().screenContext?.name == "Home")
+        Crumb.setScreenContext("null")
+        #expect(try Crumb.reportSettings().screenContext == nil)
+        Crumb.setScreenContext(#"{"name":"/orders?id=123","route":["Orders"],"source":"manual"}"#)
+        #expect(try Crumb.reportSettings().screenContext == nil)
+    }
+
+    @Test
     func defaultsArePrivateAndOnDemand() {
         let privacy = CrumbPrivacyOptions()
         let capture = CrumbCaptureOptions()
@@ -390,6 +419,48 @@ struct CrumbCoreTests {
     }
 
     @Test
+    func recoveryReappliesDisabledEvidenceToPreviouslyCapturedContext() throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        try Crumb.start(makeConfiguration(evidence: []))
+        let settings = try Crumb.reportSettings()
+        let context = CrumbJavaScriptFailureContext(screenContext: CrumbScreenContext(name: "Checkout", route: ["Checkout"], source: "manual"), rendering: CrumbRenderingSnapshot(source: "ios_display_link", sampleCount: 100, slowFrameCount: 2, meanFrameMs: 17, maxFrameMs: 60, lastFrameAgeMs: 20), stacks: CrumbFailureStacks(threads: [.init(index: 0, name: "Thread 0", state: "capture_thread", frames: ["SyntheticApp + 0x1234"])], truncated: false), capturedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            processName: "SyntheticApp", processID: 777, cpuUsagePercent: 12,
+            residentMemoryBytes: 12_000_000, physicalFootprintBytes: 10_000_000,
+            threadCount: 12, thermalState: "nominal", networkStatus: "reachable",
+            networkTransport: "wifi", networkExpensive: false, networkConstrained: false)
+        var crash = CrumbJavaScriptCrash(recordID: "jsc_0123456789ABCDEF", fingerprint: "0123456789abcdef",
+            source: "javascript", kind: "exception", type: "Error", message: "Synthetic failure", stack: nil,
+            occurredAt: context.capturedAt, release: .init(appVersion: "1", nativeBuild: "1", bundleVersion: nil),
+            breadcrumbs: [.init(timestamp: context.capturedAt, source: "crumb", category: "test", message: "previously allowed")],
+            context: [:], isFatal: true, nativeTerminationWrapperObserved: false)
+        crash.failureContext = context
+        let input = CrumbJavaScriptCrashRecovery.recoveryInput(crash: crash, settings: settings)
+        #expect(input.diagnostics.processID == 777)
+        #expect(input.diagnostics.capturedAt == context.capturedAt)
+        let envelope = try CrumbReportEnvelopeBuilder.build(settings: settings, input: input)
+        let root = try #require(JSONSerialization.jsonObject(with: envelope.data) as? [String: Any])
+        let diagnostics = try #require(root["diagnostics"] as? [String: Any])
+        let recovered = try #require(root["javascript_crash"] as? [String: Any])
+        #expect((recovered["breadcrumbs"] as? [Any])?.isEmpty == true)
+        #expect(diagnostics["cpu_usage_percent"] == nil)
+        #expect(diagnostics["memory"] == nil)
+        #expect((diagnostics["network"] as? [String: Any])?["status"] as? String == "unknown")
+        let disabledSnapshot = CrumbJavaScriptFailureContext.capture(settings: settings)
+        #expect(disabledSnapshot.cpuUsagePercent == nil)
+        #expect(disabledSnapshot.residentMemoryBytes == nil)
+        #expect(disabledSnapshot.rendering == nil)
+        #expect(diagnostics["rendering"] == nil)
+        #expect(diagnostics["screen_context"] == nil)
+        #expect(disabledSnapshot.screenContext == nil)
+        #expect(disabledSnapshot.stacks == nil)
+        #expect((diagnostics["stack_traces"] as? [String: Any])?["threads"] as? [String] == [])
+        #expect(root["schema_version"] as? String == "1.0")
+        #expect(disabledSnapshot.threadCount == nil)
+        #expect(disabledSnapshot.networkStatus == "unknown")
+    }
+
+    @Test
     func buildsRecoveredJavaScriptCrashAsOneStructuredOccurrence() throws {
         Crumb.resetForTesting()
         defer { Crumb.resetForTesting() }
@@ -498,7 +569,8 @@ struct CrumbCoreTests {
         submittedAt: Date = Date(timeIntervalSince1970: 1_700_000_002),
         artifactKind: String = "screenshot",
         healthCheckSucceeded: Bool = true,
-        javascriptCrash: CrumbJavaScriptCrash? = nil
+        javascriptCrash: CrumbJavaScriptCrash? = nil,
+        diagnosticsOverride: CrumbDiagnosticsSnapshot? = nil
     ) -> CrumbReportBuildInput {
         let reportID = CrumbReportEnvelopeBuilder.makeReportID(
             uuid: UUID(uuidString: "01234567-89AB-CDEF-0123-456789ABCDEF")!
@@ -516,7 +588,7 @@ struct CrumbCoreTests {
             ),
             category: "Bug",
             description: "Checkout froze after tapping Pay",
-            diagnostics: makeDiagnostics(
+            diagnostics: diagnosticsOverride ?? makeDiagnostics(
                 at: triggeredAt.addingTimeInterval(1),
                 healthCheckSucceeded: healthCheckSucceeded
             ),

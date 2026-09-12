@@ -39,6 +39,7 @@ data class CrumbDiagnosticsOptions(
     val logs: CrumbLogOptions = CrumbLogOptions(),
     /** Set only by the React Native adapter; native SDKs install no crash hooks. */
     val javascriptCrashCaptureEnabled: Boolean = false,
+    val renderingEnabled: Boolean = false,
 )
 
 enum class CrumbLogLevel { DEBUG, INFO, NOTICE, WARNING, ERROR, FAULT }
@@ -177,6 +178,8 @@ data class CrumbDiagnosticsSnapshot(
     val network: CrumbNetworkDiagnostic,
     val logs: CrumbLogDiagnostic,
     val stackTraces: CrumbStackTraceDiagnostic,
+    val rendering: String? = null,
+    val screenContext: String? = null,
 )
 
 class CrumbReportSettings internal constructor(
@@ -192,6 +195,7 @@ class CrumbReportSettings internal constructor(
     val customContext: Map<String, String>,
     val policyStatus: CrumbPolicyStatus,
     val workspacePolicyVersion: Int?,
+    val screenContext: String? = null,
 )
 
 class CrumbUploadSettings internal constructor(
@@ -240,6 +244,12 @@ sealed class CrumbStartException(message: String) : IllegalArgumentException(mes
 object Crumb {
     private val lock = Any()
     private var configuration: CrumbConfiguration? = null
+    private var screenContext: String? = null
+
+    /** Adapter bridge; malformed input clears the current static screen. */
+    fun setScreenContext(json: String) = synchronized(lock) {
+        screenContext = CrumbScreenContext.validate(json)
+    }
     private var workspacePolicy: CrumbWorkspacePolicy? = null
     private val highestWorkspacePolicyVersionByScope = mutableMapOf<String, Int>()
     private var policyStatus: CrumbPolicyStatus = CrumbPolicyStatus.NOT_FETCHED
@@ -255,19 +265,21 @@ object Crumb {
     @JvmStatic
     fun canCollectLogs(): Boolean = synchronized(lock) {
         val activeConfiguration = configuration ?: return@synchronized false
-        effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
+        activeConfiguration.diagnostics.logs.enabled && effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
     }
 
     /** Synchronously accepts the React Native adapter's sanitized JS failure. */
     @JvmStatic
     fun recordJavaScriptCrash(context: Context, recordJson: String) {
-        synchronized(lock) {
-            val activeConfiguration = configuration ?: return@synchronized
-            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return@synchronized
-            CrumbJavaScriptCrashStore(
-                context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
-            ).record(recordJson)
+        val settings = synchronized(lock) {
+            val activeConfiguration = configuration ?: return
+            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return
+            reportSettings()
         }
+        val snapshot = runCatching { CrumbJavaScriptFailureContext.capture(context.applicationContext, settings) }.getOrNull()
+        CrumbJavaScriptCrashStore(
+            context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
+        ).record(recordJson, snapshot, settings.diagnostics.logs.enabled && CrumbEvidenceCategory.LOGS in settings.evidence)
     }
 
     /** Moves pending JS failures into the normal durable report queue. */
@@ -283,7 +295,7 @@ object Crumb {
 
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
     @JvmSynthetic
-    fun reportSettings(): CrumbReportSettings = synchronized(lock) {
+    fun reportSettings(screenContextJSON: String? = null): CrumbReportSettings = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
         val effective = effectiveSettings(activeConfiguration)
         CrumbReportSettings(
@@ -301,6 +313,9 @@ object Crumb {
             customContext = effective.customContext,
             policyStatus = effective.status,
             workspacePolicyVersion = effective.workspacePolicyVersion,
+            screenContext = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in effective.evidence) {
+                if (screenContextJSON == null) screenContext else CrumbScreenContext.validate(screenContextJSON)
+            } else null,
         )
     }
 
@@ -364,6 +379,7 @@ object Crumb {
             CrumbPolicySource.FRESH -> CrumbPolicyStatus.FRESH
             CrumbPolicySource.CACHED -> CrumbPolicyStatus.CACHED
         }
+        CrumbRenderingEvidence.snapshot(reportSettings())
         true
     }
 
@@ -417,6 +433,7 @@ object Crumb {
     @JvmSynthetic
     internal fun resetForTesting() = synchronized(lock) {
         configuration = null
+        screenContext = null
         workspacePolicy = null
         highestWorkspacePolicyVersionByScope.clear()
         policyStatus = CrumbPolicyStatus.NOT_FETCHED

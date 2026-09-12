@@ -59,6 +59,8 @@ export interface CrumbDiagnosticsOptions {
   timeoutMs?: number;
   logs?: CrumbLogOptions;
   javascriptCrashCapture?: CrumbJavaScriptCrashCaptureOptions;
+  /** Opt-in rolling five-second rendering statistics; no screen content is recorded. */
+  renderingEnabled?: boolean;
 }
 
 export interface CrumbPrivacyOptions {

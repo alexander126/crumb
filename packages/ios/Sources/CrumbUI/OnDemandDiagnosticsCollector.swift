@@ -9,7 +9,8 @@ enum OnDemandDiagnosticsCollector {
     static func capture(
         location: String,
         options: CrumbDiagnosticsOptions,
-        evidence: Set<CrumbEvidenceCategory> = Set(CrumbEvidenceCategory.allCases)
+        evidence: Set<CrumbEvidenceCategory> = Set(CrumbEvidenceCategory.allCases),
+        screenContext: CrumbScreenContext? = nil
     ) -> CrumbDiagnosticsSnapshot {
         let capturesPerformance = evidence.contains(.performance)
         let threads = capturesPerformance ? threadDiagnostics() : []
@@ -82,7 +83,9 @@ enum OnDemandDiagnosticsCollector {
             gpuStatus: "Unavailable on demand on iOS",
             network: network,
             logs: logs,
-            stackTraces: stackTraces
+            stackTraces: stackTraces,
+            rendering: options.renderingEnabled && capturesPerformance ? CrumbRenderingBuffer.shared.snapshot() : nil,
+            screenContext: evidence.contains(.customContext) ? screenContext : nil
         )
     }
 

@@ -35,7 +35,8 @@ struct DemoCrumbConfiguration {
                     nativeBuild: nativeBuild ?? "1"
                 ),
                 diagnostics: CrumbDiagnosticsOptions(
-                    healthCheckURL: uploadEnabled ? ingestionURL?.appendingPathComponent("health") : nil
+                    healthCheckURL: uploadEnabled ? ingestionURL?.appendingPathComponent("health") : nil,
+                    renderingEnabled: true
                 ),
                 upload: CrumbUploadOptions(ingestionURL: uploadEnabled ? ingestionURL : nil)
             ),

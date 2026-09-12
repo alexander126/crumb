@@ -46,6 +46,7 @@ const nativeSources = ["packages/ios/Sources", "packages/android"].flatMap((dire
 );
 const forbiddenCrashHooks = [
   "NSSetUncaughtExceptionHandler",
+  "enableCrashReporter",
   "setDefaultUncaughtExceptionHandler",
   "SentrySDK.start",
   "FirebaseCrashlytics.getInstance",

@@ -19,6 +19,32 @@ class CrumbTest {
     fun tearDown() = Crumb.resetForTesting()
 
     @Test
+    fun screenContextIsFrozenClearedAndPolicyGated() {
+        Crumb.setScreenContext("""{"name":"Checkout","route":["Shop","Checkout"],"source":"react_navigation"}""")
+        Crumb.start(configuration())
+        val captured = Crumb.reportSettings()
+        Crumb.setScreenContext("""{"name":"Home","route":["Home"],"source":"manual"}""")
+        assertEquals("Checkout", JSONObject(requireNotNull(captured.screenContext)).getString("name"))
+        assertEquals("Home", JSONObject(requireNotNull(Crumb.reportSettings().screenContext)).getString("name"))
+        val original = reportInput()
+        val savedInput = original.copy(diagnostics = original.diagnostics.copy(screenContext = captured.screenContext))
+        val report = JSONObject(Crumb.buildReport(savedInput).json)
+        assertEquals("1.2", report.getString("schema_version"))
+        assertEquals("Checkout", report.getJSONObject("diagnostics").getJSONObject("screen_context").getString("name"))
+        Crumb.resetForTesting()
+        Crumb.start(configuration(evidence = emptySet()))
+        assertFalse(JSONObject(Crumb.buildReport(savedInput).json).getJSONObject("diagnostics").has("screen_context"))
+        Crumb.setScreenContext("null")
+        assertNull(Crumb.reportSettings().screenContext)
+        Crumb.setScreenContext("""{"name":"/orders?id=123","route":["Orders"],"source":"manual"}""")
+        assertNull(Crumb.reportSettings().screenContext)
+        Crumb.resetForTesting()
+        Crumb.start(configuration(evidence = emptySet()))
+        Crumb.setScreenContext("""{"name":"Home","route":["Home"],"source":"manual"}""")
+        assertNull(Crumb.reportSettings().screenContext)
+    }
+
+    @Test
     fun defaultsArePrivateAndOnDemand() {
         assertTrue(CrumbPrivacyOptions().maskAllTextInputs)
         assertTrue(CrumbPrivacyOptions().maskScreenshotsBeforeUpload)
@@ -340,6 +366,36 @@ class CrumbTest {
         assertTrue(envelope.json.contains("\"stack_traces\":"))
         assertTrue(envelope.json.contains("\"upload_id\":\"upl_0123456789AB\""))
         assertFalse(envelope.json.contains("reportId"))
+    }
+
+    @Test
+    fun recoveryReappliesDisabledEvidenceToPreviouslyCapturedContext() {
+        Crumb.start(configuration(evidence = emptySet()))
+        val settings = Crumb.reportSettings()
+        CrumbRenderingEvidence.provider = { "should be ignored while disabled" }
+        assertEquals(null, CrumbRenderingEvidence.snapshot(settings))
+        CrumbRenderingEvidence.provider = null
+        val context = CrumbJavaScriptFailureContext(1_700_000_000_000, "SyntheticApp", 777,
+            12.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false,
+            CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.CAPTURED, "managed_threads",
+                listOf(CrumbThreadStackDiagnostic(1, "main", "waiting", listOf("Synthetic.run(File.kt:1)"))), false, null))
+        val time = java.time.Instant.ofEpochMilli(context.capturedAtMillis)
+        val crash = CrumbJavaScriptCrash("jsc_0123456789ABCDEF", "0123456789abcdef",
+            "javascript", "exception", "Error", "Synthetic failure", null, time,
+            CrumbJavaScriptCrashRelease("1", "1", null),
+            listOf(CrumbJavaScriptBreadcrumb(time, "crumb", "test", "previously allowed")), emptyMap(), true, false)
+        crash.failureContext = context
+        val input = CrumbJavaScriptCrashRecovery.recoveryInput(crash, settings,
+            CrumbReportRuntime("test", "Synthetic device", "en-US", "UTC"))
+        assertEquals(777, input.diagnostics.processId)
+        assertEquals(context.capturedAtMillis, input.diagnostics.capturedAtMillis)
+        val root = JSONObject(CrumbReportEnvelopeBuilder.build(settings, input).json)
+        val diagnostics = root.getJSONObject("diagnostics")
+        assertEquals(0, root.getJSONObject("javascript_crash").getJSONArray("breadcrumbs").length())
+        assertFalse(diagnostics.has("cpu_usage_percent"))
+        assertFalse(diagnostics.has("memory"))
+        assertEquals("unknown", diagnostics.getJSONObject("network").getString("status"))
+        assertEquals(0, diagnostics.getJSONObject("stack_traces").getJSONArray("threads").length())
     }
 
     @Test

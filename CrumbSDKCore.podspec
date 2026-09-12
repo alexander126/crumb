@@ -21,6 +21,7 @@ Pod::Spec.new do |spec|
   spec.module_name = "CrumbCore"
   spec.source_files = "packages/ios/Sources/CrumbCore/**/*.swift"
   spec.frameworks = ["CryptoKit"]
+  spec.dependency "PLCrashReporter", "1.12.0"
   spec.pod_target_xcconfig = {
     "OTHER_SWIFT_FLAGS" => "$(inherited) -package-name Crumb"
   }

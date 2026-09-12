@@ -15,9 +15,9 @@ private extension CrumbTheme {
 public extension Crumb {
     @MainActor
     @discardableResult
-    static func show(trigger: CrumbInvocation = .programmatic) -> Bool {
+    static func show(trigger: CrumbInvocation = .programmatic, screenContextJSON: String? = nil) -> Bool {
         CrumbWorkspacePolicyCoordinator.shared.install()
-        return CrumbReporterPresenter.shared.show(trigger: trigger)
+        return CrumbReporterPresenter.shared.show(trigger: trigger, screenContextJSON: screenContextJSON)
     }
 }
 
@@ -41,12 +41,15 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
         let invocationStartedAtNanoseconds: UInt64
     }
 
-    func show(trigger: CrumbInvocation) -> Bool {
+    func show(trigger: CrumbInvocation, screenContextJSON: String? = nil) -> Bool {
         let invocationStartedAtNanoseconds = DispatchTime.now().uptimeNanoseconds
         reconcilePresentationState()
         guard activeSessionID == nil else { return false }
         guard let presenter = Self.topViewController() else { return false }
-        guard let settings = try? Crumb.reportSettings() else { return false }
+        guard var settings = try? Crumb.reportSettings() else { return false }
+        if let screenContextJSON {
+            settings.screenContext = settings.evidence.contains(.customContext) ? CrumbScreenContext.decode(screenContextJSON) : nil
+        }
         guard settings.invocation.contains(trigger) else { return false }
         let triggeredAt = Date()
         let sessionID = UUID()
@@ -1081,12 +1084,14 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         let options = settings.diagnostics
         let evidence = settings.evidence
         let location = location
+        let screenContext = settings.screenContext
         diagnosticsTask = Task { [weak self] in
             let diagnostics = await Task.detached(priority: .userInitiated) {
                 OnDemandDiagnosticsCollector.capture(
                     location: location,
                     options: options,
-                    evidence: evidence
+                    evidence: evidence,
+                    screenContext: screenContext
                 )
             }.value
             guard !Task.isCancelled else { return }
@@ -1499,7 +1504,7 @@ private final class DraftSummaryViewController: UIViewController {
         Self.addAttachmentRow(
             to: attachmentCard,
             title: crumbLocalized("Screen at the time"),
-            value: diagnostics.location
+            value: diagnostics.screenContext?.name ?? diagnostics.location
         )
         Self.addAttachmentRow(
             to: attachmentCard,

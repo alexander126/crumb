@@ -81,6 +81,50 @@ The [complete all-platform guide](../../docs/getting-started.md) covers Expo,
 bare React Native, native iOS, and native Android from installation through a
 submitted test report.
 
+## Upcoming iOS packaging (Preview)
+
+This setup applies to the next release and reviewed source builds, **not the
+published rc.3 package**. Until a new version is published, keep using the rc.3
+quickstart above.
+
+The npm artifact includes Crumb's iOS sources, resource bundles and its pinned
+PLCrashReporter dependency. CocoaPods builds those files locally; new Crumb
+releases do not need publication to the public CocoaPods registry. Other
+libraries in your application may still use that registry.
+
+### Expo development builds
+
+Add `"@crumbsdk/react-native"` to your existing Expo `plugins` array alongside
+`expo-build-properties`. Run a new native prebuild/development build. The plugin
+registers the bundled native dependencies and is safe to run repeatedly.
+Expo Go remains unsupported. Remove old Crumb local-pod plugins or manual
+Crumb pod declarations before enabling this plugin.
+
+### Bare React Native
+
+Inside each application target in `ios/Podfile`, before `use_react_native!`, add:
+
+```ruby
+require File.join(File.dirname(`node --print "require.resolve('@crumbsdk/react-native/package.json')"`.strip), 'scripts', 'ios')
+crumb_native_pods!
+```
+
+Then run `npx pod-install` and rebuild the app. When upgrading from rc.3, remove
+manual `CrumbSDK`, `CrumbSDKCore` and `CrumbSDKUI` declarations first. If CocoaPods
+reports a lockfile source/version conflict, run
+`bundle exec pod update CrumbSDKCore CrumbSDKUI PLCrashReporter --no-repo-update`
+(or `pod update` without Bundler), then review the lockfile changes. Do not
+remove the entire lockfile or update unrelated pods.
+
+If another dependency pins a different PLCrashReporter version, resolve that
+version conflict before installing; do not install two copies or rename the
+framework. The bundled dependency retains its upstream name for CocoaPods to
+check compatibility. Its license and privacy manifest ship with the package.
+
+Native Swift applications should use Swift Package Manager and link both
+`CrumbCore` and `CrumbUI`. Remove CocoaPods' Crumb products before adding the SPM
+products to avoid duplicate modules. SPM does not depend on CocoaPods trunk.
+
 ## Configure
 
 ```ts
@@ -182,6 +226,40 @@ identity, recent Crumb breadcrumbs, and only custom-context keys explicitly
 allowlisted by the host. It does not include native crash data, arbitrary
 memory, Redux/store state, request bodies, or response bodies.
 
+The native handoff also saves a bounded snapshot of the original process ID,
+capture time, CPU, memory, thread count, thermal state and connectivity when the
+corresponding evidence categories are enabled. These are measurements taken
+while handling the JavaScript failure, not measurements from the next launch.
+iOS reads task/thread counters (at most 256 threads for CPU) and waits at most
+30 ms for a local connectivity observation. Android takes one 20 ms CPU sample
+and reads current process/network metadata. Neither runs continuously, calls
+app-provided log/health callbacks, probes HTTP, captures GPU utilization or
+installs native fatal handlers. With thread-stack evidence enabled, iOS also
+captures bounded native frames using PLCrashReporter's live report API, and
+Android captures managed Java/Kotlin stacks. Native image offsets are not dSYM
+source locations. An unavailable measurement remains unavailable.
+
+Breadcrumbs come from `Crumb.log` and optional console capture. They remain
+bounded and sanitized; disabling logs removes them at handoff and recovery.
+Corrupt or oversized optional snapshot data is discarded without discarding an
+otherwise valid crash. Existing records without snapshots still recover their
+original JavaScript cause and breadcrumbs.
+
+Opt into recent rendering evidence separately with
+`diagnostics.renderingEnabled: true` (default `false`) and install the reporter.
+This enables a foreground-only buffer of five one-second numeric buckets, capped
+at 1,000 observations per bucket, cleared on background or disabled performance
+evidence. The snapshot is frozen before failure stack collection and survives
+relaunch only while current settings still allow it. No frame images are stored.
+
+iOS reports `CADisplayLink` intervals and slow observations. Android reports
+window frame duration and, on API 31+ when supplied by the OS, GPU frame duration.
+Slow observations exceed 1.5 times the relevant frame budget. These are bounded
+observations, not complete frame coverage, FPS, or GPU utilization. iOS GPU time
+remains unavailable. Android zero GPU time is distinct from missing GPU time.
+Envelopes with native stacks or rendering use version 1.1; upgrade the consuming
+service before distributing an enabled SDK. Existing 1.0 reports remain valid.
+
 The breadcrumb limits default to 32 entries and 16 KiB. They can be lowered or
 raised within the package bounds (50 entries and 65,536 bytes maximum). A
 native termination wrapper with the same fingerprint is folded into the
@@ -225,3 +303,63 @@ Configure the package's npm trusted publisher with these exact values:
 Use the `next` distribution tag for prereleases and `latest` for stable
 versions. The workflow verifies the package version, immutable Git tag,
 distribution tag, and explicit publication confirmation before it publishes.
+
+### Capture the active screen
+
+Opt in to a static screen label so reports and recovered JavaScript crashes show
+where the user was. This is separate from native controllers and the source file
+identified by a crash stack. Existing reports cannot gain screen context retroactively.
+
+For React Navigation, register once beside the root container. The helper handles
+initial readiness, focused nested routes, modals, subsequent state changes and
+listener cleanup without adding a navigation dependency to Crumb:
+
+```tsx
+import { useEffect } from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import Crumb from '@crumbsdk/react-native';
+
+function App() {
+  const navigationRef = useNavigationContainerRef();
+  useEffect(() => Crumb.trackReactNavigation(navigationRef), [navigationRef]);
+  return <NavigationContainer ref={navigationRef}>{/* navigators */}</NavigationContainer>;
+}
+```
+
+For Expo Router, put this in the root layout. `useSegments()` retains file-based
+templates such as `/orders/[id]`; do not pass `usePathname()` or search parameters:
+
+```tsx
+import { Slot, useSegments } from 'expo-router';
+import { useExpoRouterScreen } from '@crumbsdk/react-native';
+
+export default function RootLayout() {
+  useExpoRouterScreen(useSegments());
+  return <Slot />;
+}
+```
+
+For a custom navigator, set the current static label when the visible screen changes:
+
+```ts
+Crumb.setScreen('Checkout', { route: ['Shop', 'Checkout'] });
+Crumb.setScreen(null); // Clear when no app screen is active.
+```
+
+Choose one owner for the current context. Each label is limited to 128 UTF-8 bytes
+and the focused hierarchy to eight labels. Use static names, never user IDs,
+account names, full URLs or search strings. Invalid manual input clears the
+previous label and throws; integrations clear unavailable or invalid state.
+Crumb never reads route parameters or records a navigation history. Standard
+text redaction and the effective `custom_context` evidence policy apply.
+The reporter freezes this context when it opens, including shake invocation;
+a JavaScript failure freezes it at the native handoff. Recovery retains the
+original screen and reapplies current privacy policy, without substituting the
+relaunch screen. This does not identify the cause of a crash or add native fatal
+crash interception.
+
+Screen context uses envelope **1.2**. Deploy a consumer supporting 1.2 before
+shipping an app with this integration. Reports without screen context retain
+their existing 1.0/1.1 format.
+
+Try the [automatic navigation demos](example/NAVIGATION.md) to validate React Navigation and Expo Router on real native builds.

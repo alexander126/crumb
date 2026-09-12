@@ -1,0 +1,48 @@
+---
+title: "Troubleshooting"
+description: "Find the missing step without losing the evidence you already have."
+---
+
+## A submitted report is missing
+
+A locally saved report is not yet proof of upload. Check these in order:
+
+1. Confirm the ingestion URL is present and matches the project's SDK setup. An omitted URL intentionally keeps reports local.
+2. Check the write key belongs to the project you are viewing and has not been revoked.
+3. Select the app's configured environment in the dashboard and clear filters that exclude the test.
+4. Restore connectivity and foreground the app so pending delivery can continue.
+5. Create one synthetic report with a distinct description and inspect whether it arrives.
+
+Avoid uninstalling the app as your first troubleshooting step: that can remove the app-private queue and its evidence.
+
+## The reporter does not open
+
+Wait for successful SDK startup and reporter installation. Open it from a button in a foreground native application. Check that programmatic invocation is permitted and that another reporter is not already open. A presentation boolean does not confirm upload.
+
+For Expo, use a rebuilt development client, not Expo Go. For bare React Native, reinstall iOS pods and rebuild after changing native dependencies. Metro restart alone cannot install native code.
+
+## Diagnostics say unavailable
+
+An availability count describes what was obtained, not a checklist every app must fill. Native logs need a provider. GPU timing is unavailable on iOS, and Android GPU timing depends on API level and OS support. The health probe is optional and does not run during JavaScript failure handoff.
+
+For a report from an older SDK, new diagnostic features cannot be backfilled. Check [diagnostics](/docs/guides/diagnostics) and [release availability](/docs/releases).
+
+## Only the description is available
+
+For a preview SDK with `workspacePolicy.url` configured, check that the policy is valid and unexpired. While a configured policy is unavailable, optional collection stays disabled by design. A local evidence allowlist may also disable the source. Fix the configuration or policy; do not bypass collection controls to fill the dashboard.
+
+## A crash has raw JavaScript frames
+
+Check that the bundle and final source map belong to the same distributed build and exact platform, app version, native build and bundle identity. Hermes requires the final composed map. See [source-map troubleshooting](/docs/guides/source-maps#if-the-source-location-is-missing).
+
+## The screen shows a native host
+
+Preview screen context requires an explicit React Navigation, Expo Router or manual screen integration. Confirm it is attached to the root navigator and that `custom_context` evidence is allowed. Use static route names. Existing reports and failures captured before integration will retain their original fallback.
+
+## A test crash never appears
+
+Use a preview SDK that implements JavaScript capture, enable it before the failure, and test a fatal JavaScript fixture through the host handler. Relaunch the process and initialize Crumb again. A caught exception, a development overlay, or a JavaScript reload may not follow the same path. Arbitrary native crashes are outside this feature's coverage.
+
+## Share a useful SDK bug report
+
+Use the [public SDK issue tracker](https://github.com/alexander126/crumb/issues) with your SDK and framework versions, operating system, minimal synthetic reproduction and expected versus actual behavior. Remove keys, upload tokens, customer data, source maps and private report links. Keep account-specific report evidence in your authorized workspace.

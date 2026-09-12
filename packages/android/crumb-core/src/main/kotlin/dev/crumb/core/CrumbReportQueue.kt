@@ -453,17 +453,21 @@ class CrumbReportQueue internal constructor(
 
     private fun decode(value: String): String = String(Base64.getUrlDecoder().decode(value), Charsets.UTF_8)
 
-    private data class StoredRecord(
-        val reportId: String,
-        val submittedAtMillis: Long,
-        val state: CrumbQueuedReportState,
-        val attemptCount: Int,
-        val lastError: String?,
-        val totalByteSize: Long,
-        val envelopeByteSize: Long,
-        val envelopeSha256: String,
-        val artifacts: List<StoredArtifact>,
+    private class StoredRecord(
+        @JvmField val reportId: String,
+        @JvmField val submittedAtMillis: Long,
+        @JvmField val state: CrumbQueuedReportState,
+        @JvmField val attemptCount: Int,
+        @JvmField val lastError: String?,
+        @JvmField val totalByteSize: Long,
+        @JvmField val envelopeByteSize: Long,
+        @JvmField val envelopeSha256: String,
+        @JvmField val artifacts: List<StoredArtifact>,
     ) {
+        fun copy(state: CrumbQueuedReportState = this.state, attemptCount: Int = this.attemptCount,
+                 lastError: String? = this.lastError) = StoredRecord(reportId, submittedAtMillis, state,
+            attemptCount, lastError, totalByteSize, envelopeByteSize, envelopeSha256, artifacts)
+
         fun summary() = CrumbQueuedReportSummary(
             reportId = reportId,
             submittedAtMillis = submittedAtMillis,
@@ -475,15 +479,15 @@ class CrumbReportQueue internal constructor(
         )
     }
 
-    private data class StoredArtifact(
-        val id: String,
-        val kind: String,
-        val mimeType: String,
-        val byteSize: Long,
-        val sha256: String,
-        val redactionState: String,
-        val uploadId: String,
-        val fileName: String,
+    private class StoredArtifact(
+        @JvmField val id: String,
+        @JvmField val kind: String,
+        @JvmField val mimeType: String,
+        @JvmField val byteSize: Long,
+        @JvmField val sha256: String,
+        @JvmField val redactionState: String,
+        @JvmField val uploadId: String,
+        @JvmField val fileName: String,
     ) {
         constructor(artifact: CrumbQueueArtifact) : this(
             id = artifact.manifest.id,

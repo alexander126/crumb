@@ -13,9 +13,13 @@ let package = Package(
         .library(name: "CrumbCore", targets: ["CrumbCore"]),
         .library(name: "CrumbUI", targets: ["CrumbUI"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/microsoft/plcrashreporter.git", exact: "1.12.0")
+    ],
     targets: [
         .target(
             name: "CrumbCore",
+            dependencies: [.product(name: "CrashReporter", package: "plcrashreporter")],
             path: "packages/ios/Sources/CrumbCore"
         ),
         .target(

@@ -14,6 +14,7 @@ package struct CrumbReportSettings: Equatable, Sendable {
     package let customContext: [String: String]
     package let policyStatus: CrumbPolicyStatus
     package let workspacePolicyVersion: Int?
+    package var screenContext: CrumbScreenContext? = nil
 }
 
 package struct CrumbUploadSettings: Equatable, Sendable {
@@ -26,6 +27,7 @@ final class CrumbRuntime: @unchecked Sendable {
 
     private let lock = NSLock()
     private var configuration: CrumbConfiguration?
+    private var screenContext: CrumbScreenContext?
     private var workspacePolicy: CrumbWorkspacePolicy?
     private var highestWorkspacePolicyVersionByScope: [String: Int] = [:]
     private var policyStatus: CrumbPolicyStatus = .notFetched
@@ -45,6 +47,13 @@ final class CrumbRuntime: @unchecked Sendable {
             return
         }
         self.configuration = configuration
+    }
+
+    func setScreenContext(_ json: String) {
+        let context = CrumbScreenContext.decode(json)
+        lock.lock()
+        defer { lock.unlock() }
+        screenContext = context
     }
 
     func reportSettings() throws -> CrumbReportSettings {
@@ -68,7 +77,8 @@ final class CrumbRuntime: @unchecked Sendable {
             application: configuration.application,
             customContext: effective.customContext,
             policyStatus: effective.status,
-            workspacePolicyVersion: effective.workspacePolicyVersion
+            workspacePolicyVersion: effective.workspacePolicyVersion,
+            screenContext: effective.evidence.contains(.customContext) ? screenContext : nil
         )
     }
 
@@ -152,6 +162,7 @@ final class CrumbRuntime: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         configuration = nil
+        screenContext = nil
         workspacePolicy = nil
         highestWorkspacePolicyVersionByScope.removeAll()
         policyStatus = .notFetched

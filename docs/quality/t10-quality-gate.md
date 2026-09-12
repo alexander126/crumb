@@ -42,7 +42,7 @@ settling period.
 | retained resident-memory increase after close | 20 MiB |
 | Android `crumb-core` release AAR | 256 KiB |
 | Android `crumb-ui` release AAR | 256 KiB |
-| combined stripped iOS link contribution | 750 KiB |
+| combined stripped iOS link contribution | 1 MiB |
 | report envelope | 1 MiB |
 | one screenshot artifact | 25 MiB |
 | transport overhead above envelope and artifact payloads | 64 KiB |
@@ -55,7 +55,9 @@ request is allowed before the report has committed to the private local queue.
 ## Privacy and security guarantees
 
 - Diagnostics begin only after explicit programmatic or foreground-shake
-  invocation. `start` does not sample, persist, or transmit diagnostics.
+  invocation or an opted-in JavaScript failure. The explicitly enabled rendering
+  observer is the exception: five foreground one-second numeric buckets after
+  reporter installation. `start` does not sample, persist, or transmit diagnostics.
 - Text inputs and host-marked regions are rendered opaque before screenshot
   encoding. Only the masked, bounded PNG is hashed, queued, and uploaded.
 - Logs are prompt host snapshots, bounded by time, count, and bytes. Bearer
@@ -160,3 +162,10 @@ work, while the physical harness records timing and retained memory.
 The combined stripped iOS link contribution measured 561,690 bytes. Envelope,
 single-artifact, and 64 KiB transport-overhead boundaries pass in both native
 test suites.
+
+## Approved extension — 2026-09-07
+
+Alex approved a 1 MiB combined iOS linked contribution (including the pinned
+live-stack dependency), replacing 750 KiB, and off-by-default rendering sampling.
+Android AAR limits remain 256 KiB each. The historical physical-device results
+above predate these additions; repeat that matrix before release sign-off.

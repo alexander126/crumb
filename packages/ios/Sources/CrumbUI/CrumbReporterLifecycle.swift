@@ -29,6 +29,7 @@ final class CrumbReporterLifecycle: NSObject {
         }
 
         isInstalled = true
+        CrumbRenderingMonitor.shared.install()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(applicationDidBecomeActive),

@@ -30,6 +30,7 @@ internal object OnDemandDiagnosticsCollector {
         location: String,
         options: CrumbDiagnosticsOptions,
         evidence: Set<CrumbEvidenceCategory> = CrumbEvidenceCategory.entries.toSet(),
+        screenContext: String? = null,
     ): CrumbDiagnosticsSnapshot {
         val capturesPerformance = CrumbEvidenceCategory.PERFORMANCE in evidence
         val firstThreads = if (capturesPerformance) readThreads() else emptyMap()
@@ -61,6 +62,8 @@ internal object OnDemandDiagnosticsCollector {
 
         val memory = if (capturesPerformance) Debug.MemoryInfo().also(Debug::getMemoryInfo) else null
         return CrumbDiagnosticsSnapshot(
+            screenContext = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in evidence) screenContext else null,
+            rendering = if (options.renderingEnabled && CrumbEvidenceCategory.PERFORMANCE in evidence) dev.crumb.core.CrumbRenderingEvidence.provider?.invoke(true) else null,
             capturedAtMillis = System.currentTimeMillis(),
             location = location,
             processName = processName(context),

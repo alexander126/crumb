@@ -57,7 +57,8 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                         provider: logBuffer
                     ),
                     javascriptCrashCaptureEnabled:
-                        payload.diagnostics?.javascriptCrashCapture?.enabled ?? false
+                        payload.diagnostics?.javascriptCrashCapture?.enabled ?? false,
+                    renderingEnabled: payload.diagnostics?.renderingEnabled ?? false
                 ),
                 privacy: CrumbPrivacyOptions(
                     maskAllTextInputs: payload.privacy?.maskAllTextInputs ?? true,
@@ -90,6 +91,10 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
         )
     }
 
+    func setScreenContext(screenJson: String) {
+        Crumb.setScreenContext(screenJson)
+    }
+
     func canCollectLogs() -> Bool {
         Crumb.canCollectLogs()
     }
@@ -100,9 +105,9 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
         }
     }
 
-    func show() throws -> Promise<Bool> {
+    func show(screenJson: String) throws -> Promise<Bool> {
         Promise.async { @MainActor in
-            Crumb.show()
+            Crumb.show(screenContextJSON: screenJson)
         }
     }
 
@@ -173,6 +178,7 @@ private struct DiagnosticsPayload: Decodable {
     let timeoutMs: Int?
     let logs: LogOptionsPayload?
     let javascriptCrashCapture: JavaScriptCrashCapturePayload?
+    let renderingEnabled: Bool?
 
     func healthCheckURL() throws -> URL? {
         guard let healthCheckUrl else { return nil }

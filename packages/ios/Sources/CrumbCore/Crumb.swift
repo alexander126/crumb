@@ -1,6 +1,11 @@
 import Foundation
 
 public enum Crumb {
+    /// Adapter bridge. Replaces the current static screen context; malformed input clears it.
+    public static func setScreenContext(_ json: String) {
+        CrumbRuntime.shared.setScreenContext(json)
+    }
+
     public static func start(_ configuration: CrumbConfiguration) throws {
         try CrumbRuntime.shared.start(configuration)
     }
@@ -9,16 +14,17 @@ public enum Crumb {
     /// to be collected at this moment.
     public static func canCollectLogs() -> Bool {
         guard let settings = try? CrumbRuntime.shared.reportSettings() else { return false }
-        return settings.evidence.contains(.logs)
+        return settings.diagnostics.logs.enabled && settings.evidence.contains(.logs)
     }
 
     /// Synchronously accepts a sanitized JavaScript failure from the React
     /// Native adapter. Native uncaught-exception hooks are never installed.
     public static func recordJavaScriptCrash(_ recordJSON: String) {
-        guard (try? CrumbRuntime.shared.reportSettings().diagnostics.javascriptCrashCaptureEnabled) == true else {
+        guard let settings = try? CrumbRuntime.shared.reportSettings(),
+              settings.diagnostics.javascriptCrashCaptureEnabled else {
             return
         }
-        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON)
+        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON, failureContext: CrumbJavaScriptFailureContext.capture(settings: settings), includeBreadcrumbs: settings.diagnostics.logs.enabled && settings.evidence.contains(.logs))
     }
 
     /// Moves pending JavaScript failures into the regular durable report queue.
@@ -55,7 +61,9 @@ public enum Crumb {
         _ policy: CrumbWorkspacePolicy,
         source: CrumbPolicySource
     ) -> Bool {
-        CrumbRuntime.shared.applyWorkspacePolicy(policy, source: source)
+        let applied = CrumbRuntime.shared.applyWorkspacePolicy(policy, source: source)
+        if (try? reportSettings().evidence.contains(.performance)) != true { CrumbRenderingBuffer.shared.clear() }
+        return applied
     }
 
     package static func markWorkspacePolicyUnavailable() {

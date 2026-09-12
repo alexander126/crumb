@@ -65,6 +65,10 @@ export function clearLogs(): void {
 }
 
 export function snapshotLogEntries(): readonly CrumbLogEntry[] {
+  if (!canCollectLogs()) {
+    clearBufferedEntries();
+    return [];
+  }
   prune(Date.now());
   return entries.slice();
 }

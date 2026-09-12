@@ -23,10 +23,11 @@ package struct CrumbJavaScriptCrash: Equatable, Sendable {
     package let stack: String?
     package let occurredAt: Date
     package let release: CrumbJavaScriptCrashRelease
-    package let breadcrumbs: [CrumbJavaScriptBreadcrumb]
+    package var breadcrumbs: [CrumbJavaScriptBreadcrumb]
     package let context: [String: String]
     package let isFatal: Bool
     package let nativeTerminationWrapperObserved: Bool
+    package var failureContext: CrumbJavaScriptFailureContext? = nil
 }
 
 package struct CrumbJavaScriptCrashStoreLimits: Equatable, Sendable {
@@ -79,7 +80,7 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
     }
 
     @discardableResult
-    package func record(_ recordJSON: String) -> Bool {
+    package func record(_ recordJSON: String, failureContext: CrumbJavaScriptFailureContext? = nil, includeBreadcrumbs: Bool = true) -> Bool {
         lock.lock()
         defer { lock.unlock() }
 
@@ -87,33 +88,32 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
               let data = recordJSON.data(using: .utf8),
               data.count <= limits.maximumRecordBytes,
               let raw = try? decoder.decode(RawRecord.self, from: data),
-              let record = normalize(raw) else {
+              var record = normalize(raw) else {
             return false
         }
+
+        // The JS payload cannot supply native context. Only the trusted capture argument can.
+        record.failureContext = failureContext?.validated()
+        if !includeBreadcrumbs { record.breadcrumbs = [] }
 
         do {
             try prepareRoot()
             let existing = try readAllLocked()
             if let match = existing.first(where: { $0.record.fingerprint == record.fingerprint }) {
                 let merged = merge(match.record, record)
-                let mergedData = try encoded(merged)
-                let total = existing.reduce(0) { total, item in
-                    total + (item.url == match.url ? mergedData.count : (try? item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                let otherBytes = existing.reduce(0) { total, item in
+                    total + (item.url == match.url ? 0 : (try? item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
                 }
-                guard mergedData.count <= limits.maximumRecordBytes,
-                      total <= limits.maximumTotalBytes else {
-                    return false
-                }
+                guard let mergedData = try encoded(merged, fitting: limits.maximumTotalBytes - otherBytes) else { return false }
                 try write(mergedData, to: match.url)
                 return true
             }
 
-            let encoded = try encoded(record)
             let total = existing.reduce(0) { total, item in
                 total + ((try? item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
             }
             guard existing.count < limits.maximumRecords,
-                  total + encoded.count <= limits.maximumTotalBytes else {
+                  let encoded = try encoded(record, fitting: limits.maximumTotalBytes - total) else {
                 return false
             }
             try write(encoded, to: url(for: record.recordID))
@@ -213,7 +213,8 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
             context: context,
             isFatal: raw.isFatal || raw.source == "native_termination_wrapper",
             nativeTerminationWrapperObserved: raw.nativeTerminationWrapperObserved
-                || raw.source == "native_termination_wrapper"
+                || raw.source == "native_termination_wrapper",
+            failureContext: raw.failureContext?.validated()
         )
     }
 
@@ -266,7 +267,8 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
             context: preferred.context.isEmpty ? fallback.context : preferred.context,
             isFatal: existing.isFatal || incoming.isFatal,
             nativeTerminationWrapperObserved: existing.nativeTerminationWrapperObserved
-                || incoming.nativeTerminationWrapperObserved
+                || incoming.nativeTerminationWrapperObserved,
+            failureContext: preferred.failureContext
         )
     }
 
@@ -296,6 +298,25 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
 
     private func encoded(_ record: CrumbJavaScriptCrash) throws -> Data {
         try encoder.encode(RawRecord(record))
+    }
+
+    private func encoded(_ record: CrumbJavaScriptCrash, fitting remainingBytes: Int) throws -> Data? {
+        let budget = min(limits.maximumRecordBytes, remainingBytes)
+        let full = try encoded(record)
+        if full.count <= budget { return full }
+        var core = record
+        core.failureContext?.stacks = nil
+        let metrics = try encoded(core)
+        if metrics.count <= budget { return metrics }
+        core.failureContext?.rendering = nil
+        let withoutRendering = try encoded(core)
+        if withoutRendering.count <= budget { return withoutRendering }
+        core.failureContext?.screenContext = nil
+        let withoutScreen = try encoded(core)
+        if withoutScreen.count <= budget { return withoutScreen }
+        core.failureContext = nil
+        let fallback = try encoded(core)
+        return fallback.count <= budget ? fallback : nil
     }
 
     private func prepareRoot() throws {
@@ -386,9 +407,11 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
         let context: [String: String]
         let isFatal: Bool
         let nativeTerminationWrapperObserved: Bool
+        let failureContext: CrumbJavaScriptFailureContext?
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            failureContext = try? container.decodeIfPresent(CrumbJavaScriptFailureContext.self, forKey: .failureContext)
             schemaVersion = try container.decode(String.self, forKey: .schemaVersion)
             recordID = try container.decode(String.self, forKey: .recordID)
             fingerprint = try container.decode(String.self, forKey: .fingerprint)
@@ -409,6 +432,7 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
         }
 
         init(_ record: CrumbJavaScriptCrash) {
+            failureContext = record.failureContext
             schemaVersion = "1.0"
             recordID = record.recordID
             fingerprint = record.fingerprint
@@ -426,6 +450,7 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
         }
 
         private enum CodingKeys: String, CodingKey {
+            case failureContext = "failure_context"
             case schemaVersion = "schema_version"
             case recordID = "record_id"
             case fingerprint

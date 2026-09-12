@@ -3,6 +3,7 @@ package com.margelo.nitro.crumbsdk.reactnative
 import android.app.Application
 import android.os.Build
 import com.facebook.react.bridge.UiThreadUtil
+import com.facebook.react.common.LifecycleState
 import com.margelo.nitro.NitroModules
 import com.margelo.nitro.core.Promise
 import dev.crumb.core.Crumb
@@ -69,6 +70,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
                 invocation = payload.invocations(),
                 capture = payload.captureOptions(),
                 diagnostics = CrumbDiagnosticsOptions(
+                    renderingEnabled = diagnostics?.optBoolean("renderingEnabled", false) ?: false,
                     healthCheckUrl = diagnostics?.optionalString("healthCheckUrl"),
                     timeoutMillis = diagnostics?.optionalLong("timeoutMs") ?: 2_000,
                     javascriptCrashCaptureEnabled = diagnostics
@@ -96,6 +98,10 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
         )
     }
 
+    override fun setScreenContext(screenJson: String) {
+        Crumb.setScreenContext(screenJson)
+    }
+
     override fun canCollectLogs(): Boolean = Crumb.canCollectLogs()
 
     override fun installReporter(): Promise<Boolean> {
@@ -104,20 +110,22 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
             runCatching {
                 val context = requireNotNull(NitroModules.applicationContext)
                 val application = context.applicationContext as Application
-                CrumbReporter.install(application)
+                val resumedActivity = context.getCurrentActivity()
+                    .takeIf { context.lifecycleState == LifecycleState.RESUMED }
+                CrumbReporter.install(application, resumedActivity)
             }.onSuccess(promise::resolve)
                 .onFailure(promise::reject)
         }
         return promise
     }
 
-    override fun show(): Promise<Boolean> {
+    override fun show(screenJson: String): Promise<Boolean> {
         val promise = Promise<Boolean>()
         UiThreadUtil.runOnUiThread {
             runCatching {
                 val context = requireNotNull(NitroModules.applicationContext)
                 val activity = context.getCurrentActivity() ?: return@runCatching false
-                CrumbReporter.show(activity)
+                CrumbReporter.show(activity, screenContextJSON = screenJson)
             }.onSuccess(promise::resolve)
                 .onFailure(promise::reject)
         }
@@ -155,7 +163,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
             return promise
         }
         Thread({
-            runCatching { Crumb.recoverJavaScriptCrashes(context) }
+            runCatching { CrumbReporter.recoverJavaScriptCrashes(context) }
                 .onSuccess(promise::resolve)
                 .onFailure { promise.resolve(false) }
         }, "Crumb JavaScript crash recovery").start()

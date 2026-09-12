@@ -1,0 +1,71 @@
+---
+title: "Screen context"
+description: "Preview · Show the logical app screen where a report or JavaScript failure happened."
+---
+
+**Preview:** these helpers are not in the published rc.3 package. See [release availability](/docs/releases).
+
+A native host such as `MainActivity` describes the container. A screen label such as `Checkout` describes where the person was in your React Native app. Integrate your navigator to attach the current static label to new reports and opted-in JavaScript failures.
+
+## React Navigation
+
+Register once beside the root navigation container. The returned cleanup removes the listeners when the component unmounts:
+
+```tsx
+import { useEffect } from "react";
+import {
+  NavigationContainer,
+  useNavigationContainerRef,
+} from "@react-navigation/native";
+import Crumb from "@crumbsdk/react-native";
+
+function App() {
+  const navigationRef = useNavigationContainerRef();
+  useEffect(() => Crumb.trackReactNavigation(navigationRef), [navigationRef]);
+
+  return (
+    <NavigationContainer ref={navigationRef}>
+      {/* Your existing navigators */}
+    </NavigationContainer>
+  );
+}
+```
+
+The helper handles initial readiness, nested focused routes, modal routes and subsequent state changes. Crumb does not add React Navigation as a dependency.
+
+## Expo Router
+
+In the root layout, pass file-based segments so dynamic routes retain their template, such as `/orders/[id]`:
+
+```tsx title="app/_layout.tsx"
+import { Slot, useSegments } from "expo-router";
+import { useExpoRouterScreen } from "@crumbsdk/react-native";
+
+export default function RootLayout() {
+  useExpoRouterScreen(useSegments());
+  return <Slot />;
+}
+```
+
+Do not pass `usePathname()`, search parameters, concrete order IDs or full URLs.
+
+## A custom navigator
+
+Update the static label when your visible screen changes:
+
+```ts
+Crumb.setScreen("Checkout", { route: ["Shop", "Checkout"] });
+Crumb.setScreen(null); // No app screen is active.
+```
+
+Choose one owner for screen context. Labels are limited to 128 UTF-8 bytes each, with at most eight hierarchy labels. Invalid manual input clears the previous label and throws; navigator integrations clear unavailable or invalid state.
+
+## What is captured
+
+Reports freeze the current screen when the reporter opens, including shake invocation. JavaScript failures freeze it at the failure handoff. Recovery keeps the original screen rather than the relaunch screen and reapplies the current privacy policy.
+
+Crumb retains the current context, not a navigation history. It does not read route parameters. The `custom_context` evidence policy controls collection. A screen label does not identify the cause of a crash or replace its source stack.
+
+## Verify it
+
+Open a known screen and submit a report. Navigate elsewhere before inspecting the dashboard: the report should retain the original label. Repeat using an opted-in synthetic JavaScript failure and relaunch. Existing reports cannot gain screen context retroactively.

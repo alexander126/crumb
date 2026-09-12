@@ -1,5 +1,6 @@
 package dev.crumb.core
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -98,6 +99,109 @@ class CrumbJavaScriptCrashStoreTest {
             root.deleteRecursively()
         }
     }
+
+    @Test
+    fun persistsFailureContextAndKeepsTheOriginalProcessWhenDeduplicating() {
+        val root = temporaryRoot()
+        try {
+            val context = failureContext()
+            assertTrue(CrumbJavaScriptCrashStore(root).record(recordJson(), context))
+            val reopened = CrumbJavaScriptCrashStore(root)
+            assertTrue(reopened.record(recordJson(source = "native_termination_wrapper", kind = "native_termination_wrapper")))
+            val crash = reopened.records().single()
+            assertEquals(context.encode().toString(), crash.failureContext?.encode()?.toString())
+            val diagnostics = requireNotNull(crash.failureContext).diagnostics()
+            assertEquals(777, diagnostics.processId)
+            assertEquals(context.capturedAtMillis, diagnostics.capturedAtMillis)
+            assertEquals(12_000_000L, diagnostics.residentMemoryBytes)
+            assertEquals("react_native_javascript_failure", diagnostics.location)
+            assertEquals("wifi", diagnostics.network.transport)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun optionalContextCannotDisplaceTheCrashAndMalformedContextDoesNotDeleteIt() {
+        val root = temporaryRoot()
+        try {
+            val json = recordJson()
+            val store = CrumbJavaScriptCrashStore(root, CrumbJavaScriptCrashStoreLimits(maximumRecordBytes = json.toByteArray().size))
+            assertTrue(store.record(json, failureContext()))
+            assertEquals(1, store.records().size)
+            assertTrue(requireNotNull(root.listFiles()).single().length() <= json.toByteArray().size)
+            val file = requireNotNull(root.listFiles()).single()
+            val value = org.json.JSONObject(file.readText()).put("failure_context", org.json.JSONObject().put("process_id", "invalid"))
+            file.writeText(value.toString())
+            assertEquals(1, store.records().size)
+            assertEquals(null, store.records().single().failureContext)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun ignoresJavaScriptInjectedContextAndDropsDisabledBreadcrumbsBeforePersistence() {
+        val root = temporaryRoot()
+        try {
+            val store = CrumbJavaScriptCrashStore(root)
+            assertTrue(store.record(recordJson(), failureContext()))
+            val saved = requireNotNull(root.listFiles()).single().readText()
+            assertTrue(store.remove(store.records().single().recordId))
+            assertTrue(store.record(saved, null, includeBreadcrumbs = false))
+            assertEquals(null, store.records().single().failureContext)
+            assertTrue(store.records().single().breadcrumbs.isEmpty())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun totalStoreBudgetDropsOnlyTheIncomingOptionalSnapshot() {
+        val root = temporaryRoot()
+        try {
+            assertTrue(CrumbJavaScriptCrashStore(root).record(recordJson(), failureContext()))
+            val existingBytes = requireNotNull(root.listFiles()).single().length()
+            val json = recordJson(recordId = "jsc_AAAAAAAAAAAAAAAA", fingerprint = "aaaaaaaaaaaaaaaa")
+            val budget = existingBytes + json.toByteArray().size
+            val store = CrumbJavaScriptCrashStore(root, CrumbJavaScriptCrashStoreLimits(
+                maximumTotalBytes = budget, maximumRecordBytes = budget.toInt()))
+            assertTrue(store.record(json, failureContext()))
+            assertEquals(2, store.records().size)
+            assertTrue(store.records().single { it.recordId == "jsc_0123456789ABCDEF" }.failureContext != null)
+            assertEquals(null, store.records().single { it.recordId == "jsc_AAAAAAAAAAAAAAAA" }.failureContext)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun cpuSampleUsesMillisecondsAndRejectsInvalidIntervals() {
+        assertEquals(50.0, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(10, 20_000_000))
+        assertEquals(0.0, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(0, 20_000_000))
+        assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(10, 0))
+        assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(-1, 20_000_000))
+    }
+
+    @Test fun stacksSurviveRestartAndAreDroppedBeforeMetricsAtTheRecordLimit() {
+        val root = kotlin.io.path.createTempDirectory("crumb-stacks").toFile()
+        try {
+            val store = CrumbJavaScriptCrashStore(root)
+            assertTrue(store.record(recordJson(), failureContext()))
+            val metricsBytes = root.listFiles()!!.single().length().toInt()
+            assertTrue(store.remove("jsc_0123456789ABCDEF"))
+            val stacks = CrumbStackTraceDiagnostic(CrumbStackTraceCaptureStatus.CAPTURED, "managed_threads",
+                listOf(CrumbThreadStackDiagnostic(1, "main", "waiting", listOf("Synthetic.run(File.kt:1)"))), false, null)
+            val rendering = """{"source":"android_frame_metrics","sample_count":100,"slow_frame_count":2,"mean_frame_ms":17,"max_frame_ms":60,"gpu_sample_count":0,"last_frame_age_ms":20}"""
+            val context = failureContext().copy(stacks = stacks, rendering = rendering)
+            assertTrue(store.record(recordJson(), context))
+            assertEquals(stacks, CrumbJavaScriptCrashStore(root).records().single().failureContext?.stacks)
+            assertEquals(100, JSONObject(requireNotNull(CrumbJavaScriptCrashStore(root).records().single().failureContext?.rendering)).getInt("sample_count"))
+            assertTrue(store.remove("jsc_0123456789ABCDEF"))
+            val limited = CrumbJavaScriptCrashStore(root, CrumbJavaScriptCrashStoreLimits(maximumRecordBytes = metricsBytes))
+            assertTrue(limited.record(recordJson(), context))
+            assertEquals(null, limited.records().single().failureContext?.stacks)
+            assertEquals(777, limited.records().single().failureContext?.processId)
+            assertTrue(limited.records().single().stack != null)
+        } finally { root.deleteRecursively() }
+    }
+
+    private fun failureContext() = CrumbJavaScriptFailureContext(
+        1_788_350_400_000, "SyntheticApp", 777, 0.0, 12_000_000, 12, "nominal", "reachable", "wifi", false, false,
+        screenContext = """{"name":"Checkout","route":["Shop","Checkout"],"source":"react_navigation"}""",
+    )
 
     private fun temporaryRoot(): File = Files.createTempDirectory("crumb-js-crash-tests-").toFile()
 

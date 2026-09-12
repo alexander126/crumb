@@ -1,0 +1,40 @@
+---
+title: "Start with one useful report"
+description: "Choose your platform. Connect your app. Verify the evidence."
+---
+
+Crumb gives people a way to report a problem from inside your app, with a screenshot and bounded diagnostic evidence. Start with a report you submit yourself before adding optional collection.
+
+## Choose your quickstart
+
+| Your app             | Start here                                                | Requirements                                                           |
+| -------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| React Native or Expo | [React Native quickstart](/docs/quickstarts/react-native) | React Native 0.79+, iOS 15.1+, Android API 26+; Expo development build |
+| Native iOS           | [iOS quickstart](/docs/quickstarts/ios)                   | iOS 15+; Swift Package Manager or CocoaPods                            |
+| Native Android       | [Android quickstart](/docs/quickstarts/android)           | API 26+, Java 17; Maven Central                                        |
+
+## Before you start
+
+Create a project in your Crumb workspace and open its SDK setup. Copy the **project write key** and **ingestion URL**. Use your own values wherever a guide shows `crumb_sdk_replace_me` or `https://api.example.com`.
+
+The write key belongs in the app and only permits ingestion. It cannot read reports or sign in to your account. Save it when it is first revealed; if you lose it, use the project's key controls to create a replacement.
+
+Choose an environment such as `development` or `production`. Keep your first test clearly identified so you can find it in the dashboard.
+
+## What success looks like
+
+1. Open the reporter from a button.
+2. Check that the screenshot is useful and sensitive regions are masked.
+3. Describe a synthetic problem and submit it.
+4. Find the report in the matching dashboard project and environment.
+
+A local submission and a successful upload are separate events. Reports saved offline remain queued across app restarts. Without an ingestion URL, they stay local.
+
+## Then add the context you need
+
+- [Screen context](/docs/guides/screen-context): the static app screen where a report or JavaScript failure happened.
+- [Logs and diagnostics](/docs/guides/diagnostics): bounded evidence and honest availability states.
+- [JavaScript crashes](/docs/guides/javascript-crashes): optional failure capture and recovery after relaunch.
+- [Privacy](/docs/guides/privacy): masking, evidence controls and collection boundaries.
+
+Features labelled **Preview** are implemented on the SDK's main branch but are not in the published `0.0.1-rc.3` packages. Check [release availability](/docs/releases) before copying advanced examples.

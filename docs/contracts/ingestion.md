@@ -111,3 +111,68 @@ failures are `401`; malformed idempotency keys are `400`; invalid reports and
 artifact verification failures are `422`; conflicting or terminal lifecycle
 operations are `409`; and reports outside the authenticated project resolve as
 `404`.
+
+## Native thread stacks and rendering (envelope 1.1)
+
+`schemas/report-envelope.v1.1.schema.json` adds the `native_threads` stack scope.
+The original 1.0 schema remains unchanged and continues to cover managed
+Java/Kotlin and React Native frames. Both platforms emit 1.1 when rendering
+evidence is present; iOS also emits 1.1 for native stacks. Other reports retain 1.0. Deploy compatible ingestion
+before distributing an SDK that emits 1.1; a 1.0-only service rejects 1.1.
+
+During an explicitly enabled JavaScript failure handoff, `thread_stacks`
+evidence captures native iOS frames or Android Java/Kotlin stacks. It does not
+capture arbitrary native crashes or install a native exception handler.
+Android C/C++ stacks and the original JavaScript failure stack are separate
+from managed stacks. iOS thread IDs are indexes within this snapshot and
+`capture_thread` identifies the handoff thread, not the origin of a native crash.
+
+Saved optional stacks are capped at 12 KiB, 32 threads, 16 frames per thread,
+and 512 UTF-8 bytes per frame, with a truncation marker. Empty frames are not
+counted as evidence. Capture and recovery obey the thread-stack privacy policy;
+record pressure drops stacks before existing metrics and then drops optional
+metrics before the core JavaScript failure. No health probe is performed.
+
+The iOS implementation uses PLCrashReporter 1.12.0 live reports, without enabling
+its crash handler or asynchronous local symbolication. Its bounded temporary
+report (at most 1 MiB) is removed by the live-report API. Only sanitized stack
+frames are retained by Crumb. Available symbols are resolved after other threads
+resume. Image basename, UUID and offset are retained when present; source files
+and line numbers require separate native symbolication and are not claimed.
+The dependency is pinned to the same published version for SwiftPM and CocoaPods.
+
+`diagnostics.rendering` contains only numeric aggregates plus a source enum:
+`ios_display_link` or `android_frame_metrics`. Required fields are `sample_count`
+(1–5,000), `slow_frame_count`, `mean_frame_ms`, `max_frame_ms`, `gpu_sample_count`
+and `last_frame_age_ms`. GPU durations (`mean_gpu_ms`, `max_gpu_ms`) are omitted
+without GPU observations. iOS always has zero GPU observations. Millisecond
+values are bounded to 5,000; capture requires a last observation younger than
+five seconds. Slow counts use each observation's frame budget × 1.5.
+Attached rendering uses `privacy.diagnostics_capture:
+on_demand_with_rendering_buffer`. It requires the explicit rendering option and
+performance evidence at capture and recovery; it does not represent GPU
+utilization. Storage pressure drops stacks, then rendering, then older optional
+metrics, preserving the original JavaScript failure.
+
+## Active screen context (envelope 1.2)
+
+`schemas/report-envelope.v1.2.schema.json` adds optional
+`diagnostics.screen_context`: `{ name, route, source }`. `route` is the focused
+root-to-leaf hierarchy (one to eight static labels); every label and `name` is
+nonblank, printable and at most 128 UTF-8 bytes in SDK and consumer validation.
+`source` is `manual`, `react_navigation` or `expo_router`. There are no route
+parameters, IDs, query strings, fragments, URLs, history or inferred screen names.
+Native bridge input is additionally bounded to 2 KiB of JSON and reconstructs
+only recognized fields. Redaction occurs before persistence and serialization.
+
+The context is opted in by the integration and gated by `custom_context` evidence.
+It is frozen before asynchronous report capture, or at the JavaScript failure
+handoff, and persisted with that failure. Recovery revalidates the saved value
+and reapplies current evidence policy. Missing context stays missing. The
+existing `diagnostics.location` retains native capture provenance; it is not a
+logical React Native route. Screen context does not change the nine diagnostic
+coverage categories and is not a claim about the crash's cause.
+
+Schemas 1.0 and 1.1 remain unchanged. Emit 1.2 only when screen context survives
+privacy filtering. Consumers must accept 1.2 before applications enable tracking;
+older consumers correctly reject this new version.

@@ -4,7 +4,7 @@ This document describes the data-handling behavior of the Crumb iOS and Android
 SDKs. It is product documentation, not a replacement for the host
 application's privacy notice or data-processing agreement.
 
-## Collection starts only after invocation
+## Collection defaults and opt-ins
 
 `Crumb.start` validates in-memory configuration. The native SDK does not
 capture a screen, read logs, inspect diagnostics, write a report, or make a
@@ -18,6 +18,14 @@ exceptions and unhandled promise rejections so it can synchronously preserve a
 small sanitized record before the runtime terminates. It chains the existing
 React Native, host, Crashlytics, or Sentry handler and does not install a native
 uncaught-exception hook.
+
+A separate `diagnostics.renderingEnabled` option is also disabled by default.
+After reporter installation, enabling it retains five foreground one-second
+buckets of numeric frame observations in memory (up to 1,000 per bucket).
+Backgrounding or disabled performance evidence clears the buffer. Reports can
+attach display intervals on iOS, or frame duration and available GPU duration
+on Android. No images, navigation trail, or GPU utilization are inferred.
+Current collection settings are applied again when recovering a saved failure.
 
 ## Potential report contents
 
@@ -33,13 +41,14 @@ A submitted report can contain:
 
 An opted-in React Native recovery report can additionally contain the
 JavaScript failure type, message, bounded raw stack, release and bundle
-identity, bounded Crumb breadcrumbs, and explicitly allowlisted string
+identity, original-process metrics, bounded enabled platform thread stacks,
+optional rendering aggregates, bounded Crumb breadcrumbs, and explicitly allowlisted string
 context. It never includes arbitrary object graphs, Redux/store state,
 request or response bodies, or native memory. A native termination wrapper is
 stored only as a deduplicated marker and cannot replace the JavaScript cause.
 
 Crumb does not install native crash handlers, inspect unrelated applications,
-read Android system logcat, continuously sample the process, or intercept
+read Android system logcat or intercept
 arbitrary application network bodies.
 
 ## On-device minimization
@@ -86,3 +95,11 @@ Applications integrating Crumb remain responsible for:
 
 Security or privacy questions should be sent through the support contact named
 in the customer's Crumb workspace until a public support address is announced.
+
+Active screen context is a separate, explicit integration. It replaces one
+bounded static screen name and focused hierarchy in memory, under the
+`custom_context` evidence policy. Reports freeze it when the reporter opens;
+JavaScript failures persist it at handoff, subject to the existing storage budget.
+Recovery reapplies policy. React Navigation parameters are never read; Expo Router
+uses template segments instead of actual paths or IDs. No navigation history is
+recorded. Applications must supply static labels to the manual API.

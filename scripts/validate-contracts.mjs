@@ -87,3 +87,33 @@ if ([...effectiveContext].some((item) => !localContext.has(item) || !policyConte
 
 if (failed) process.exitCode = 1;
 else console.log("Public contract fixtures passed.");
+
+const validateNativeStacks = ajv.compile(await readJson("schemas/report-envelope.v1.1.schema.json"));
+const nativeStacks = await readJson("schemas/examples/report-envelope.native-stacks.valid.json");
+const validateLegacyStacks = ajv.getSchema("https://schemas.example.invalid/mobile-report-envelope/1.0/schema.json");
+if (!validateNativeStacks(nativeStacks) || validateLegacyStacks(nativeStacks) ||
+    validateLegacyStacks({ ...nativeStacks, schema_version: "1.0" }) ||
+    validateNativeStacks({ ...nativeStacks, schema_version: "1.2" })) {
+  console.error("Versioned native stack compatibility failed", validateNativeStacks.errors);
+  process.exitCode = 1;
+}
+
+// Versioned screen context: old consumers must reject it, including retagged envelopes.
+const screenSchema = ajv.compile(await readJson("schemas/report-envelope.v1.2.schema.json"));
+const screenFixture = await readJson("schemas/examples/report-envelope.v1.2.valid.json");
+if (!screenSchema(screenFixture)) throw new Error("Valid screen context rejected: " + JSON.stringify(screenSchema.errors));
+for (const [version, filename] of [["1.0", "report-envelope.schema.json"], ["1.1", "report-envelope.v1.1.schema.json"]]) {
+  const oldSchema = ajv.getSchema((await readJson("schemas/" + filename)).$id);
+  if (!oldSchema || oldSchema({ ...screenFixture, schema_version: version })) throw new Error("Old schema accepted screen context");
+}
+for (const screen of [
+  { ...screenFixture.diagnostics.screen_context, params: { id: "private" } },
+  { ...screenFixture.diagnostics.screen_context, name: "/orders?id=private" },
+  { ...screenFixture.diagnostics.screen_context, name: "https://example.invalid/orders" },
+  { ...screenFixture.diagnostics.screen_context, route: Array(9).fill("Home") },
+  { ...screenFixture.diagnostics.screen_context, source: "inferred" },
+]) {
+  const invalid = structuredClone(screenFixture); invalid.diagnostics.screen_context = screen;
+  if (screenSchema(invalid)) throw new Error("Invalid screen context accepted");
+}
+console.log("Screen context 1.2 and legacy rejection contracts passed.");

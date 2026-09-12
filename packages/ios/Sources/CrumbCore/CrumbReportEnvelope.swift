@@ -180,7 +180,7 @@ package enum CrumbReportEnvelopeBuilder {
         let customContext = settings.customContext
 
         let envelope = EnvelopeDTO(
-            schemaVersion: "1.0",
+            schemaVersion: diagnostics.screenContext != nil ? "1.2" : (diagnostics.stackTraces.scope == "native_threads" || diagnostics.rendering != nil) ? "1.1" : "1.0",
             reportID: input.reportID,
             trigger: input.javascriptCrash == nil ? input.trigger.rawValue : "javascript_crash",
             triggeredAt: input.triggeredAt,
@@ -223,6 +223,8 @@ package enum CrumbReportEnvelopeBuilder {
                         )
                     }
                 ),
+                rendering: diagnostics.rendering,
+                screenContext: diagnostics.screenContext,
                 gpu: GPUDTO(status: "unavailable_on_demand"),
                 network: NetworkDTO(
                     status: diagnostics.network.status,
@@ -266,7 +268,7 @@ package enum CrumbReportEnvelopeBuilder {
             privacy: PrivacyDTO(
                 screenshotCapture: screenshotCapture.rawValue,
                 screenshotMasking: screenshotMasking.rawValue,
-                diagnosticsCapture: "on_demand",
+                diagnosticsCapture: diagnostics.rendering == nil ? "on_demand" : "on_demand_with_rendering_buffer",
                 logCapture: logCapture,
                 policyStatus: settings.policyStatus.rawValue,
                 workspacePolicyVersion: settings.workspacePolicyVersion
@@ -418,7 +420,8 @@ package enum CrumbReportEnvelopeBuilder {
                 threads: [],
                 truncated: false,
                 unavailableReason: "disabled_by_policy"
-            )
+            ), rendering: performanceEnabled && settings.diagnostics.renderingEnabled ? input.rendering?.validated() : nil,
+            screenContext: settings.evidence.contains(.customContext) ? input.screenContext?.validated() : nil
         )
     }
 
@@ -559,6 +562,8 @@ private struct DiagnosticsDTO: Encodable {
     let memory: MemoryDTO?
     let thermalState: String
     let threads: ThreadsDTO
+    let rendering: CrumbRenderingSnapshot?
+    let screenContext: CrumbScreenContext?
     let gpu: GPUDTO
     let network: NetworkDTO
     let logs: LogsDTO
