@@ -518,14 +518,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     )
     private let descriptionView = UITextView()
     private let descriptionPlaceholder = UILabel()
-    private let descriptionHelperLabel = UILabel()
-    private let diagnosticsLabel = UILabel()
-    private let diagnosticsDetailLabel = UILabel()
-    private let diagnosticsStatusDot = UILabel()
     private let submitButton = UIButton(type: .system)
-    private let actionHelperLabel = UILabel()
     private let reviewHeaderButton = UIButton(type: .system)
     private let keyboardStatusRow = UIStackView()
+    private let screenshotStatusLabel = UILabel()
     private let formSurfaceView = UIView()
     private var composerHeightConstraint: NSLayoutConstraint?
     private var composerBottomConstraint: NSLayoutConstraint?
@@ -533,9 +529,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private weak var formScrollView: UIScrollView?
     private weak var contentStack: UIStackView?
     private weak var descriptionCard: UIView?
-    private weak var diagnosticsCard: UIView?
     private weak var screenshotCard: UIView?
-    private var isKeyboardVisible = false
     private var diagnosticsTask: Task<Void, Never>?
     private var didNotifyFinish = false
     private var didMoveInitialAccessibilityFocus = false
@@ -650,7 +644,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
                 constant: -18
             ),
             content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 16),
-            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -28),
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
             content.widthAnchor.constraint(
                 equalTo: scrollView.frameLayoutGuide.widthAnchor,
                 constant: -36
@@ -702,7 +696,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         let descriptionCard = UIStackView()
         descriptionCard.axis = .vertical
         descriptionCard.spacing = 4
-        descriptionCard.layoutMargins = UIEdgeInsets(top: 2, left: 4, bottom: 10, right: 4)
+        descriptionCard.layoutMargins = .zero
         descriptionCard.isLayoutMarginsRelativeArrangement = true
         CrumbDesign.styleCard(descriptionCard, fill: CrumbDesign.Color.elevatedSurface)
         self.descriptionCard = descriptionCard
@@ -712,7 +706,8 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         descriptionView.backgroundColor = .clear
         descriptionView.textColor = CrumbDesign.Color.ink
         descriptionView.isScrollEnabled = false
-        descriptionView.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
+        descriptionView.textContainerInset = UIEdgeInsets(top: 16, left: 14, bottom: 16, right: 14)
+        descriptionView.textContainer.lineFragmentPadding = 0
         descriptionView.accessibilityLabel = crumbLocalized("Problem description")
         descriptionView.accessibilityIdentifier = "crumb.description"
         descriptionView.delegate = self
@@ -723,8 +718,8 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         descriptionPlaceholder.translatesAutoresizingMaskIntoConstraints = false
         descriptionView.addSubview(descriptionPlaceholder)
         NSLayoutConstraint.activate([
-            descriptionPlaceholder.leadingAnchor.constraint(equalTo: descriptionView.leadingAnchor, constant: 15),
-            descriptionPlaceholder.topAnchor.constraint(equalTo: descriptionView.topAnchor, constant: 12)
+            descriptionPlaceholder.leadingAnchor.constraint(equalTo: descriptionView.leadingAnchor, constant: 14),
+            descriptionPlaceholder.topAnchor.constraint(equalTo: descriptionView.topAnchor, constant: 16)
         ])
         let descriptionHeightConstraint = descriptionView.heightAnchor.constraint(
             greaterThanOrEqualToConstant: 118
@@ -732,14 +727,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         descriptionHeightConstraint.isActive = true
         descriptionCard.addArrangedSubview(descriptionView)
 
-        descriptionHelperLabel.text = crumbLocalized(
-            "Your own words are the most useful part of the report."
-        )
-        descriptionHelperLabel.font = .preferredFont(forTextStyle: .caption1)
-        descriptionHelperLabel.adjustsFontForContentSizeCategory = true
-        descriptionHelperLabel.textColor = CrumbDesign.Color.mutedText
-        descriptionHelperLabel.numberOfLines = 0
-        descriptionCard.addArrangedSubview(descriptionHelperLabel)
         content.addArrangedSubview(descriptionCard)
 
         keyboardStatusRow.axis = .horizontal
@@ -747,92 +734,30 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         keyboardStatusRow.spacing = 8
         keyboardStatusRow.isHidden = true
 
-        let readyChip = UIStackView()
-        readyChip.axis = .horizontal
-        readyChip.alignment = .center
-        readyChip.spacing = 7
-        readyChip.layoutMargins = UIEdgeInsets(top: 7, left: 11, bottom: 7, right: 11)
-        readyChip.isLayoutMarginsRelativeArrangement = true
-        readyChip.backgroundColor = CrumbDesign.Color.readySurface
-        readyChip.layer.cornerRadius = 16
-        readyChip.layer.cornerCurve = .continuous
-        readyChip.addArrangedSubview(CrumbDesign.statusDot(color: CrumbDesign.Color.accent))
-        let readyLabel = CrumbDesign.label(
-            crumbLocalized("Context ready"),
-            style: .caption1,
-            weight: .medium,
-            color: CrumbDesign.Color.accentDark
-        )
-        readyLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        readyLabel.numberOfLines = 1
-        readyChip.addArrangedSubview(readyLabel)
-        readyChip.widthAnchor.constraint(greaterThanOrEqualToConstant: 122).isActive = true
-        keyboardStatusRow.addArrangedSubview(readyChip)
-
-        let screenshotChip = CrumbDesign.label(
-            crumbLocalized(screenshotArtifact == nil ? "Screenshot off" : "Screenshot on"),
-            style: .caption1,
-            color: CrumbDesign.Color.secondaryText
-        )
-        screenshotChip.accessibilityIdentifier = "crumb.keyboard-screenshot-status"
-        screenshotChip.textAlignment = .center
-        screenshotChip.font = .systemFont(ofSize: 13)
+        let screenshotChip = UIStackView()
+        screenshotChip.axis = .horizontal
+        screenshotChip.layoutMargins = UIEdgeInsets(top: 7, left: 14, bottom: 7, right: 14)
+        screenshotChip.isLayoutMarginsRelativeArrangement = true
         screenshotChip.backgroundColor = CrumbDesign.Color.mutedSurface
         screenshotChip.layer.cornerRadius = 16
         screenshotChip.layer.cornerCurve = .continuous
-        screenshotChip.clipsToBounds = true
-        screenshotChip.layoutMargins = UIEdgeInsets(top: 7, left: 11, bottom: 7, right: 11)
-        screenshotChip.widthAnchor.constraint(greaterThanOrEqualToConstant: 102).isActive = true
-        screenshotChip.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        screenshotStatusLabel.text = crumbLocalized(screenshotArtifact == nil ? "Screenshot off" : "Screenshot on")
+        screenshotStatusLabel.font = .preferredFont(forTextStyle: .caption1)
+        screenshotStatusLabel.adjustsFontForContentSizeCategory = true
+        screenshotStatusLabel.textColor = CrumbDesign.Color.secondaryText
+        screenshotStatusLabel.accessibilityIdentifier = "crumb.keyboard-screenshot-status"
+        screenshotChip.addArrangedSubview(screenshotStatusLabel)
+        screenshotChip.setContentHuggingPriority(.required, for: .horizontal)
         keyboardStatusRow.addArrangedSubview(screenshotChip)
-
-        let itemCount = CrumbDesign.metadataLabel("24 items")
-        itemCount.textAlignment = .right
-        keyboardStatusRow.addArrangedSubview(itemCount)
+        keyboardStatusRow.addArrangedSubview(UIView())
         content.addArrangedSubview(keyboardStatusRow)
-
-        let diagnosticsCard = UIStackView()
-        diagnosticsCard.axis = .horizontal
-        diagnosticsCard.alignment = .top
-        diagnosticsCard.spacing = 10
-        diagnosticsCard.layoutMargins = UIEdgeInsets(top: 13, left: 14, bottom: 13, right: 14)
-        diagnosticsCard.isLayoutMarginsRelativeArrangement = true
-        CrumbDesign.styleCard(diagnosticsCard)
-        self.diagnosticsCard = diagnosticsCard
-
-        diagnosticsStatusDot.text = "●"
-        diagnosticsStatusDot.font = .preferredFont(forTextStyle: .caption1)
-        diagnosticsStatusDot.textColor = CrumbDesign.Color.warning
-        diagnosticsStatusDot.setContentHuggingPriority(.required, for: .horizontal)
-        diagnosticsStatusDot.setContentCompressionResistancePriority(.required, for: .horizontal)
-        diagnosticsStatusDot.accessibilityElementsHidden = true
-        diagnosticsCard.addArrangedSubview(diagnosticsStatusDot)
-
-        let diagnosticsCopy = UIStackView()
-        diagnosticsCopy.axis = .vertical
-        diagnosticsCopy.spacing = 3
-        diagnosticsLabel.text = crumbLocalized("Gathering context")
-        diagnosticsLabel.font = .preferredFont(forTextStyle: .subheadline).withWeight(.semibold)
-        diagnosticsLabel.textColor = CrumbDesign.Color.ink
-        diagnosticsLabel.numberOfLines = 0
-        diagnosticsLabel.accessibilityIdentifier = "crumb.diagnostics-summary"
-        diagnosticsCopy.addArrangedSubview(diagnosticsLabel)
-        diagnosticsDetailLabel.text = crumbLocalized(
-            "Release, device and network details — a few seconds."
-        )
-        diagnosticsDetailLabel.font = .preferredFont(forTextStyle: .caption1)
-        diagnosticsDetailLabel.textColor = CrumbDesign.Color.mutedText
-        diagnosticsDetailLabel.numberOfLines = 0
-        diagnosticsCopy.addArrangedSubview(diagnosticsDetailLabel)
-        diagnosticsCard.addArrangedSubview(diagnosticsCopy)
-        content.addArrangedSubview(diagnosticsCard)
 
         if let screenshot = screenshotArtifact?.preview {
             let screenshotCard = UIStackView()
             screenshotCard.axis = .horizontal
             screenshotCard.alignment = .center
             screenshotCard.spacing = 12
-            screenshotCard.layoutMargins = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+            screenshotCard.layoutMargins = UIEdgeInsets(top: 16, left: 14, bottom: 16, right: 14)
             screenshotCard.isLayoutMarginsRelativeArrangement = true
             CrumbDesign.styleCard(screenshotCard, fill: CrumbDesign.Color.surface)
             self.screenshotCard = screenshotCard
@@ -883,6 +808,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             remove.titleLabel?.font = .preferredFont(forTextStyle: .subheadline)
             remove.addAction(UIAction { [weak self, weak screenshotCard, weak content] _ in
                 self?.screenshotArtifact = nil
+                self?.screenshotStatusLabel.text = crumbLocalized("Screenshot off")
                 if let screenshotCard {
                     content?.removeArrangedSubview(screenshotCard)
                     screenshotCard.removeFromSuperview()
@@ -898,13 +824,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         submitButton.addAction(UIAction { [weak self] _ in self?.reviewDraft() }, for: .touchUpInside)
         submitButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
         content.addArrangedSubview(submitButton)
-
-        actionHelperLabel.text = crumbLocalized("Add a description to continue.")
-        actionHelperLabel.font = .preferredFont(forTextStyle: .caption1)
-        actionHelperLabel.textColor = CrumbDesign.Color.mutedText
-        actionHelperLabel.textAlignment = .center
-        actionHelperLabel.numberOfLines = 0
-        content.addArrangedSubview(actionHelperLabel)
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(keyboardWillChangeFrame(_:)),
@@ -925,7 +844,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        updateComposerHeight(animated: false)
+        updateComposerHeight()
         guard !didMoveInitialAccessibilityFocus else { return }
         didMoveInitialAccessibilityFocus = true
         UIAccessibility.post(notification: .screenChanged, argument: navigationController?.navigationBar)
@@ -941,9 +860,8 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     func textViewDidChange(_ textView: UITextView) {
         let isEmpty = textView.text.isEmpty
         descriptionPlaceholder.isHidden = !isEmpty
-        descriptionHelperLabel.isHidden = isKeyboardVisible || !isEmpty
         updateSubmitButton()
-        updateComposerHeight(animated: false)
+        updateComposerHeight()
         view.layoutIfNeeded()
         if let caret = descriptionView.selectedTextRange.map({ descriptionView.caretRect(for: $0.end) }),
            let formScrollView {
@@ -954,11 +872,15 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
 
     func textViewDidBeginEditing(_ textView: UITextView) {
         setExpandedControlsVisible(false)
+        UIView.performWithoutAnimation { self.keyboardStatusRow.alpha = 1 }
         descriptionCard?.layer.borderWidth = 1.5
         descriptionCard?.layer.borderColor = CrumbDesign.Color.accent.cgColor
     }
 
     func textViewDidEndEditing(_ textView: UITextView) {
+        // Remove the compact indicator before expanded controls become visible.
+        // Keep its layout until the keyboard frame notification sizes the panel.
+        UIView.performWithoutAnimation { self.keyboardStatusRow.alpha = 0 }
         setExpandedControlsVisible(true)
         descriptionCard?.layer.borderWidth = 1
         descriptionCard?.layer.borderColor = CrumbDesign.Color.divider.cgColor
@@ -967,7 +889,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private func setExpandedControlsVisible(_ visible: Bool) {
         // Remove these pixels as soon as focus changes, but retain their layout
         // until keyboardWillChangeFrame coordinates the panel's size and position.
-        let controls: [UIView?] = [categoryControl, diagnosticsCard, screenshotCard, submitButton, actionHelperLabel]
+        let controls: [UIView?] = [categoryControl, screenshotCard, submitButton]
         UIView.performWithoutAnimation {
             for control in controls.compactMap({ $0 }) {
                 control.alpha = visible ? 1 : 0
@@ -978,15 +900,12 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     }
 
     private func setKeyboardLayout(_ editing: Bool) {
-        isKeyboardVisible = editing
         categoryControl.isHidden = editing || !settings.reporter.visibleFields.contains(.category)
-        diagnosticsCard?.isHidden = editing
         screenshotCard?.isHidden = editing || screenshotArtifact == nil
         submitButton.isHidden = editing
         keyboardStatusRow.isHidden = !editing
-        descriptionHelperLabel.isHidden = editing || !descriptionView.text.isEmpty
         updateSubmitButton()
-        updateComposerHeight(animated: false)
+        updateComposerHeight()
     }
 
     @objc private func keyboardWillChangeFrame(_ notification: Notification) {
@@ -1022,7 +941,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         composerBottomConstraint?.constant = -keyboardOverlap()
-        updateComposerHeight(animated: false)
+        updateComposerHeight()
     }
 
     @objc private func dragGrabber(_ gesture: UIPanGestureRecognizer) {
@@ -1032,7 +951,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         }
     }
 
-    private func updateComposerHeight(animated: Bool) {
+    private func updateComposerHeight() {
         guard let contentStack, view.bounds.width > 36 else { return }
         let fittingSize = contentStack.systemLayoutSizeFitting(
             CGSize(width: view.bounds.width - 36, height: UIView.layoutFittingCompressedSize.height),
@@ -1041,15 +960,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         )
         // Top/bottom scroll-content padding. The required safe-area constraint
         // caps this preferred height; longer forms scroll rather than overflowing.
-        let requestedHeight = ceil(fittingSize.height) + 44
+        let requestedHeight = ceil(fittingSize.height) + 32
         guard let composerHeightConstraint,
               abs(composerHeightConstraint.constant - requestedHeight) > 0.5 else { return }
         composerHeightConstraint.constant = requestedHeight
-        if animated {
-            UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-                self.view.layoutIfNeeded()
-            }
-        }
     }
 
     func textView(
@@ -1092,18 +1006,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
                 kind: .diagnosticsReady,
                 startedAtNanoseconds: self.invocationStartedAtNanoseconds
             )
-            let detail = DiagnosticsFormatting.shortSummary(diagnostics)
-            self.diagnosticsLabel.text = crumbLocalized("Context ready")
-            self.diagnosticsLabel.accessibilityLabel = "Context ready. \(detail)"
-            self.diagnosticsDetailLabel.text = detail
-            self.diagnosticsDetailLabel.isHidden = true
-            self.diagnosticsStatusDot.textColor = CrumbDesign.Color.accent
-            UIAccessibility.post(
-                notification: .announcement,
-                argument: crumbLocalized("Report context is ready")
-            )
             self.updateSubmitButton()
-            DispatchQueue.main.async { [weak self] in self?.updateComposerHeight(animated: true) }
         }
     }
 
@@ -1114,15 +1017,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         let isReady = hasDescription && diagnostics != nil
         submitButton.isEnabled = isReady
         reviewHeaderButton.isEnabled = isReady
-        if !hasDescription {
-            actionHelperLabel.isHidden = isKeyboardVisible
-            actionHelperLabel.text = crumbLocalized("Add a description to continue.")
-        } else if diagnostics == nil {
-            actionHelperLabel.isHidden = isKeyboardVisible
-            actionHelperLabel.text = crumbLocalized("Finishing context collection…")
-        } else {
-            actionHelperLabel.isHidden = true
-        }
     }
 
     private func reviewDraft() {
@@ -1263,16 +1157,6 @@ private final class ScreenshotPreviewViewController: UIViewController {
 }
 
 private enum DiagnosticsFormatting {
-    static func shortSummary(_ diagnostics: CrumbDiagnosticsSnapshot) -> String {
-        let cpu = diagnostics.cpuUsagePercent.map { String(format: "%.1f%% CPU", $0) } ?? "CPU unavailable"
-        let memory = diagnostics.residentMemoryBytes.map(byteCount) ?? "memory unavailable"
-        let connection = [diagnostics.network.cellularGeneration, diagnostics.network.transport]
-            .compactMap { $0 }
-            .joined(separator: " · ")
-        let logs = "\(diagnostics.logs.entries.count) recent logs"
-        return "\(cpu) · \(memory) · \(connection) \(diagnostics.network.status) · \(logs)"
-    }
-
     static func byteCount(_ count: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(clamping: count), countStyle: .memory)
     }
@@ -1327,7 +1211,7 @@ private final class DraftSummaryViewController: UIViewController {
                 constant: -18
             ),
             content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 14),
-            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -28),
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -16),
             content.widthAnchor.constraint(
                 equalTo: scrollView.frameLayoutGuide.widthAnchor,
                 constant: -36
@@ -1376,7 +1260,7 @@ private final class DraftSummaryViewController: UIViewController {
         localBanner.axis = .horizontal
         localBanner.alignment = .top
         localBanner.spacing = 10
-        localBanner.layoutMargins = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+        localBanner.layoutMargins = UIEdgeInsets(top: 16, left: 14, bottom: 16, right: 14)
         localBanner.isLayoutMarginsRelativeArrangement = true
         CrumbDesign.styleCard(localBanner, fill: CrumbDesign.Color.mutedSurface, border: .clear)
         localBanner.addArrangedSubview(CrumbDesign.statusDot(color: CrumbDesign.Color.ink))

@@ -80,6 +80,7 @@ final class CrumbDemoUITests: XCTestCase {
         )
         XCTAssertEqual(XCTWaiter().wait(for: [keyboardHidden], timeout: 5), .completed)
         XCTAssertTrue(app.buttons["crumb.review-draft"].exists)
+        XCTAssertFalse(app.staticTexts["crumb.keyboard-screenshot-status"].exists)
         XCTAssertEqual(description.value as? String, "A synthetic keyboard regression")
 
         description.tap()
@@ -135,6 +136,14 @@ final class CrumbDemoUITests: XCTestCase {
     }
 
     @MainActor
+    private func waitUntilEnabled(_ element: XCUIElement) {
+        let ready = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: element
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 10), .completed)
+    }
+
+    @MainActor
     func testCreatesLocalReportDraft() {
         let app = XCUIApplication()
         app.launch()
@@ -145,14 +154,9 @@ final class CrumbDemoUITests: XCTestCase {
         app.buttons["demo.report-problem"].tap()
         XCTAssertTrue(app.staticTexts["crumb.reporter-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Masked screenshot preview"].waitForExistence(timeout: 5))
-        let diagnostics = app.staticTexts["crumb.diagnostics-summary"]
-        XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
-        let diagnosticsReady = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label BEGINSWITH[c] 'Context ready'"),
-            object: diagnostics
-        )
-        XCTAssertEqual(XCTWaiter().wait(for: [diagnosticsReady], timeout: 10), .completed)
-        XCTAssertTrue(diagnostics.label.localizedCaseInsensitiveContains("CPU"))
+        XCTAssertFalse(app.staticTexts["crumb.diagnostics-summary"].exists)
+        XCTAssertFalse(app.staticTexts["Your own words are the most useful part of the report."].exists)
+        XCTAssertFalse(app.staticTexts["Add a description to continue."].exists)
         attachScreenshot(named: "ios-report", app: app)
 
         let description = app.textViews["crumb.description"]
@@ -161,6 +165,7 @@ final class CrumbDemoUITests: XCTestCase {
         description.typeText("\n")
 
         let review = app.buttons["crumb.review-draft"]
+        waitUntilEnabled(review)
         if !review.isHittable { app.swipeUp() }
         review.tap()
 
@@ -205,14 +210,6 @@ final class CrumbDemoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["crumb.reporter-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Masked screenshot preview"].waitForExistence(timeout: 5))
 
-        let diagnostics = app.staticTexts["crumb.diagnostics-summary"]
-        XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
-        let diagnosticsReady = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label BEGINSWITH[c] 'Context ready'"),
-            object: diagnostics
-        )
-        XCTAssertEqual(XCTWaiter().wait(for: [diagnosticsReady], timeout: 10), .completed)
-
         let description = app.textViews["crumb.description"]
         description.tap()
         description.typeText("Accessible report")
@@ -245,31 +242,24 @@ final class CrumbDemoUITests: XCTestCase {
             app.buttons["demo.report-problem"].tap()
             XCTAssertTrue(reporter.waitForExistence(timeout: 3), "Reporter run \(run + 1)")
             XCTAssertTrue(app.buttons["Masked screenshot preview"].waitForExistence(timeout: 3))
-            let diagnostics = app.staticTexts["crumb.diagnostics-summary"]
-            XCTAssertTrue(diagnostics.waitForExistence(timeout: 3))
-            let ready = XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "label BEGINSWITH[c] 'Context ready'"),
-                object: diagnostics
-            )
-            XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 3), .completed)
+            // Readiness is exposed by the review action, without a status card.
+            let description = app.textViews["crumb.description"]
+            description.tap()
+            description.typeText("Synthetic quality report\n")
+            let review = app.buttons["crumb.review-draft"]
+            waitUntilEnabled(review)
 
             if run == 19 {
-                let description = app.textViews["crumb.description"]
-                description.tap()
-                description.typeText("Memory retention pass")
-                description.typeText("\n")
-                let review = app.buttons["crumb.review-draft"]
-                let enabled = XCTNSPredicateExpectation(
-                    predicate: NSPredicate(format: "enabled == true"),
-                    object: review
-                )
-                XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 3), .completed)
                 if !review.isHittable { app.swipeUp() }
                 review.tap()
                 XCTAssertTrue(app.staticTexts["crumb.review-title"].waitForExistence(timeout: 3))
             }
 
             app.buttons["Cancel"].firstMatch.tap()
+            if run != 19 {
+                XCTAssertTrue(app.alerts["Discard this report?"].waitForExistence(timeout: 3))
+                app.alerts.buttons["Discard report"].tap()
+            }
             let closed = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "exists == false"),
                 object: reporter
