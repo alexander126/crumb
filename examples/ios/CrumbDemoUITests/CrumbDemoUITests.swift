@@ -55,6 +55,10 @@ final class CrumbDemoUITests: XCTestCase {
         description.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
 
+        // XCTest can report a hardware-keyboard placeholder before showing the
+        // software keyboard. Prime it, then restore the empty draft before measuring.
+        description.typeText(" ")
+        description.typeText(XCUIKeyboardKey.delete.rawValue)
         let editingFrame = settledFrame(of: description)
         let title = app.staticTexts["crumb.reporter-title"]
         let titleY = title.frame.minY
@@ -75,6 +79,8 @@ final class CrumbDemoUITests: XCTestCase {
 
         description.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        description.typeText(" ")
+        description.typeText(XCUIKeyboardKey.delete.rawValue)
         XCTAssertEqual(settledFrame(of: description).height, editingFrame.height, accuracy: 1)
         XCTAssertLessThanOrEqual(description.frame.maxY, app.keyboards.firstMatch.frame.minY)
         XCTAssertTrue(app.buttons["Review"].firstMatch.isHittable)
