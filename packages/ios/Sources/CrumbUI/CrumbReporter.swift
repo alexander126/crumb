@@ -998,7 +998,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         let overlap = keyboardOverlap()
         // Collapse the form and move it above the keyboard in the SAME transaction.
         // Updating the form in didBeginEditing first would move it down, then up.
-        setKeyboardLayout(descriptionView.isFirstResponder)
+        setKeyboardLayout(descriptionView.isFirstResponder && overlap > 0)
         composerBottomConstraint?.constant = -overlap
         let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 0
