@@ -526,6 +526,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private var composerHeightConstraint: NSLayoutConstraint?
     private var composerBottomConstraint: NSLayoutConstraint?
     private var keyboardFrameInScreen: CGRect?
+    private var isEditingDescription = false
     private weak var formScrollView: UIScrollView?
     private weak var contentStack: UIStackView?
     private weak var descriptionCard: UIView?
@@ -835,6 +836,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !descriptionView.isFirstResponder {
+            isEditingDescription = false
             keyboardFrameInScreen = nil
             composerBottomConstraint?.constant = 0
             setKeyboardLayout(false)
@@ -870,17 +872,27 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         }
     }
 
-    func textViewDidBeginEditing(_ textView: UITextView) {
+    func textViewShouldBeginEditing(_ textView: UITextView) -> Bool {
+        isEditingDescription = true
         setExpandedControlsVisible(false)
         UIView.performWithoutAnimation { self.keyboardStatusRow.alpha = 1 }
+        return true
+    }
+
+    func textViewDidBeginEditing(_ textView: UITextView) {
         descriptionCard?.layer.borderWidth = 1.5
         descriptionCard?.layer.borderColor = CrumbDesign.Color.accent.cgColor
     }
 
-    func textViewDidEndEditing(_ textView: UITextView) {
-        // Remove the compact indicator before expanded controls become visible.
-        // Keep its layout until the keyboard frame notification sizes the panel.
+    func textViewShouldEndEditing(_ textView: UITextView) -> Bool {
+        // Capture intent before keyboard notifications: isFirstResponder can still
+        // be true during dismissal, especially after rotation.
+        isEditingDescription = false
         UIView.performWithoutAnimation { self.keyboardStatusRow.alpha = 0 }
+        return true
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
         setExpandedControlsVisible(true)
         descriptionCard?.layer.borderWidth = 1
         descriptionCard?.layer.borderColor = CrumbDesign.Color.divider.cgColor
@@ -917,7 +929,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         let overlap = keyboardOverlap()
         // Collapse the form and move it above the keyboard in the SAME transaction.
         // Updating the form in didBeginEditing first would move it down, then up.
-        setKeyboardLayout(descriptionView.isFirstResponder && overlap > 0)
+        setKeyboardLayout(isEditingDescription && overlap > 0)
         composerBottomConstraint?.constant = -overlap
         let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 0

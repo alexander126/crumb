@@ -62,7 +62,11 @@ final class CrumbDemoUITests: XCTestCase {
         let editingFrame = settledFrame(of: description)
         let title = app.staticTexts["crumb.reporter-title"]
         let titleY = title.frame.minY
-        let keyboardTop = app.keyboards.firstMatch.frame.minY
+        // XCTest may expose predictive suggestions outside the keyboard element.
+        // Measure the whole visible keyboard, including that accessory strip.
+        let predictions = app.otherElements["Typing Predictions"].firstMatch
+        let keysTop = app.keyboards.firstMatch.frame.minY
+        let keyboardTop = predictions.exists ? min(keysTop, predictions.frame.minY) : keysTop
         let statusBottom = app.staticTexts["crumb.keyboard-screenshot-status"].frame.maxY
         XCTAssertGreaterThanOrEqual(keyboardTop - statusBottom, 0)
         XCTAssertLessThanOrEqual(keyboardTop - statusBottom, 60,
