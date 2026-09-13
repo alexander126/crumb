@@ -4,9 +4,10 @@ Crumb is a native-first mobile issue-reporting SDK. Its first production slice
 turns an explicit user report into a privacy-safe diagnostic packet that an
 engineer can inspect without asking the reporter to recreate basic context.
 
-> **rc.4 candidate:** current source is being prepared for `0.0.1-rc.4`.
-> See [release notes and migration](docs/releases/0.0.1-rc.4.md). Published
-> rc.3 quickstarts remain versioned until candidate artifacts are available.
+> **rc.5 candidate:** current source is being prepared for `0.0.1-rc.5`, including
+> guided React Native/Expo setup and automatic release source maps.
+> See [release notes and migration](docs/releases/0.0.1-rc.5.md). The older
+> quickstarts below remain explicitly versioned during release acceptance.
 
 ## Install Crumb
 
