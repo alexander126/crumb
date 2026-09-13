@@ -2,5 +2,5 @@
 package dev.crumb.core
 
 object CrumbSDKVersion {
-    const val CURRENT = "0.0.1-rc.4"
+    const val CURRENT = "0.0.1-rc.5"
 }

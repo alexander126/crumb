@@ -6,10 +6,13 @@ screenshot masking, diagnostics, durable storage, and upload.
 
 ## Guided setup preview
 
-The next candidate includes guided setup and automatic source-map uploads through
+The rc.5 candidate includes guided setup and automatic source-map uploads through
 the React Native package. See the [React Native and Expo setup guide](../../docs/react-native-setup.md).
 These commands are not available in the published rc.4 package yet. The existing
 installation below remains available while the new candidate is validated.
+See the [rc.5 release notes](../../docs/releases/0.0.1-rc.5.md) for exact candidate
+installation and upgrade instructions. The uploader is included automatically;
+its separate package version is an implementation dependency, not another setup step.
 
 ## Requirements
 

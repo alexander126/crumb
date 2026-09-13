@@ -5,6 +5,29 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+## [0.0.1-rc.5] - Candidate
+
+See the [rc.5 release and migration notes](docs/releases/0.0.1-rc.5.md).
+Publication and final installation/dogfood checks remain separate release gates.
+
+### Added
+
+- Guided React Native and Expo setup, local configuration checks, and an included
+  source-map uploader; installing a second Crumb package is no longer required.
+- Release build hooks for immutable JavaScript bundle identities and uploads of
+  final composed source maps, with retained artifacts for retries and optional
+  strict CI failure handling.
+- An Expo export helper for explicit native release targets, preserving the
+  exported bundle identity without publishing an OTA update.
+
+### Fixed
+
+- Recovered JavaScript failures retain the native version/build at capture time,
+  including when the app binary changes before relaunch.
+- Android React Native Release packaging excludes the dependency-owned duplicate
+  Nitro library.
+- Source-map CLI package checks accept the npm 12 archive metadata format.
+
 ## [0.0.1-rc.4] - Candidate
 
 This candidate is prepared from current source; registry publication and the

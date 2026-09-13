@@ -1,8 +1,9 @@
 # Guided React Native and Expo setup
 
-**Unpublished preview:** these commands are implemented after rc.4. Use them
-with a package built from this change; do not expect the published rc.4 package
-to provide them. Release acceptance must verify the final published candidate.
+**rc.5 candidate:** these commands require `@crumbsdk/react-native@0.0.1-rc.5`
+or a reviewed build of this source. They are absent from rc.4. Confirm rc.5
+registry availability before installing it; release acceptance must verify the
+final published package. See [rc.5 release notes](releases/0.0.1-rc.5.md).
 
 ## Install, configure, verify
 
