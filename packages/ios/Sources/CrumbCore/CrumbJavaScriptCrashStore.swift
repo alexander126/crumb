@@ -22,7 +22,7 @@ package struct CrumbJavaScriptCrash: Equatable, Sendable {
     package let message: String
     package let stack: String?
     package let occurredAt: Date
-    package let release: CrumbJavaScriptCrashRelease
+    package var release: CrumbJavaScriptCrashRelease
     package var breadcrumbs: [CrumbJavaScriptBreadcrumb]
     package let context: [String: String]
     package let isFatal: Bool
@@ -80,7 +80,7 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
     }
 
     @discardableResult
-    package func record(_ recordJSON: String, failureContext: CrumbJavaScriptFailureContext? = nil, includeBreadcrumbs: Bool = true) -> Bool {
+    package func record(_ recordJSON: String, failureContext: CrumbJavaScriptFailureContext? = nil, includeBreadcrumbs: Bool = true, release: CrumbRelease? = nil) -> Bool {
         lock.lock()
         defer { lock.unlock() }
 
@@ -94,6 +94,12 @@ package final class CrumbJavaScriptCrashStore: @unchecked Sendable {
 
         // The JS payload cannot supply native context. Only the trusted capture argument can.
         record.failureContext = failureContext?.validated()
+        // Freeze native defaults at failure time, before a later app update can change them.
+        record.release = CrumbJavaScriptCrashRelease(
+            appVersion: record.release.appVersion ?? release?.appVersion,
+            nativeBuild: record.release.nativeBuild ?? release?.nativeBuild,
+            bundleVersion: record.release.bundleVersion ?? release?.bundleVersion
+        )
         if !includeBreadcrumbs { record.breadcrumbs = [] }
 
         do {

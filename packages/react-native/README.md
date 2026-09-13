@@ -4,6 +4,13 @@ The official Nitro Module adapter for Crumb. It is intentionally thin: the
 published Swift and Kotlin SDKs continue to own reporter presentation,
 screenshot masking, diagnostics, durable storage, and upload.
 
+## Guided setup preview
+
+The next candidate includes guided setup and automatic source-map uploads through
+the React Native package. See the [React Native and Expo setup guide](../../docs/react-native-setup.md).
+These commands are not available in the published rc.4 package yet. The existing
+installation below remains available while the new candidate is validated.
+
 ## Requirements
 
 - React Native 0.79 or newer

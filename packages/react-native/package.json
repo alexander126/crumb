@@ -11,7 +11,11 @@
       "default": "./lib/module/index.js"
     },
     "./package.json": "./package.json",
-    "./app.plugin.js": "./app.plugin.js"
+    "./app.plugin.js": "./app.plugin.js",
+    "./metro": {
+      "types": "./metro.d.cts",
+      "default": "./metro.cjs"
+    }
   },
   "files": [
     "src",
@@ -31,7 +35,10 @@
     "native",
     "scripts/ios.rb",
     "app.plugin.js",
-    "plugin"
+    "plugin",
+    "metro.cjs",
+    "tools",
+    "metro.d.cts"
   ],
   "scripts": {
     "example": "yarn workspace @crumbsdk/react-native-example",
@@ -144,5 +151,12 @@
       "jest"
     ],
     "version": "0.63.0"
+  },
+  "dependencies": {
+    "@crumbsdk/source-maps": "0.0.1-rc.4",
+    "xcode": "3.0.1"
+  },
+  "bin": {
+    "crumb": "tools/cli.cjs"
   }
 }

@@ -2,8 +2,9 @@
 
 The [source-map CLI](../packages/source-maps/README.md) and
 [v1 upload contract](contracts/source-map-upload.md) bind release artifacts to
-an exact crash release. The CLI is an implementation preview, pending package
-publication and hosted compatibility validation. These instructions describe
+an exact crash release. The standalone CLI is published as `@crumbsdk/source-maps@0.0.1-rc.4`.
+The next candidate adds [guided setup](react-native-setup.md) with automatic uploads
+through the React Native package. These advanced instructions describe
 the build inputs to prepare; they do not enable native crash capture.
 
 ## Keep the app and CI identity aligned

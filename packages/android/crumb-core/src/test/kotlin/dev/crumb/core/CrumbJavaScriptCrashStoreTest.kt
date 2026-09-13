@@ -10,6 +10,22 @@ import java.nio.file.Files
 
 class CrumbJavaScriptCrashStoreTest {
     @Test
+    fun freezesNativeDefaultsWhenJavaScriptOnlyProvidesBundleIdentity() {
+        val root = temporaryRoot()
+        try {
+            val payload = JSONObject(recordJson(source = "javascript", kind = "exception"))
+                .put("release", JSONObject().put("bundle_version", "embedded-build"))
+            assertTrue(CrumbJavaScriptCrashStore(root).record(payload.toString(), null, true, CrumbRelease("1.2.3", "42", "native-fallback")))
+            val record = CrumbJavaScriptCrashStore(root).records().single()
+            assertEquals("1.2.3", record.release.appVersion)
+            assertEquals("42", record.release.nativeBuild)
+            assertEquals("embedded-build", record.release.bundleVersion)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun deduplicatesNativeTerminationWrapperWithoutLosingJavaScriptCause() {
         val root = temporaryRoot()
         try {

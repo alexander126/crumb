@@ -279,7 +279,7 @@ object Crumb {
         val snapshot = runCatching { CrumbJavaScriptFailureContext.capture(context.applicationContext, settings) }.getOrNull()
         CrumbJavaScriptCrashStore(
             context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
-        ).record(recordJson, snapshot, settings.diagnostics.logs.enabled && CrumbEvidenceCategory.LOGS in settings.evidence)
+        ).record(recordJson, snapshot, settings.diagnostics.logs.enabled && CrumbEvidenceCategory.LOGS in settings.evidence, settings.release)
     }
 
     /** Moves pending JS failures into the normal durable report queue. */

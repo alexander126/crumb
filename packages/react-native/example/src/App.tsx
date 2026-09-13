@@ -32,11 +32,13 @@ export default function App() {
       await Crumb.start({
         projectKey,
         environment: process.env.EXPO_PUBLIC_CRUMB_ENVIRONMENT || 'development',
-        release: {
-          bundleVersion:
-            process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION ||
-            'expo-development-build',
-        },
+        ...(process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION
+          ? {
+              release: {
+                bundleVersion: process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION,
+              },
+            }
+          : {}),
         ...(process.env.EXPO_PUBLIC_CRUMB_INGESTION_URL
           ? {
               upload: {

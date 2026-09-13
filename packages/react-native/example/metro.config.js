@@ -9,4 +9,4 @@ const config = withMetroConfig(getDefaultConfig(__dirname), {
   conditions: ['crumbsdk-react-native-source'],
 });
 
-module.exports = config;
+module.exports = require('@crumbsdk/react-native/metro').withCrumb(config);

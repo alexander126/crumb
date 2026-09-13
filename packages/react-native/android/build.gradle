@@ -73,6 +73,7 @@ android {
     }
     jniLibs {
       excludes += [
+        "**/libNitroModules.so",
         "**/libc++_shared.so",
         "**/libfbjni.so",
         "**/libjsi.so",

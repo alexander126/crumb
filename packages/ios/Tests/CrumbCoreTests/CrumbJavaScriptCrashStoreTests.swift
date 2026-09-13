@@ -5,6 +5,22 @@ import Testing
 @Suite(.serialized)
 struct CrumbJavaScriptCrashStoreTests {
     @Test
+    func freezesNativeDefaultsWhenJavaScriptOnlyProvidesBundleIdentity() throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = CrumbJavaScriptCrashStore(rootURL: root)
+        var payload = try #require(JSONSerialization.jsonObject(with: Data(recordJSON(source: "javascript", kind: "exception").utf8)) as? [String: Any])
+        payload["release"] = ["bundle_version": "embedded-build"]
+        let json = try #require(String(data: JSONSerialization.data(withJSONObject: payload), encoding: .utf8))
+        #expect(store.record(json, release: CrumbRelease(appVersion: "1.2.3", nativeBuild: "42", bundleVersion: "native-fallback")))
+        let reopened = CrumbJavaScriptCrashStore(rootURL: root)
+        let record = try #require(reopened.records().first)
+        #expect(record.release.appVersion == "1.2.3")
+        #expect(record.release.nativeBuild == "42")
+        #expect(record.release.bundleVersion == "embedded-build")
+    }
+
+    @Test
     func deduplicatesNativeTerminationWrapperWithoutLosingJavaScriptCause() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }

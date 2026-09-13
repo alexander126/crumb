@@ -62,6 +62,13 @@ try {
     'scripts/ios.rb',
     'app.plugin.js',
     'plugin/podfile.cjs',
+    'plugin/build-hooks.cjs',
+    'metro.cjs',
+    'metro.d.cts',
+    'tools/cli.cjs',
+    'tools/crumb.gradle',
+    'tools/ios.cjs',
+    'tools/expo-export.cjs',
     'LICENSE',
   ]) {
     assert.ok(readFileSync(join(packed, file)).length > 0, `Missing ${file}`);
@@ -69,6 +76,12 @@ try {
   const metadata = JSON.parse(
     readFileSync(join(packed, 'package.json'), 'utf8')
   );
+  assert.equal(metadata.bin.crumb, 'tools/cli.cjs');
+  assert.match(
+    metadata.dependencies['@crumbsdk/source-maps'],
+    /^\d+\.\d+\.\d+(?:-[\w.]+)?$/
+  );
+  assert.ok(lstatSync(join(packed, 'tools/cli.cjs')).mode & 0o111);
   assert.equal(
     readFileSync(join(packed, 'native/ios/VERSION'), 'utf8').trim(),
     metadata.crumbNativeVersion

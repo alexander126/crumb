@@ -57,12 +57,20 @@ class CrumbJavaScriptCrashStore internal constructor(
 ) {
     fun record(recordJson: String): Boolean = record(recordJson, null)
 
-    internal fun record(recordJson: String, failureContext: CrumbJavaScriptFailureContext?, includeBreadcrumbs: Boolean = true): Boolean = synchronized(STORAGE_LOCK) {
+    internal fun record(recordJson: String, failureContext: CrumbJavaScriptFailureContext?, includeBreadcrumbs: Boolean = true, release: CrumbRelease? = null): Boolean = synchronized(STORAGE_LOCK) {
         if (!validLimits()) return false
         val bytes = recordJson.toByteArray(StandardCharsets.UTF_8)
         if (bytes.size > limits.maximumRecordBytes) return false
         val parsed = parse(recordJson) ?: return false
-        val incoming = if (includeBreadcrumbs) parsed else parsed.copy(breadcrumbs = emptyList())
+        // Freeze native defaults at failure time, before a later app update can change them.
+        val incoming = parsed.copy(
+            breadcrumbs = if (includeBreadcrumbs) parsed.breadcrumbs else emptyList(),
+            release = CrumbJavaScriptCrashRelease(
+                appVersion = parsed.release.appVersion ?: release?.appVersion,
+                nativeBuild = parsed.release.nativeBuild ?: release?.nativeBuild,
+                bundleVersion = parsed.release.bundleVersion ?: release?.bundleVersion,
+            ),
+        )
         // Never accept native context supplied by the JS payload.
         incoming.failureContext = failureContext
         if (encode(incoming).toByteArray(StandardCharsets.UTF_8).size > limits.maximumRecordBytes) {

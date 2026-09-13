@@ -14,7 +14,7 @@ try {
   );
   assert.equal(metadata.name, "@crumbsdk/source-maps");
   assert.equal(metadata.dependencies, undefined, "CLI must remain standalone");
-  const packed = JSON.parse(
+  const packOutput = JSON.parse(
     execFileSync(
       "npm",
       [
@@ -28,6 +28,10 @@ try {
       { encoding: "utf8" },
     ),
   );
+  // npm 12 keys results by package name; earlier npm versions return an array.
+  const packed = Array.isArray(packOutput) ? packOutput : Object.values(packOutput);
+  assert.equal(packed.length, 1, 'exactly one CLI archive must be produced');
+  assert.equal(packed[0].name, metadata.name);
   const archive = join(temporary, packed[0].filename);
   const expected = [
     "LICENSE",
