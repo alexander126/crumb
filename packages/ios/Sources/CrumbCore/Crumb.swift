@@ -24,7 +24,7 @@ public enum Crumb {
               settings.diagnostics.javascriptCrashCaptureEnabled else {
             return
         }
-        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON, failureContext: CrumbJavaScriptFailureContext.capture(settings: settings), includeBreadcrumbs: settings.diagnostics.logs.enabled && settings.evidence.contains(.logs))
+        _ = CrumbJavaScriptCrashStore.shared.record(recordJSON, failureContext: CrumbJavaScriptFailureContext.capture(settings: settings), includeBreadcrumbs: settings.diagnostics.logs.enabled && settings.evidence.contains(.logs), release: settings.release)
     }
 
     /// Moves pending JavaScript failures into the regular durable report queue.

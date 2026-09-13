@@ -1,0 +1,63 @@
+// Apply in the application module after the React Native plugin.
+import groovy.json.JsonOutput
+
+def crumbPackage = new File(["node", "--print", "require.resolve('@crumbsdk/react-native/package.json')"].execute(null, rootDir).text.trim()).parentFile
+def crumbTool = new File(crumbPackage, 'tools/cli.cjs')
+def crumbNodeWrapper = new File(crumbPackage, 'tools/node.cjs')
+def runCrumb = { args, directory ->
+    def execution = providers.exec {
+        workingDir directory
+        commandLine args
+        ignoreExitValue = true
+    }
+    def stdout = execution.standardOutput.asText.get()
+    def stderr = execution.standardError.asText.get()
+    if (stdout.trim()) logger.lifecycle(stdout.trim())
+    if (stderr.trim()) logger.warn(stderr.trim())
+    execution.result.get().assertNormalExitValue()
+}
+
+plugins.withId('com.facebook.react') {
+    androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+        def suffix = variant.name.capitalize()
+        def bundleName = "createBundle${suffix}JsAndAssets"
+        def releaseDir = layout.buildDirectory.dir("crumb/${variant.name}")
+        def manifest = releaseDir.map { new File(it.asFile, 'release.json') }
+        def uploadTask = tasks.register("uploadCrumb${suffix}SourceMaps") {
+                group = 'react'
+                description = 'Upload exact Crumb release artifacts after JavaScript bundling.'
+                onlyIf {
+                    def bundleTask = tasks.findByName(bundleName)
+                    bundleTask != null && bundleTask.state.executed && bundleTask.state.failure == null && manifest.get().exists()
+                }
+                doLast {
+                    def bundleTask = tasks.getByName(bundleName)
+                    def originalNode = bundleTask.ext.crumbOriginalNode
+                    def outputs = variant.outputs.collect { output ->
+                        [appVersion: output.versionName.get(), nativeBuild: output.versionCode.get().toString()]
+                    }.unique()
+                    outputs.each { target ->
+                        def bundle = new File(bundleTask.jsBundleDir.get().asFile, bundleTask.bundleAssetName.get())
+                        def sourceMap = new File(bundleTask.jsSourceMapsDir.get().asFile, bundleTask.bundleAssetName.get() + '.map')
+                        def input = new File(releaseDir.get().asFile, "input-${target.nativeBuild}.json")
+                        input.text = JsonOutput.toJson(target + [root: bundleTask.root.get().asFile.absolutePath,
+                            manifest: manifest.get().absolutePath, platform: 'android',
+                            bundle: bundle.absolutePath, sourceMap: sourceMap.absolutePath])
+                        runCrumb(originalNode + [crumbTool.absolutePath, 'upload-build', '--input', input.absolutePath], bundleTask.root.get().asFile)
+                    }
+                }
+            }
+        tasks.matching { it.name == bundleName }.configureEach { bundleTask ->
+            def originalNode = new ArrayList(bundleTask.nodeExecutableAndArgs.get())
+            bundleTask.nodeExecutableAndArgs.set(originalNode + [crumbNodeWrapper.absolutePath, manifest.get().absolutePath])
+            bundleTask.outputs.file(manifest)
+            bundleTask.outputs.file(releaseDir.map { new File(it.asFile, 'crumb-release.js') })
+            bundleTask.inputs.file(new File(bundleTask.root.get().asFile, 'crumb.config.json')).optional()
+            bundleTask.doFirst {
+                runCrumb(originalNode + [crumbTool.absolutePath, 'prepare', '--directory', releaseDir.get().asFile.absolutePath], bundleTask.root.get().asFile)
+            }
+            bundleTask.ext.crumbOriginalNode = originalNode
+            bundleTask.finalizedBy(uploadTask)
+        }
+    }
+}

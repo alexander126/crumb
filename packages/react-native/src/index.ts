@@ -1,4 +1,5 @@
 import NativeCrumbReactNative from './NativeCrumbReactNative';
+import { withBuildRelease } from './build-release';
 import {
   currentScreenJson,
   setScreen,
@@ -47,7 +48,8 @@ export type {
   CrumbWorkspacePolicyOptions,
 } from './types';
 
-export async function start(configuration: CrumbConfiguration): Promise<void> {
+export async function start(input: CrumbConfiguration): Promise<void> {
+  const configuration = withBuildRelease(input);
   validateConfiguration(configuration);
   const logOptions = configuration.diagnostics?.logs;
   configureLogBuffer(logOptions);

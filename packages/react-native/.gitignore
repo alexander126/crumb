@@ -17,3 +17,4 @@ package.tgz
 
 example/.env.local
 native/
+example/.crumb/

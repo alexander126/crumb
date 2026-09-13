@@ -1615,6 +1615,7 @@ __metadata:
   resolution: "@crumbsdk/react-native@workspace:."
   dependencies:
     "@babel/core": "npm:7.29.7"
+    "@crumbsdk/source-maps": "npm:0.0.1-rc.4"
     "@eslint/compat": "npm:2.1.0"
     "@eslint/eslintrc": "npm:3.3.5"
     "@eslint/js": "npm:9.39.4"
@@ -1635,12 +1636,24 @@ __metadata:
     react-native-builder-bob: "npm:0.43.0"
     react-native-nitro-modules: "npm:0.37.1"
     typescript: "npm:6.0.3"
+    xcode: "npm:3.0.1"
   peerDependencies:
     react: ">=18.0.0"
     react-native: ">=0.79.0"
     react-native-nitro-modules: ">=0.37.1 <0.38.0"
+  bin:
+    crumb: tools/cli.cjs
   languageName: unknown
   linkType: soft
+
+"@crumbsdk/source-maps@npm:0.0.1-rc.4":
+  version: 0.0.1-rc.4
+  resolution: "@crumbsdk/source-maps@npm:0.0.1-rc.4"
+  bin:
+    crumb-source-maps: dist/cli.js
+  checksum: 10c0/f642a435f5cf2784098f221be9201a50b4a1c1419efad6093d815226807ed7639352d8cf5ef7175d3b967d34ae98a8669a6f5d3a9a9e64bc224a88940e9b6b15
+  languageName: node
+  linkType: hard
 
 "@emnapi/core@npm:1.10.0":
   version: 1.10.0
@@ -11970,7 +11983,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"xcode@npm:^3.0.1":
+"xcode@npm:3.0.1, xcode@npm:^3.0.1":
   version: 3.0.1
   resolution: "xcode@npm:3.0.1"
   dependencies:

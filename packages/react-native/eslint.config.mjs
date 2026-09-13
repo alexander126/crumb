@@ -28,6 +28,7 @@ export default defineConfig([
       'android/build/',
       'example/android/',
       'example/ios/',
+      'example/.crumb/',
       'ios/build/',
       'lib/',
       'node_modules/',

@@ -4,6 +4,12 @@ This Expo demo links the React Native adapter and both native SDKs from this
 checkout. It includes reporting, logs, a deliberate fatal JavaScript error and
 an unhandled rejection. Expo Go cannot load its native code.
 
+The checked-in `crumb.config.json` uses the synthetic origin `https://example.invalid`.
+The release commands below validate maps locally without uploading. For a real
+integration, replace that origin with the one from your dashboard, set the
+build-only upload secret, and omit `CRUMB_SOURCE_MAP_DRY_RUN`. Never commit the
+secret. See [guided setup](../../../docs/react-native-setup.md).
+
 ## Configure and build
 
 From `packages/react-native`:
@@ -16,8 +22,8 @@ cp example/.env.example example/.env.local
 ```
 
 Edit the ignored `.env.local` with your project's SDK write key. Set the
-ingestion URL to upload reports, or omit it to keep reports local. Use a new
-immutable bundle version for every release bundle/map pair. These values are
+ingestion URL to upload reports, or omit it to keep reports local. The guided build hooks generate an immutable
+bundle identity for every release bundle/map pair. Leave a manual bundle version unset. These values are
 embedded in the app; never use an account credential or source-map upload
 credential as the SDK write key. Keep private build logs, files and recordings
 outside the public repository.
@@ -29,8 +35,7 @@ build debug apps. For crash/source-map acceptance, use release builds instead:
 
 ```sh
 cd example
-mkdir -p /tmp/crumb-demo-maps
-SOURCEMAP_FILE=/tmp/crumb-demo-maps/main.jsbundle.map \
+CRUMB_SOURCE_MAP_DRY_RUN=1 CRUMB_SOURCE_MAP_STRICT=1 \
 xcodebuild ONLY_ACTIVE_ARCH=YES ARCHS=arm64 \
   -workspace ios/CrumbReactNativeExample.xcworkspace \
   -scheme CrumbReactNativeExample -configuration Release \
@@ -38,8 +43,10 @@ xcodebuild ONLY_ACTIVE_ARCH=YES ARCHS=arm64 \
   -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO
 
 cd android
+CRUMB_SOURCE_MAP_DRY_RUN=1 CRUMB_SOURCE_MAP_STRICT=1 \
 ./gradlew :app:createBundleReleaseJsAndAssets --rerun-tasks \
   -Dorg.gradle.jvmargs=-Xmx4g -PreactNativeArchitectures=arm64-v8a
+CRUMB_SOURCE_MAP_DRY_RUN=1 CRUMB_SOURCE_MAP_STRICT=1 \
 ./gradlew :app:assembleRelease -Dorg.gradle.jvmargs=-Xmx4g \
   -PreactNativeArchitectures=arm64-v8a
 ```

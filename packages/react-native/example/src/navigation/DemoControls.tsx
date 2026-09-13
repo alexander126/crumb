@@ -25,11 +25,13 @@ export function DemoSession({ children }: PropsWithChildren) {
           process.env.EXPO_PUBLIC_CRUMB_PROJECT_KEY ||
           'synthetic-navigation-demo',
         environment: 'navigation-demo',
-        release: {
-          bundleVersion:
-            process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION ||
-            'navigation-demo-local',
-        },
+        ...(process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION
+          ? {
+              release: {
+                bundleVersion: process.env.EXPO_PUBLIC_CRUMB_BUNDLE_VERSION,
+              },
+            }
+          : {}),
         diagnostics: {
           javascriptCrashCapture: { enabled: true },
           renderingEnabled: true,
