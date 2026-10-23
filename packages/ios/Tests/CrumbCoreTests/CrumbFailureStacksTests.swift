@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import CrumbCore
 
-@Suite(.serialized)
-struct CrumbFailureStacksTests {
+// Share CrumbCoreTests' serialized scope with its real failure-context captures.
+extension CrumbCoreTests {
     @Test
     func liveCaptureLeavesOtherThreadsRunningAndPersistsBoundedNativeFrames() throws {
         let started = DispatchSemaphore(value: 0)
