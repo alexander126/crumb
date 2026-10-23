@@ -32,7 +32,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
         <MarkdownCopyButton markdownUrl={markdownUrl} />
       </div>
       <aside className="release-notice">
-        Quickstarts use published <strong>0.0.1-rc.5</strong>, a preview
+        Quickstarts use published <strong>0.0.1-rc.6</strong>, a preview
         release. Optional features require their documented configuration.{" "}
         <Link href="/docs/releases">Check availability</Link>.
       </aside>

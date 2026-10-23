@@ -5,19 +5,25 @@ description: "Know which instructions work with your installed SDK."
 
 ## Published preview
 
-The quickstarts target published **0.0.1-rc.5**, a prerelease rather than stable
+The quickstarts target published **0.0.1-rc.6**, a prerelease rather than stable
 0.0.1. Native iOS uses Swift Package Manager; Android uses Maven Central; React
-Native/Expo uses `@crumbsdk/react-native@0.0.1-rc.5` with Nitro `0.37.1`.
+Native/Expo uses `@crumbsdk/react-native@0.0.1-rc.6` with Nitro `0.37.1`.
 
-Native iOS rc.5 is not a public CocoaPods release. The rc.3 CocoaPods setup is a
-separate legacy path. React Native rc.5 instead bundles its iOS dependencies and
+rc.6 corrects the bundled iOS dependency wrapper to match Crumb's existing
+deployment floor and isolates native capture tests. Runtime APIs and support
+floors are unchanged. See the [rc.6 correction and migration notes](https://github.com/alexander126/crumb/blob/main/docs/releases/0.0.1-rc.6.md).
+The [rc.5 setup and source-map history](https://github.com/alexander126/crumb/blob/main/docs/releases/0.0.1-rc.5.md)
+remains available for earlier upgrades.
+
+Native iOS rc.6 is not a public CocoaPods release. The rc.3 CocoaPods setup is a
+separate legacy path. React Native rc.6 instead bundles its iOS dependencies and
 requires the Expo plugin or bare-app Podfile helper in the quickstart.
 
-The standalone source-map CLI is published at rc.5. The React Native package
+The standalone source-map CLI is published at rc.6. The React Native package
 already includes its compatible, pinned rc.4 uploader; most apps do not need a
 second Crumb package. npm prereleases use `next`; use exact quickstart versions.
 
-| Capability                                                                             | Earlier rc.3             | Published rc.5                        |
+| Capability                                                                             | Earlier rc.3             | Published rc.6                        |
 | -------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------- |
 | Native reporter, foreground shake, screenshot masking, durable submission and upload   | Available                | Available                             |
 | React Native `Crumb.log` and optional warn/error console capture                       | Available                | Available                             |
@@ -28,17 +34,17 @@ second Crumb package. npm prereleases use `next`; use exact quickstart versions.
 | React Navigation, Expo Router and manual screen labels                                 | Not included             | Included; configure explicitly        |
 | React Native bundled iOS dependencies and Expo config plugin                           | Not included             | Included; configure explicitly        |
 | Guided setup and automatic release source-map hooks                                    | Not included             | Included; configure explicitly        |
-| Source-map upload CLI                                                                  | No published CLI assumed | Published rc.5; adapter includes rc.4 |
+| Source-map upload CLI                                                                  | No published CLI assumed | Published rc.6; adapter includes rc.4 |
 
-The [published rc.5 release](https://github.com/alexander126/crumb/releases/tag/0.0.1-rc.5),
-[React Native npm package](https://www.npmjs.com/package/@crumbsdk/react-native/v/0.0.1-rc.5)
-and [source-map CLI](https://www.npmjs.com/package/@crumbsdk/source-maps/v/0.0.1-rc.5)
+The [published rc.6 release](https://github.com/alexander126/crumb/releases/tag/0.0.1-rc.6),
+[React Native npm package](https://www.npmjs.com/package/@crumbsdk/react-native/v/0.0.1-rc.6)
+and [source-map CLI](https://www.npmjs.com/package/@crumbsdk/source-maps/v/0.0.1-rc.6)
 are the distribution references. A future main-branch version string does not
 establish publication.
 
 ## Using optional features
 
-Guides describe the published rc.5 preview SDK and the configuration each feature
+Guides describe the published rc.6 preview SDK and the configuration each feature
 needs. Finish the first-report quickstart before adding optional collection.
 Publication does not establish compatibility with every host app, device or
 update pipeline. Verify your own release builds and preserve explicit raw stacks

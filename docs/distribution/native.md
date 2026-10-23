@@ -59,27 +59,27 @@ accepted because it can move during verification.
 
 ## Current public installation
 
-Release candidate `0.0.1-rc.5` is public through Swift Package Manager and Maven
+Release candidate `0.0.1-rc.6` is public through Swift Package Manager and Maven
 Central. Pin the exact prerelease while evaluating the SDK; stable `0.0.1` has
 not been published.
 
 ```swift
 .package(
     url: "https://github.com/alexander126/crumb.git",
-    exact: "0.0.1-rc.5"
+    exact: "0.0.1-rc.6"
 )
 ```
 
 Link both CrumbCore and CrumbUI. For Android:
 
 ```kotlin
-implementation("com.crumbsdk:crumb-ui:0.0.1-rc.5")
+implementation("com.crumbsdk:crumb-ui:0.0.1-rc.6")
 ```
 
 CocoaPods `pod "CrumbSDK", "0.0.1-rc.3"` is the separate legacy installation,
-not an rc.5 pod publication. New native iOS integrations should use SPM. React
-Native/Expo rc.5 bundles the iOS sources and uses its supplied Podfile helper or
-Expo config plugin; it does not require an rc.5 Crumb release on CocoaPods trunk.
+not an rc.6 pod publication. New native iOS integrations should use SPM. React
+Native/Expo rc.6 bundles the iOS sources and uses its supplied Podfile helper or
+Expo config plugin; it does not require an rc.6 Crumb release on CocoaPods trunk.
 See the [current quickstarts](../../website/content/docs/index.mdx).
 
 The SDK source and artifacts are licensed under Apache-2.0; the hosted

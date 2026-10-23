@@ -3,7 +3,7 @@ title: "iOS"
 description: "Send your first native report with Swift Package Manager."
 ---
 
-This quickstart uses **0.0.1-rc.5**, the published preview, and requires **iOS 15 or newer**. Build with **Swift 6 / Xcode 16 or newer**, as required by the package manifest. Install the UI product as well as Core so the app can show the reporter.
+This quickstart uses **0.0.1-rc.6**, the published preview, and requires **iOS 15 or newer**. Build with **Swift 6 / Xcode 16 or newer**, as required by the package manifest. Install the UI product as well as Core so the app can show the reporter.
 
 Swift Package Manager is the preferred installation method for new native iOS integrations. CocoaPods plans to stop accepting new public registry releases on [2 December 2026](https://blog.cocoapods.org/CocoaPods-Specs-Repo/); existing published versions remain available. SPM installations are independent of that registry.
 
@@ -18,14 +18,14 @@ In Xcode, select **File → Add Package Dependencies** and enter:
 https://github.com/alexander126/crumb.git
 ```
 
-Choose the exact version `0.0.1-rc.5`. Add both **CrumbCore** and **CrumbUI** to your application target.
+Choose the exact version `0.0.1-rc.6`. Add both **CrumbCore** and **CrumbUI** to your application target.
 
 For a manifest-managed project, add the dependency:
 
 ```swift
 .package(
     url: "https://github.com/alexander126/crumb.git",
-    exact: "0.0.1-rc.5"
+    exact: "0.0.1-rc.6"
 )
 ```
 
@@ -39,7 +39,7 @@ Then add these products to the target dependencies:
 </Tab>
 <Tab value="Legacy CocoaPods rc.3">
 
-This is the older **rc.3** installation, not an rc.5 release. Use SPM for a new
+This is the older **rc.3** installation, not an rc.6 release. Use SPM for a new
 integration. Do not mix SPM and CocoaPods Crumb products in the same app.
 
 For an existing legacy integration, keep its explicit version:
