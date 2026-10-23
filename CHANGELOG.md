@@ -5,6 +5,19 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+## [0.0.1-rc.6] - Candidate
+
+See the [rc.6 release and migration notes](docs/releases/0.0.1-rc.6.md).
+Publication and final installation/dogfood checks remain separate release gates.
+
+### Fixed
+
+- The React Native archive's bundled PLCrashReporter pod wrapper now matches
+  Crumb's existing iOS 15 deployment floor, so native consumers do not compile
+  the wrapper against an unsupported iOS 12 target.
+- Native failure-stack tests share the existing serialized capture test suite,
+  preventing competing tests from contending for the process-wide capture lock.
+
 ## [0.0.1-rc.5] - Candidate
 
 See the [rc.5 release and migration notes](docs/releases/0.0.1-rc.5.md).
