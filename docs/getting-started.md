@@ -1,6 +1,6 @@
 # Install Crumb
 
-The published preview is **0.0.1-rc.3**. The full public documentation now lives
+The published preview is **0.0.1-rc.5**. The full public documentation now lives
 in the [Fumadocs site](../website/README.md), with three quickstarts and separate
 feature guides. Preview features on the SDK main branch are not necessarily in
 the published packages; check [release availability](../website/content/docs/releases.mdx).
@@ -8,15 +8,16 @@ the published packages; check [release availability](../website/content/docs/rel
 ## Native iOS
 
 Use Swift Package Manager with `https://github.com/alexander126/crumb.git` at
-exact version `0.0.1-rc.3`, linking both CrumbCore and CrumbUI, or install
-`pod "CrumbSDK", "0.0.1-rc.3"`. Requires iOS 15 or newer.
+exact version `0.0.1-rc.5`, linking both CrumbCore and CrumbUI. Requires iOS 15
+or newer. New native releases use SPM; the older rc.3 CocoaPods installation is
+a separate legacy path, not an rc.5 pod release.
 
 Follow the [iOS quickstart](../website/content/docs/quickstarts/ios.mdx) for
 installation, startup, invocation, masking, verification and troubleshooting.
 
 ## Native Android
 
-Add `com.crumbsdk:crumb-ui:0.0.1-rc.3` from Maven Central. Requires Android API
+Add `com.crumbsdk:crumb-ui:0.0.1-rc.5` from Maven Central. Requires Android API
 26 or newer and Java 17 bytecode.
 
 Follow the [Android quickstart](../website/content/docs/quickstarts/android.mdx)
@@ -24,9 +25,14 @@ for Gradle, Application and manifest setup through your first dashboard report.
 
 ## React Native
 
-Install `@crumbsdk/react-native@0.0.1-rc.3` with
+Install `@crumbsdk/react-native@0.0.1-rc.5` with
 `react-native-nitro-modules@0.37.1`. Requires React Native 0.79+, iOS 15.1+ and
 Android API 26+.
+
+Run `npx --no-install crumb setup` for guided configuration, or follow the manual
+steps in the quickstart. rc.5 bundles its iOS dependencies: Expo needs the Crumb
+config plugin, and bare iOS apps need the supplied Podfile helper. Rebuild the
+native app after installation. The source-map uploader is included automatically.
 
 The [React Native quickstart](../website/content/docs/quickstarts/react-native.mdx)
 contains both setup paths and one shared configuration and verification flow.

@@ -105,7 +105,7 @@ test("code and page Markdown can be copied, including the hidden setup alternati
     .click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-    .toContain("@crumbsdk/react-native@0.0.1-rc.3");
+    .toContain("@crumbsdk/react-native@0.0.1-rc.5");
   await page
     .getByRole("button", { name: "Copy Markdown", exact: true })
     .click();

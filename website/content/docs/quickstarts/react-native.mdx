@@ -3,18 +3,18 @@ title: "React Native"
 description: "One integration for Expo development builds and bare React Native apps."
 ---
 
-This quickstart uses the published `@crumbsdk/react-native@0.0.1-rc.3`. It requires React Native **0.79 or newer**, iOS **15.1 or newer**, and Android **API 26 or newer**.
+This quickstart uses the published `@crumbsdk/react-native@0.0.1-rc.5`. It requires React Native **0.79 or newer**, iOS **15.1 or newer**, and Android **API 26 or newer**.
 
 The iOS adapter requires **Swift 6 / Xcode 16 or newer** to build.
 
 Crumb contains native code. **Expo Go is not supported.** Use an Expo development build or a bare React Native application.
 
-<Callout title="Guided setup preview">
-  The next candidate adds one guided setup command and includes the source-map
-  uploader. See [guided React Native and Expo
-  setup](/docs/guides/guided-react-native-setup). The commands are not available
-  in the published rc.4 package; use the installation below until that candidate
-  is released.
+<Callout title="Guided setup in rc.5">
+  After installing, run `npx --no-install crumb setup` from your app directory
+  for guided configuration, or follow the manual setup below. Review the changes
+  before rebuilding. Source-map setup is optional; the uploader is included. See
+  [guided setup](/docs/guides/guided-react-native-setup). Build commands require
+  Node.js 22 or newer.
 </Callout>
 
 ## 1. Install the packages
@@ -22,7 +22,7 @@ Crumb contains native code. **Expo Go is not supported.** Use an Expo developmen
 From your application directory:
 
 ```sh
-npm install @crumbsdk/react-native@0.0.1-rc.3 react-native-nitro-modules@0.37.1
+npm install @crumbsdk/react-native@0.0.1-rc.5 react-native-nitro-modules@0.37.1
 ```
 
 Use your project's existing package manager if it is not npm. Keep Nitro pinned to the supported version.
@@ -46,6 +46,7 @@ Merge this into `app.json`, keeping existing plugins. These are minimum floors; 
 {
   "expo": {
     "plugins": [
+      "@crumbsdk/react-native",
       [
         "expo-build-properties",
         {
@@ -58,7 +59,9 @@ Merge this into `app.json`, keeping existing plugins. These are minimum floors; 
 }
 ```
 
-No Crumb-specific config plugin is required. Build locally with Xcode or the Android toolchain installed:
+The Crumb plugin installs the bundled iOS dependencies. Keep it once in your
+plugins array, remove older manual Crumb pod declarations, and rebuild the native
+app. Build locally with Xcode or the Android toolchain installed:
 
 ```sh
 npx expo run:ios
@@ -81,7 +84,16 @@ Install that development build on the matching device, then run `npx expo start 
 
 Autolinking discovers Crumb after installation. Keep the iOS deployment target at least 15.1 and Android's `minSdk` at least 26. Do not lower a newer app's existing targets. Android requires Java 17 bytecode.
 
-Install pods, then rebuild the application:
+Inside each iOS application target, before `use_react_native!`, add the bundled
+native helper once:
+
+```ruby title="ios/Podfile"
+require File.join(File.dirname(`node --print "require.resolve('@crumbsdk/react-native/package.json')"`.strip), 'scripts', 'ios')
+crumb_native_pods!
+```
+
+Remove older manual `CrumbSDK`, `CrumbSDKCore` and `CrumbSDKUI` pod declarations.
+Then install pods and rebuild the application:
 
 ```sh
 npx pod-install
@@ -116,7 +128,11 @@ export async function configureCrumb(): Promise<void> {
 
 Call and await `configureCrumb()` once in your existing app startup path. Enable your report button after it completes, and handle any rejected startup promise through your app's error handling. Repeated component renders should not restart the SDK.
 
-Crumb reads the native app version and build automatically. An OTA app should also provide an immutable `release.bundleVersion` for the running JavaScript bundle. See [release identity](/docs/guides/source-maps#match-the-running-build).
+Crumb reads the native app version and build automatically. If guided setup
+enables automatic source-map hooks, the JavaScript bundle supplies its own
+identity; omit a manual `release.bundleVersion`. Custom OTA pipelines without
+those hooks must supply the matching immutable bundle identity. See
+[release identity](/docs/guides/source-maps#match-the-running-build).
 
 ## 4. Open the reporter
 
@@ -142,21 +158,20 @@ Keep the app foregrounded while verifying delivery. If you submit offline, recon
 
 ## Troubleshooting
 
-| Symptom                                                    | Next check                                                                                                  |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Native module cannot be found in Expo                      | Open your rebuilt development client, not Expo Go.                                                          |
-| Native module cannot be found in a bare app                | Reinstall pods on iOS, then rebuild the native application. Restarting Metro alone is insufficient.         |
-| `Crumb.show()` returns false                               | Wait for startup and reporter installation, and check that no reporter is already open.                     |
-| Report saved but dashboard is empty                        | Check the ingestion URL, write key, project and environment. An omitted URL keeps reports local.            |
-| A preview configuration option or screen helper is missing | Check [release availability](/docs/releases); the published rc.3 package does not include the preview APIs. |
+| Symptom                                                    | Next check                                                                                                           |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Native module cannot be found in Expo                      | Open your rebuilt development client, not Expo Go.                                                                   |
+| Native module cannot be found in a bare app                | Reinstall pods on iOS, then rebuild the native application. Restarting Metro alone is insufficient.                  |
+| `Crumb.show()` returns false                               | Wait for startup and reporter installation, and check that no reporter is already open.                              |
+| Report saved but dashboard is empty                        | Check the ingestion URL, write key, project and environment. An omitted URL keeps reports local.                     |
+| A preview configuration option or screen helper is missing | Check [release availability](/docs/releases); verify your installed version and the option’s required configuration. |
 
 Continue with [logs and diagnostics](/docs/guides/diagnostics), [privacy](/docs/guides/privacy), or the full [troubleshooting guide](/docs/troubleshooting).
 
-## Upcoming iOS packaging (Preview)
+## Bundled iOS dependencies and migration
 
-This setup applies to the next release and reviewed source builds, **not the
-published rc.3 package**. Until a new version is published, keep using the rc.3
-quickstart above.
+This packaging is included in published rc.5. The setup above uses it; this
+section explains migration from the older rc.3 package.
 
 The npm artifact includes Crumb's iOS sources, resource bundles and its pinned
 PLCrashReporter dependency. CocoaPods builds those files locally; new Crumb

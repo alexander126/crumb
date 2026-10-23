@@ -4,31 +4,31 @@ Crumb is a native-first mobile issue-reporting SDK. Its first production slice
 turns an explicit user report into a privacy-safe diagnostic packet that an
 engineer can inspect without asking the reporter to recreate basic context.
 
-> **rc.5 candidate:** current source is being prepared for `0.0.1-rc.5`, including
-> guided React Native/Expo setup and automatic release source maps.
-> See [release notes and migration](docs/releases/0.0.1-rc.5.md). The older
-> quickstarts below remain explicitly versioned during release acceptance.
+> **Published preview: 0.0.1-rc.5.** Includes guided React Native/Expo setup and
+> automatic release source maps. See [release notes and migration](docs/releases/0.0.1-rc.5.md).
+> This is a prerelease, not stable 0.0.1.
 
 ## Install Crumb
 
-The current public preview is `0.0.1-rc.3`.
+The current public preview is `0.0.1-rc.5`.
 
 | Application | Install | Full quickstart |
 | --- | --- | --- |
-| React Native & Expo | `@crumbsdk/react-native@0.0.1-rc.3` + Nitro `0.37.1` | [React Native, including Expo](website/content/docs/quickstarts/react-native.mdx) |
-| Native iOS | SPM or `pod "CrumbSDK", "0.0.1-rc.3"` | [iOS](website/content/docs/quickstarts/ios.mdx) |
-| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.3` from Maven Central | [Android](website/content/docs/quickstarts/android.mdx) |
+| React Native & Expo | `@crumbsdk/react-native@0.0.1-rc.5` + Nitro `0.37.1` | [React Native, including Expo](website/content/docs/quickstarts/react-native.mdx) |
+| Native iOS | SPM at exact tag `0.0.1-rc.5` | [iOS](website/content/docs/quickstarts/ios.mdx) |
+| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.5` from Maven Central | [Android](website/content/docs/quickstarts/android.mdx) |
 
 Each guide covers installation, configuration, invocation, verification and
 troubleshooting. Expo Go is unsupported because Crumb includes native code.
 [Run the branded documentation site locally](website/README.md), or browse the
 [public guides](website/content/docs/index.mdx). See [release availability](website/content/docs/releases.mdx)
-for the distinction between published rc.3 and unreleased main-branch features.
+for exact package identities and the versioned legacy CocoaPods path.
 
 ## Current status
 
-The following describes the main-branch implementation, including unreleased
-features. The quickstarts above target the published packages.
+The quickstarts target published rc.5. Optional crash capture, rendering and
+source-map features require explicit configuration; publication does not establish
+compatibility with every host application.
 
 This repository owns the distributable native SDKs and their public report
 protocol. The hosted API and customer dashboard live in the separate private

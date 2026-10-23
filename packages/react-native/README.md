@@ -4,15 +4,13 @@ The official Nitro Module adapter for Crumb. It is intentionally thin: the
 published Swift and Kotlin SDKs continue to own reporter presentation,
 screenshot masking, diagnostics, durable storage, and upload.
 
-## Guided setup preview
+## Published rc.5 setup
 
-The rc.5 candidate includes guided setup and automatic source-map uploads through
-the React Native package. See the [React Native and Expo setup guide](../../docs/react-native-setup.md).
-These commands are not available in the published rc.4 package yet. The existing
-installation below remains available while the new candidate is validated.
-See the [rc.5 release notes](../../docs/releases/0.0.1-rc.5.md) for exact candidate
-installation and upgrade instructions. The uploader is included automatically;
-its separate package version is an implementation dependency, not another setup step.
+Published `0.0.1-rc.5` includes guided setup and automatic release source maps.
+See the [setup guide](../../docs/react-native-setup.md) and
+[release notes](../../docs/releases/0.0.1-rc.5.md). This is a prerelease, not stable
+0.0.1. The source-map uploader installs automatically; its compatible exact rc.4
+dependency is intentional and stays outside the app runtime.
 
 ## Requirements
 
@@ -23,85 +21,19 @@ its separate package version is an implementation dependency, not another setup 
 
 Crumb contains native code and therefore does not run in Expo Go.
 
-## Published rc.3 installation
+## Install the published package
 
-Install the public package and its required Nitro runtime as direct
-dependencies:
-
-```sh
-npm install @crumbsdk/react-native@0.0.1-rc.3 \
-  react-native-nitro-modules@0.37.1
-```
-
-### Expo
-
-Crumb contains native code and does not run in Expo Go. Add a development
-client and configure the native minimum targets:
+Install the exact SDK and its compatible Nitro runtime using your app’s package
+manager. Preserve the native setup below when upgrading from rc.3:
 
 ```sh
-npx expo install expo-dev-client expo-build-properties
+npm install @crumbsdk/react-native@0.0.1-rc.5 react-native-nitro-modules@0.37.1
 ```
 
-```json
-{
-  "expo": {
-    "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": { "minSdkVersion": 26 },
-          "ios": { "deploymentTarget": "15.1" }
-        }
-      ]
-    ]
-  }
-}
-```
-
-Create or rebuild the native development client:
-
-```sh
-npx expo run:ios
-# or
-npx expo run:android
-```
-
-No Crumb-specific Expo config plugin is required. Expo Prebuild and React
-Native autolinking install `CrumbSDKCore` and `CrumbSDKUI` from CocoaPods on
-iOS and `crumb-ui` from Maven Central on Android.
-
-### Bare React Native
-
-React Native autolinking discovers Crumb after installation. Install iOS pods,
-then rebuild the applications:
-
-```sh
-npx pod-install
-npm run ios
-# or
-npm run android
-```
-
-No manual `AppDelegate`, `MainApplication`, or package-list registration is
-needed. Set `platform :ios, "15.1"` in a manually maintained Podfile and
-`minSdk = 26` in the Android app module. The package uses
-[`react-native-nitro-modules`](https://nitro.margelo.com/) for its JSI bridge.
-
-The [complete all-platform guide](../../docs/getting-started.md) covers Expo,
-bare React Native, native iOS, and native Android from installation through a
-submitted test report.
-
-## rc.4 candidate installation and migration
-
-This setup applies to **0.0.1-rc.4** and reviewed candidate builds, not rc.3.
-Confirm rc.4 is published before installing it from npm. Until then, the rc.3
-quickstart above remains the published path. Full [candidate release notes](../../docs/releases/0.0.1-rc.4.md) describe the release gates.
-
-After rc.4 publication:
-
-```sh
-npm install @crumbsdk/react-native@0.0.1-rc.4 react-native-nitro-modules@0.37.1
-```
+From the app directory, `npx --no-install crumb setup` previews guided native
+configuration and optional source-map hooks; review its changes before rebuilding.
+Use `npx --no-install crumb doctor` to inspect setup. Build commands require
+Node.js 22 or newer. You can instead follow the manual setup below.
 
 The npm artifact includes Crumb's iOS sources, resource bundles and its pinned
 PLCrashReporter dependency. CocoaPods builds those files locally; new Crumb
@@ -110,8 +42,10 @@ libraries in your application may still use that registry.
 
 ### Expo development builds
 
-Add `"@crumbsdk/react-native"` to your existing Expo `plugins` array alongside
-`expo-build-properties`. Run a new native prebuild/development build. The plugin
+Install `expo-dev-client` and `expo-build-properties` with `npx expo install`.
+Add `"@crumbsdk/react-native"` once to your existing Expo `plugins` array alongside
+`expo-build-properties`, retaining iOS 15.1+ and Android API 26+ or your app’s
+higher targets. Run a new native prebuild/development build. The plugin
 registers the bundled native dependencies and is safe to run repeatedly.
 Expo Go remains unsupported. Remove old Crumb local-pod plugins or manual
 Crumb pod declarations before enabling this plugin.
@@ -150,8 +84,8 @@ await Crumb.start({
   projectKey: 'crumb_sdk_replace_me',
   environment: __DEV__ ? 'development' : 'production',
   release: {
-    // Optional. Crumb reads the native app version and build automatically.
-    bundleVersion: 'ota-update-id',
+    // Optional custom-pipeline identity; omit when automatic hooks supply it.
+    // bundleVersion: 'ota-update-id',
   },
   upload: {
     ingestionUrl: 'https://your-crumb-api.example.com',
@@ -184,9 +118,10 @@ await Crumb.start({
 await Crumb.installReporter();
 ```
 
-For Expo Updates, pass the active update identifier as `bundleVersion`. Crumb
-does not depend on `expo-updates`, so applications remain in control of how
-their OTA identity is sourced.
+Automatic source-map hooks supply the JavaScript bundle identity; do not add a
+conflicting manual `bundleVersion`. Custom pipelines without those hooks remain
+responsible for their immutable bundle identity. Crumb does not depend on
+`expo-updates`.
 
 Open the reporter from application UI when needed:
 
