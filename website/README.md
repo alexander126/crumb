@@ -25,8 +25,8 @@ There are exactly three quickstarts: iOS, Android, and React Native. The React
 Native page contains Expo and bare-app setup tabs, followed by shared startup,
 invocation and verification steps. Preserve this grouping when adding content.
 
-Quickstarts use the published rc.5 prerelease. Native iOS uses SPM; rc.3
-CocoaPods remains an explicitly versioned legacy path. React Native/Expo rc.5
+Quickstarts use the published rc.6 prerelease. Native iOS uses SPM; rc.3
+CocoaPods remains an explicitly versioned legacy path. React Native/Expo rc.6
 uses bundled native dependencies and its required setup helper/plugin. Do not
 infer future availability from a main-branch version string. Review `releases.mdx`
 and the shared page notice together when promoting a release.
