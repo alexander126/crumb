@@ -12,9 +12,11 @@ Crumb contains native code. **Expo Go is not supported.** Use an Expo developmen
 <Callout title="Guided setup in rc.6">
   After installing, run `npx --no-install crumb setup` from your app directory
   for guided configuration, or follow the manual setup below. Review the changes
-  before rebuilding. Source-map setup is optional; the uploader is included. See
-  [guided setup](/docs/guides/guided-react-native-setup). Build commands require
-  Node.js 22 or newer.
+  before rebuilding. **Expo still requires the config-plugin step below.** For
+  dynamic configs, setup prints a manual instruction instead of editing the
+  file. Source-map setup is optional; the uploader is included. See [guided
+  setup](/docs/guides/guided-react-native-setup). Build commands require Node.js
+  22 or newer.
 </Callout>
 
 ## 1. Install the packages
@@ -34,13 +36,22 @@ Choose the setup that matches your application. Both paths use the same JavaScri
 <Tabs items={['Expo', 'Bare React Native']}>
 <Tab value="Expo">
 
+<Callout title="Required before Expo prebuild">
+  Keep `@crumbsdk/react-native` in the active config's `plugins` array, even
+  with source maps disabled. For `app.config.ts`/`.js`, add it manually. A
+  successful `crumb setup` or a new `crumb.config.json` does not complete that
+  manual edit. Follow the [dynamic and conditional config
+  steps](/docs/guides/guided-react-native-setup#required-for-expo-register-the-config-plugin)
+  if your app selects a config by environment or variant.
+</Callout>
+
 Install the development client and build configuration plugin:
 
 ```sh
 npx expo install expo-dev-client expo-build-properties
 ```
 
-Merge this into `app.json`, keeping existing plugins. These are minimum floors; retain a higher minimum required by your Expo version or other dependencies.
+For an app with only `app.json`, merge this into `expo.plugins`, keeping existing plugins. These are minimum floors; retain a higher minimum required by your Expo version or other dependencies.
 
 ```json title="app.json"
 {
@@ -61,11 +72,15 @@ Merge this into `app.json`, keeping existing plugins. These are minimum floors; 
 
 The Crumb plugin installs the bundled iOS dependencies. Keep it once in your
 plugins array, remove older manual Crumb pod declarations, and rebuild the native
-app. Build locally with Xcode or the Android toolchain installed:
+app. If your app uses dynamic or conditional config, add Crumb to the final
+selected config and [verify its plugin names](/docs/guides/guided-react-native-setup#verify-the-selected-config-then-rebuild)
+for each build variant first. Build locally with Xcode or the Android toolchain installed:
 
 ```sh
+npx expo prebuild --platform ios
 npx expo run:ios
 # Or build Android:
+npx expo prebuild --platform android
 npx expo run:android
 ```
 
@@ -158,13 +173,14 @@ Keep the app foregrounded while verifying delivery. If you submit offline, recon
 
 ## Troubleshooting
 
-| Symptom                                                    | Next check                                                                                                           |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Native module cannot be found in Expo                      | Open your rebuilt development client, not Expo Go.                                                                   |
-| Native module cannot be found in a bare app                | Reinstall pods on iOS, then rebuild the native application. Restarting Metro alone is insufficient.                  |
-| `Crumb.show()` returns false                               | Wait for startup and reporter installation, and check that no reporter is already open.                              |
-| Report saved but dashboard is empty                        | Check the ingestion URL, write key, project and environment. An omitted URL keeps reports local.                     |
-| A preview configuration option or screen helper is missing | Check [release availability](/docs/releases); verify your installed version and the option’s required configuration. |
+| Symptom                                                    | Next check                                                                                                                                                                                                        |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CocoaPods cannot find `CrumbSDKCore` or `CrumbSDKUI`       | Confirm Crumb is in the active Expo config plugins, including the selected variant, then prebuild again. See [plugin setup](/docs/guides/guided-react-native-setup#required-for-expo-register-the-config-plugin). |
+| Native module cannot be found in Expo                      | Open your rebuilt development client, not Expo Go.                                                                                                                                                                |
+| Native module cannot be found in a bare app                | Reinstall pods on iOS, then rebuild the native application. Restarting Metro alone is insufficient.                                                                                                               |
+| `Crumb.show()` returns false                               | Wait for startup and reporter installation, and check that no reporter is already open.                                                                                                                           |
+| Report saved but dashboard is empty                        | Check the ingestion URL, write key, project and environment. An omitted URL keeps reports local.                                                                                                                  |
+| A preview configuration option or screen helper is missing | Check [release availability](/docs/releases); verify your installed version and the option’s required configuration.                                                                                              |
 
 Continue with [logs and diagnostics](/docs/guides/diagnostics), [privacy](/docs/guides/privacy), or the full [troubleshooting guide](/docs/troubleshooting).
 

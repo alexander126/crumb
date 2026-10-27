@@ -44,6 +44,14 @@ libraries in your application may still use that registry.
 
 ### Expo development builds
 
+**Required before prebuild:** keep `"@crumbsdk/react-native"` in the active Expo
+`plugins` array, even when `sourceMaps.enabled` is `false`. With `app.config.ts`
+or `.js`, `crumb setup` preserves the file and prints a manual instruction;
+add the plugin yourself. For conditional config, preserve the selected config
+and append Crumb to its existing plugins after selecting the variant. Verify
+each variant before rebuilding. See the
+[dynamic config example and verification command](../../docs/react-native-setup.md#required-for-expo-register-the-config-plugin).
+
 Install `expo-dev-client` and `expo-build-properties` with `npx expo install`.
 Add `"@crumbsdk/react-native"` once to your existing Expo `plugins` array alongside
 `expo-build-properties`, retaining iOS 15.1+ and Android API 26+ or your app’s

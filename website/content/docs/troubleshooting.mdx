@@ -3,6 +3,24 @@ title: "Troubleshooting"
 description: "Find the missing step without losing the evidence you already have."
 ---
 
+## CocoaPods cannot find CrumbSDKCore or CrumbSDKUI
+
+For React Native/Expo rc.6, Crumb's iOS pods are bundled in the npm package.
+If CocoaPods searches its spec sources for these pods, check native registration:
+
+1. Add `@crumbsdk/react-native` to your active Expo config's `plugins` array.
+2. For `app.config.ts`/`.js` and conditional configs, complete the manual edit;
+   `crumb setup` preserves dynamic config. An unused `app.json` entry is not enough.
+3. [Verify the selected config](/docs/guides/guided-react-native-setup#verify-the-selected-config-then-rebuild)
+   with the same environment variables used to build each variant, then prebuild
+   and rebuild the development client.
+
+`sourceMaps.enabled: false` is supported and does not disable native registration.
+Updating pod spec repos cannot register Crumb's bundled local pods. Keep the
+lockfile and unrelated dependencies intact. Bare apps use the
+[bundled Podfile helper](/docs/quickstarts/react-native#2-build-the-native-app)
+instead of the Expo plugin.
+
 ## A submitted report is missing
 
 A locally saved report is not yet proof of upload. Check these in order:

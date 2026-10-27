@@ -40,6 +40,12 @@ contains both setup paths and one shared configuration and verification flow.
 
 ### Expo development builds
 
+**Before prebuild, add `"@crumbsdk/react-native"` to your active Expo `plugins`
+array.** Guided setup can edit `app.json`, but dynamic `app.config.ts`/`.js`
+files require a manual edit. Preserve existing plugins and ensure every selected
+variant includes Crumb; see [the config example and verification step](react-native-setup.md#required-for-expo-register-the-config-plugin).
+This step is required even when source maps are disabled.
+
 Use the Expo tab in the React Native quickstart. Expo Go is unsupported; create
 a native development build with local Expo tools or EAS. Rebuild after native
 dependency changes.
