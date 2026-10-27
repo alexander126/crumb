@@ -1,11 +1,11 @@
 ---
 title: "Guided React Native and Expo setup"
-description: "Preview rc.5 guided setup and automatic release source maps."
+description: "Configure the required Expo plugin before rebuilding, then optionally enable release source maps."
 ---
 
-These commands are included in published `@crumbsdk/react-native@0.0.1-rc.5`.
-They are absent from rc.4. Use the exact version in the quickstart and rebuild
-the native app after installation.
+This guide targets published `@crumbsdk/react-native@0.0.1-rc.6`. Guided setup
+first shipped in rc.5 and is absent from rc.4. Use the exact version in the
+quickstart and rebuild the native app after installation.
 
 ## Install, configure, verify
 
@@ -25,6 +25,76 @@ maps, previews which files it will edit, and requests confirmation. It preserves
 existing plugins and wraps supported Metro/Xcode/Gradle configuration. Run it
 again safely after an interrupted setup. Review the resulting version-control
 diff before committing.
+
+## Required for Expo: register the config plugin
+
+**Complete this step before prebuild, even when source maps are disabled.**
+`crumb.config.json` controls optional source-map uploads; it does not register
+native dependencies. Keep `@crumbsdk/react-native` once in the active Expo
+`plugins` array so prebuild can register the bundled iOS pods.
+
+- **Only `app.json`:** apply the changes previewed by `crumb setup`, then confirm
+  `expo.plugins` contains `"@crumbsdk/react-native"`. Keep your other plugin entries.
+- **`app.config.ts`, `app.config.js` or another dynamic config:** add the plugin
+  manually to the returned config's `plugins` array. Setup preserves dynamic
+  config and prints this manual step; creating `crumb.config.json` does not
+  complete it. An entry in `app.json` can be lost if the dynamic config replaces
+  its plugins.
+
+### Conditional configs and app variants
+
+Keep your current selection logic and add the plugin after selecting a config.
+For example, where `previewConfig` and `productionConfig` are your existing Expo
+config objects with top-level `plugins`:
+
+```ts
+const selectedConfig =
+  process.env.EXPO_PUBLIC_APP_VARIANT === "preview"
+    ? previewConfig
+    : productionConfig;
+
+export default {
+  ...selectedConfig,
+  plugins: [...(selectedConfig.plugins ?? []), "@crumbsdk/react-native"],
+};
+```
+
+Keep the selected config's existing plugins. Add Crumb once, either in this
+shared return value or in every variant you intend to build. If your selected
+object is wrapped in `expo: { ... }`, merge into that object's `expo.plugins`
+instead; Expo ignores sibling fields outside the wrapper. The environment
+variable and variant names above are examples; use your app's existing selection.
+
+### Verify the selected config, then rebuild
+
+Run this with the same environment variables you use for prebuild or EAS. It
+prints only plugin names and exits unsuccessfully if Crumb is missing:
+
+```sh
+npx expo config --type prebuild --json | node -e "
+const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+const names = (config.plugins ?? []).map(p => Array.isArray(p) ? p[0] : p);
+console.log(names);
+if (!names.includes('@crumbsdk/react-native')) process.exit(1);
+"
+```
+
+Repeat for every variant you intend to build. The output must include
+`@crumbsdk/react-native`. A successful `crumb doctor` check alone does not verify
+that a dynamic config includes the plugin.
+
+Rebuild the native development client after changing plugins. For local iOS:
+
+```sh
+npx expo prebuild --platform ios
+npx expo run:ios
+```
+
+For Android, use `--platform android` and `npx expo run:android`, or your existing
+EAS development-build workflow. Expo Go and restarting Metro cannot apply native
+plugin changes. Continue with app initialization only after native setup.
+
+## Optional source-map build hooks
 
 For a reproducible noninteractive setup, copy the upload origin from your
 project's integration instructions:
