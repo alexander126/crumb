@@ -1302,6 +1302,9 @@ private final class DraftSummaryViewController: UIViewController {
         editButton.setTitle(crumbLocalized("Edit"), for: .normal)
         editButton.tintColor = CrumbDesign.Color.accentDark
         editButton.titleLabel?.font = .preferredFont(forTextStyle: .subheadline)
+        editButton.contentHorizontalAlignment = .trailing
+        editButton.setContentHuggingPriority(.required, for: .horizontal)
+        editButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         editButton.addAction(UIAction { [weak self] _ in
             self?.navigationController?.popViewController(animated: true)
         }, for: .touchUpInside)
@@ -1360,6 +1363,9 @@ private final class DraftSummaryViewController: UIViewController {
             removeButton.setTitle(crumbLocalized("Remove"), for: .normal)
             removeButton.setTitleColor(CrumbDesign.Color.accentDark, for: .normal)
             removeButton.titleLabel?.font = .preferredFont(forTextStyle: .subheadline)
+            removeButton.contentHorizontalAlignment = .trailing
+            removeButton.setContentHuggingPriority(.required, for: .horizontal)
+            removeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
             removeButton.addAction(UIAction { [weak self] _ in
                 self?.navigationController?.popViewController(animated: true)
             }, for: .touchUpInside)
