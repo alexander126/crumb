@@ -860,14 +860,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             remove.setTitle(crumbLocalized("Remove"), for: .normal)
             remove.setTitleColor(CrumbDesign.Color.accentDark, for: .normal)
             remove.titleLabel?.font = .preferredFont(forTextStyle: .subheadline)
-            remove.addAction(UIAction { [weak self, weak screenshotCard, weak content] _ in
-                self?.screenshotArtifact = nil
-                self?.screenshotStatusLabel.text = crumbLocalized("Screenshot off")
-                if let screenshotCard {
-                    content?.removeArrangedSubview(screenshotCard)
-                    screenshotCard.removeFromSuperview()
-                }
-            }, for: .touchUpInside)
+            remove.addAction(UIAction { [weak self] _ in self?.removeScreenshot() }, for: .touchUpInside)
             screenshotCard.addArrangedSubview(remove)
             content.addArrangedSubview(screenshotCard)
         }
@@ -1162,6 +1155,14 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         reviewHeaderButton.isEnabled = isReady
     }
 
+    private func removeScreenshot() {
+        screenshotArtifact = nil
+        screenshotStatusLabel.text = crumbLocalized("Screenshot off")
+        guard let screenshotCard else { return }
+        contentStack?.removeArrangedSubview(screenshotCard)
+        screenshotCard.removeFromSuperview()
+    }
+
     private func reviewDraft() {
         guard let diagnostics else { return }
         let categoryIndex = max(0, min(categoryControl.selectedSegmentIndex, 2))
@@ -1210,6 +1211,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             screenshotWasMasked: screenshotArtifact != nil && screenshotMasking == .applied,
             diagnostics: diagnostics,
             envelope: envelope,
+            onRemoveScreenshot: { [weak self] in self?.removeScreenshot() },
             onDone: { [weak self] in self?.finish() }
         )
         // End editing explicitly so navigation does not restore keyboard focus
@@ -1339,6 +1341,7 @@ private enum DiagnosticsFormatting {
 @MainActor
 private final class DraftSummaryViewController: UIViewController {
     private let onDone: () -> Void
+    private let onRemoveScreenshot: () -> Void
     private let envelope: CrumbSerializedReportEnvelope
     private let screenshotArtifact: CrumbScreenshotArtifact?
     private var submissionControls: [UIControl] = []
@@ -1350,9 +1353,11 @@ private final class DraftSummaryViewController: UIViewController {
         screenshotWasMasked: Bool,
         diagnostics: CrumbDiagnosticsSnapshot,
         envelope: CrumbSerializedReportEnvelope,
+        onRemoveScreenshot: @escaping () -> Void,
         onDone: @escaping () -> Void
     ) {
         self.onDone = onDone
+        self.onRemoveScreenshot = onRemoveScreenshot
         self.envelope = envelope
         self.screenshotArtifact = screenshotArtifact
         super.init(nibName: nil, bundle: nil)
@@ -1509,8 +1514,10 @@ private final class DraftSummaryViewController: UIViewController {
             removeButton.setContentHuggingPriority(.required, for: .horizontal)
             removeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
             removeButton.addAction(UIAction { [weak self] _ in
+                self?.onRemoveScreenshot()
                 self?.navigationController?.popViewController(animated: true)
             }, for: .touchUpInside)
+            submissionControls.append(removeButton)
             screenshotCard.addArrangedSubview(removeButton)
             evidenceCard.addArrangedSubview(screenshotCard)
 
