@@ -286,7 +286,20 @@ private final class ShakePromptViewController: UIViewController {
         card.spacing = 13
         card.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         card.isLayoutMarginsRelativeArrangement = true
-        card.backgroundColor = CrumbDesign.Color.canvas.withAlphaComponent(0.94)
+        let material = CrumbGlassSurfaceView(
+            fallbackColor: CrumbDesign.Color.canvas.withAlphaComponent(0.94)
+        )
+        material.layer.cornerRadius = 20
+        material.layer.cornerCurve = .continuous
+        material.translatesAutoresizingMaskIntoConstraints = false
+        material.isUserInteractionEnabled = false
+        card.insertSubview(material, at: 0)
+        NSLayoutConstraint.activate([
+            material.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            material.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            material.topAnchor.constraint(equalTo: card.topAnchor),
+            material.bottomAnchor.constraint(equalTo: card.bottomAnchor)
+        ])
         card.layer.cornerRadius = 20
         card.layer.cornerCurve = .continuous
         card.layer.shadowColor = CrumbDesign.Color.ink.cgColor
@@ -522,7 +535,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private let reviewHeaderButton = UIButton(type: .system)
     private let keyboardStatusRow = UIStackView()
     private let screenshotStatusLabel = UILabel()
-    private let formSurfaceView = UIView()
+    private let formSurfaceView = CrumbGlassSurfaceView(fallbackColor: CrumbDesign.Color.canvas)
     private var composerHeightConstraint: NSLayoutConstraint?
     private var composerBottomConstraint: NSLayoutConstraint?
     private var keyboardFrameInScreen: CGRect?
@@ -575,7 +588,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         title = crumbLocalized("Report a problem")
         view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
 
-        formSurfaceView.backgroundColor = CrumbDesign.Color.canvas
         formSurfaceView.layer.cornerRadius = 26
         formSurfaceView.layer.cornerCurve = .continuous
         formSurfaceView.translatesAutoresizingMaskIntoConstraints = false
