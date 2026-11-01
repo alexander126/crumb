@@ -152,8 +152,9 @@ class CrumbDemoUiTests {
         onView(withText(containsString("WHAT’S ATTACHED"))).check(matches(isDisplayed()))
 
         onView(tagged("crumb.submit-report")).perform(scrollTo(), click())
-        waitFor(withText("Report saved"))
-        onView(withText("Done")).perform(click())
+        waitFor(tagged("demo.report-problem"))
+        onView(tagged("crumb.submit-report")).check(doesNotExist())
+        onView(withText("Report saved")).check(doesNotExist())
         onView(tagged("demo.report-problem")).check(matches(isDisplayed()))
     }
 

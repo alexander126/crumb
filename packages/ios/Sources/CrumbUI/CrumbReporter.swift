@@ -1526,17 +1526,7 @@ private final class DraftSummaryViewController: UIViewController {
                     notification: .announcement,
                     argument: crumbLocalized("Report saved")
                 )
-                let alert = UIAlertController(
-                    title: crumbLocalized("Report saved"),
-                    message: crumbLocalized(
-                        "Safely queued on this device. You can close Crumb without losing it."
-                    ),
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: crumbLocalized("Done"), style: .default) { [weak self] _ in
-                    self?.onDone()
-                })
-                self.present(alert, animated: true)
+                self.onDone()
             } catch {
                 guard let self, let button else { return }
                 self.isModalInPresentation = false

@@ -67,7 +67,6 @@
     <string name="crumb_saving_locally">Saving locally…</string>
     <string name="crumb_saving_announcement">Saving report locally</string>
     <string name="crumb_report_saved">Report saved</string>
-    <string name="crumb_report_saved_message">Safely queued on this device. You can close Crumb without losing it.</string>
     <string name="crumb_done">Done</string>
     <string name="crumb_queue_full">The on-device queue is full. No existing report was deleted.</string>
     <string name="crumb_save_failed">The report was not saved. Nothing was sent; please try again.</string>

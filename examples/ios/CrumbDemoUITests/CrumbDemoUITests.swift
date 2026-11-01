@@ -185,6 +185,35 @@ final class CrumbDemoUITests: XCTestCase {
     }
 
     @MainActor
+    func testSuccessfulSubmissionReturnsToHostWithoutConfirmation() {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["demo.report-problem"].tap()
+        let description = app.textViews["crumb.description"]
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        description.tap()
+        description.typeText("Synthetic submission acceptance\n")
+        let review = app.buttons["crumb.review-draft"]
+        waitUntilEnabled(review)
+        for _ in 0..<4 where !review.isHittable { app.swipeUp() }
+        review.tap()
+        let submit = app.buttons["crumb.submit-report"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 5))
+        for _ in 0..<4 where !submit.isHittable { app.swipeUp() }
+        submit.tap()
+
+        let dismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: submit
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [dismissed], timeout: 5), .completed)
+        XCTAssertFalse(app.alerts["Report saved"].exists)
+        XCTAssertTrue(app.buttons["demo.report-problem"].isHittable)
+        attachScreenshot(named: "ios-direct-report-completion", app: app)
+        app.buttons["demo.report-problem"].tap()
+        XCTAssertTrue(app.staticTexts["crumb.reporter-title"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testShakeShowsCompactConfirmationBeforeReporter() {
         let app = XCUIApplication()
         app.launch()
