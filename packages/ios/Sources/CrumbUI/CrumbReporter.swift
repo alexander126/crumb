@@ -535,7 +535,7 @@ private final class CrumbCategoryControl: UIControl {
 }
 
 @MainActor
-private final class ReporterViewController: UIViewController, UITextViewDelegate {
+private final class ReporterViewController: UIViewController, UITextViewDelegate, UIGestureRecognizerDelegate {
     private var screenshotArtifact: CrumbScreenshotArtifact?
     private let screenshotCapture: CrumbScreenshotCaptureState
     private let screenshotMasking: CrumbScreenshotMaskingState
@@ -568,6 +568,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private var diagnosticsTask: Task<Void, Never>?
     private var didNotifyFinish = false
     private var didMoveInitialAccessibilityFocus = false
+    private let backdropControl = UIControl()
+    private var composerAnimator: UIViewPropertyAnimator?
+    private var composerDragOrigin: CGFloat = 0
+    private var isDraggingFromGrabber = false
 
     var hasMeaningfulInput: Bool {
         (settings.reporter.visibleFields.contains(.category) && categoryControl.selectedSegmentIndex != 0)
@@ -608,6 +612,22 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         super.viewDidLoad()
         title = crumbLocalized("Report a problem")
         view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
+        backdropControl.accessibilityLabel = crumbLocalized("Cancel")
+        backdropControl.accessibilityIdentifier = "crumb.reporter-backdrop"
+        backdropControl.isAccessibilityElement = true
+        backdropControl.accessibilityTraits = .button
+        backdropControl.translatesAutoresizingMaskIntoConstraints = false
+        backdropControl.addAction(UIAction { [weak self] _ in self?.requestCancel() }, for: .touchUpInside)
+        view.addSubview(backdropControl)
+        NSLayoutConstraint.activate([
+            backdropControl.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backdropControl.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backdropControl.topAnchor.constraint(equalTo: view.topAnchor)
+        ])
+
+        let drag = UIPanGestureRecognizer(target: self, action: #selector(dragComposer(_:)))
+        drag.delegate = self
+        view.addGestureRecognizer(drag)
 
         formSurfaceView.layer.cornerRadius = 26
         formSurfaceView.layer.cornerCurve = .continuous
@@ -615,6 +635,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         view.addSubview(formSurfaceView)
 
         NSLayoutConstraint.activate([
+            backdropControl.bottomAnchor.constraint(equalTo: formSurfaceView.topAnchor),
             formSurfaceView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             formSurfaceView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             formSurfaceView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -625,7 +646,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         grabber.accessibilityIdentifier = "crumb.reporter-grabber"
         grabber.translatesAutoresizingMaskIntoConstraints = false
         grabber.addAction(UIAction { [weak self] _ in self?.requestCancel() }, for: .touchUpInside)
-        grabber.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragGrabber(_:))))
         formSurfaceView.addSubview(grabber)
         let grabberLine = UIView()
         grabberLine.isUserInteractionEnabled = false
@@ -989,11 +1009,89 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         updateComposerHeight()
     }
 
-    @objc private func dragGrabber(_ gesture: UIPanGestureRecognizer) {
-        guard gesture.state == .ended else { return }
-        if gesture.translation(in: view).y > 20 || gesture.velocity(in: view).y > 200 {
-            requestCancel()
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        isDraggingFromGrabber = false
+        guard navigationController?.topViewController === self,
+              touch.location(in: view).y >= formSurfaceView.frame.minY else { return false }
+        var touchedView = touch.view
+        while let current = touchedView, current !== view {
+            if current is UITextView { return false }
+            if current is UIControl {
+                isDraggingFromGrabber = current.accessibilityIdentifier == "crumb.reporter-grabber"
+                return isDraggingFromGrabber
+            }
+            touchedView = current.superview
         }
+        return true
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
+              let scrollView = formScrollView else { return false }
+        let velocity = pan.velocity(in: view)
+        return velocity.y > abs(velocity.x)
+            && (isDraggingFromGrabber || scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top + 1)
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        otherGestureRecognizer === formScrollView?.panGestureRecognizer
+    }
+
+    @objc private func dragComposer(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            composerDragOrigin = formSurfaceView.layer.presentation()?.affineTransform().ty
+                ?? formSurfaceView.transform.ty
+            composerAnimator?.stopAnimation(true)
+            composerAnimator = nil
+            setComposerTranslation(composerDragOrigin)
+        case .changed:
+            if !isDraggingFromGrabber {
+                formScrollView?.contentOffset.y = -(formScrollView?.adjustedContentInset.top ?? 0)
+            }
+            setComposerTranslation(max(0, composerDragOrigin + gesture.translation(in: view).y))
+        case .ended:
+            let distance = formSurfaceView.transform.ty
+            let shouldDismiss = distance > max(80, formSurfaceView.bounds.height * 0.2)
+                || (distance > 20 && gesture.velocity(in: view).y > 650)
+            if shouldDismiss && !hasMeaningfulInput {
+                let animator = UIViewPropertyAnimator(duration: 0.25, dampingRatio: 1) { [weak self] in
+                    guard let self else { return }
+                    self.setComposerTranslation(self.view.bounds.height)
+                }
+                animator.addCompletion { [weak self] position in
+                    if position == .end { self?.cancelImmediately(animated: false) }
+                }
+                composerAnimator = animator
+                animator.startAnimation()
+            } else {
+                restoreComposerPosition()
+                if shouldDismiss { requestCancel() }
+            }
+        case .cancelled, .failed:
+            restoreComposerPosition()
+        default:
+            break
+        }
+    }
+
+    private func setComposerTranslation(_ translation: CGFloat) {
+        let transform = CGAffineTransform(translationX: 0, y: translation)
+        formSurfaceView.transform = transform
+        formScrollView?.transform = transform
+        let dimming = max(0, 1 - translation / max(1, formSurfaceView.bounds.height))
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.2 * dimming)
+    }
+
+    private func restoreComposerPosition() {
+        let animator = UIViewPropertyAnimator(duration: 0.3, dampingRatio: 1) { [weak self] in
+            self?.setComposerTranslation(0)
+        }
+        composerAnimator = animator
+        animator.startAnimation()
     }
 
     private func updateComposerHeight() {
@@ -1121,6 +1219,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     }
 
     func requestCancel() {
+        guard presentedViewController == nil else { return }
         guard hasMeaningfulInput else {
             cancelImmediately()
             return
@@ -1139,8 +1238,8 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         present(alert, animated: true)
     }
 
-    private func cancelImmediately() {
-        dismiss(animated: true) { [weak self] in self?.notifyFinish() }
+    private func cancelImmediately(animated: Bool = true) {
+        dismiss(animated: animated) { [weak self] in self?.notifyFinish() }
     }
 
     private func finish() {
