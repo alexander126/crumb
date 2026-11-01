@@ -262,6 +262,54 @@ final class CrumbDemoUITests: XCTestCase {
     }
 
     @MainActor
+    func testRemovingScreenshotFromReviewClearsTheRebuiltReportAndPreservesInput() throws {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertEqual(app.staticTexts["demo.delivery-mode"].label, "Local-only mode")
+
+        app.buttons["demo.report-problem"].tap()
+        XCTAssertTrue(app.buttons["Masked screenshot preview"].waitForExistence(timeout: 5))
+        let description = app.textViews["crumb.description"]
+        let syntheticDescription = "Synthetic screenshot removal regression"
+        description.tap()
+        description.typeText(syntheticDescription + "\n")
+
+        let review = app.buttons["crumb.review-draft"]
+        waitUntilEnabled(review)
+        for _ in 0..<4 where !review.isHittable { app.swipeUp() }
+        review.tap()
+        XCTAssertTrue(app.staticTexts["crumb.review-title"].waitForExistence(timeout: 5))
+        let remove = app.buttons["Remove"].firstMatch
+        XCTAssertTrue(remove.waitForExistence(timeout: 5))
+        remove.tap()
+
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        XCTAssertEqual(description.value as? String, syntheticDescription)
+        waitUntilEnabled(review)
+        for _ in 0..<4 where !review.isHittable { app.swipeUp() }
+        review.tap()
+        XCTAssertTrue(app.staticTexts["crumb.review-title"].waitForExistence(timeout: 5))
+
+        let disclosure = app.buttons["crumb.show-technical-detail"]
+        for _ in 0..<4 where !disclosure.isHittable { app.swipeUp() }
+        disclosure.tap()
+        let summary = app.textViews["crumb.draft-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        let detail = try XCTUnwrap(summary.value as? String)
+        let envelopeMarker = try XCTUnwrap(detail.range(of: "SERIALIZED REPORT ENVELOPE\n"))
+        let envelopeData = Data(detail[envelopeMarker.upperBound...].utf8)
+        let envelope = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: envelopeData) as? [String: Any]
+        )
+        let artifacts = try XCTUnwrap(envelope["artifacts"] as? [[String: Any]])
+        let privacy = try XCTUnwrap(envelope["privacy"] as? [String: Any])
+        let userInput = try XCTUnwrap(envelope["user_input"] as? [String: Any])
+        XCTAssertTrue(artifacts.isEmpty, "Review removal must clear the actual screenshot manifest")
+        XCTAssertEqual(privacy["screenshot_capture"] as? String, "enabled")
+        XCTAssertEqual(userInput["description"] as? String, syntheticDescription)
+    }
+
+    @MainActor
     func testSuccessfulSubmissionReturnsToHostWithoutConfirmation() {
         let app = XCUIApplication()
         app.launch()
