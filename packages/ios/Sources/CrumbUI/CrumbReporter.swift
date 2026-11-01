@@ -1125,6 +1125,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
 @MainActor
 private final class ScreenshotPreviewViewController: UIViewController {
     private let image: UIImage
+    private let close = UIButton(type: .system)
 
     init(image: UIImage) {
         self.image = image
@@ -1138,7 +1139,6 @@ private final class ScreenshotPreviewViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.96)
 
         let imageView = UIImageView(image: image)
         imageView.contentMode = .scaleAspectFit
@@ -1148,10 +1148,13 @@ private final class ScreenshotPreviewViewController: UIViewController {
         imageView.accessibilityTraits = .image
         view.addSubview(imageView)
 
-        let close = UIButton(type: .system)
-        close.setTitle(crumbLocalized("Close"), for: .normal)
-        close.setTitleColor(.white, for: .normal)
-        close.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        updateCloseAppearance()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updateCloseAppearance),
+            name: UIAccessibility.reduceTransparencyStatusDidChangeNotification,
+            object: nil
+        )
         close.addAction(UIAction { [weak self] _ in self?.dismiss(animated: true) }, for: .touchUpInside)
         close.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(close)
@@ -1160,11 +1163,38 @@ private final class ScreenshotPreviewViewController: UIViewController {
             close.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
             close.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -18),
             close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            close.widthAnchor.constraint(greaterThanOrEqualToConstant: 76),
             imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             imageView.topAnchor.constraint(equalTo: close.bottomAnchor, constant: 8),
             imageView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
         ])
+    }
+
+    @objc private func updateCloseAppearance() {
+        view.backgroundColor = UIAccessibility.isReduceTransparencyEnabled
+            ? .black
+            : UIColor.black.withAlphaComponent(0.96)
+        // Keep the popup on native controls so the system owns glass rendering.
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *),
+           !UIAccessibility.isReduceTransparencyEnabled,
+           Bundle.main.object(forInfoDictionaryKey: "UIDesignRequiresCompatibility") as? Bool != true {
+            var configuration = UIButton.Configuration.glass()
+            configuration.title = crumbLocalized("Close")
+            configuration.baseForegroundColor = .white
+            configuration.cornerStyle = .capsule
+            configuration.contentInsets = NSDirectionalEdgeInsets(
+                top: 10, leading: 16, bottom: 10, trailing: 16
+            )
+            close.configuration = configuration
+            return
+        }
+        #endif
+        close.configuration = nil
+        close.setTitle(crumbLocalized("Close"), for: .normal)
+        close.setTitleColor(.white, for: .normal)
+        close.titleLabel?.font = .preferredFont(forTextStyle: .headline)
     }
 }
 
