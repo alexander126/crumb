@@ -1,0 +1,55 @@
+{
+  "colorfulFixture" : true,
+  "compatibilityOptOut" : false,
+  "controls" : [
+    {
+      "hidden" : false,
+      "identifier" : "crumb.shake-dismiss",
+      "type" : "UIButton",
+      "windowFrame" : "(0.0, 0.0, 440.0, 956.0)"
+    },
+    {
+      "actualLabelHeight" : 125.33333333333333,
+      "fitsFullTextAtCurrentWidth" : true,
+      "fontPointSize" : 53,
+      "fullTextRequiredHeightAtCurrentWidth" : 125.248046875,
+      "hidden" : false,
+      "identifier" : "crumb.shake-prompt-title",
+      "numberOfLines" : 0,
+      "type" : "UILabel",
+      "windowFrame" : "(28.0, 507.66666666666674, 384.0, 125.33333333333337)"
+    },
+    {
+      "hidden" : false,
+      "identifier" : "crumb.shake-report",
+      "type" : "UIButton",
+      "windowFrame" : "(28.0, 822.6666666666667, 384.0, 83.33333333333337)"
+    }
+  ],
+  "iOSVersion" : "27.0",
+  "mode" : "prompt",
+  "preferredContentSizeCategory" : "UICTContentSizeCategoryAccessibilityXXXL",
+  "reduceTransparencyEnabled" : false,
+  "visualEffects" : [
+    {
+      "ancestry" : [
+        "UIWindow",
+        "UITransitionView",
+        "UIView",
+        "CrumbUI.CrumbGlassSurfaceView",
+        "UIVisualEffectView"
+      ],
+      "contentViewChildren" : [
+        "UIStackView"
+      ],
+      "cornerConfiguration" : "UICornerConfiguration(topLeftRadius: .fixed(radius: 20.0), topRightRadius: .fixed(radius: 20.0), bottomLeftRadius: .fixed(radius: 20.0), bottomRightRadius: .fixed(radius: 20.0))",
+      "cornerRadius" : 0,
+      "effectType" : "UIGlassEffect",
+      "frame" : "(0.0, 0.0, 416.0, 485.3333333333333)",
+      "isInteractive" : true,
+      "isNativeUIGlassEffect" : true,
+      "windowFrame" : "(12.0, 436.66666666666674, 416.0, 485.33333333333326)"
+    }
+  ],
+  "windowBounds" : "(0.0, 0.0, 440.0, 956.0)"
+}

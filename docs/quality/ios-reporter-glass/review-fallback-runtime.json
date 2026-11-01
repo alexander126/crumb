@@ -1,0 +1,91 @@
+{
+  "colorfulFixture" : true,
+  "compatibilityOptOut" : false,
+  "controls" : [
+    {
+      "hidden" : false,
+      "identifier" : "crumb.shake-dismiss",
+      "type" : "UIButton",
+      "windowFrame" : "(0.0, 0.0, 402.0, 874.0)"
+    },
+    {
+      "actualLabelHeight" : 20.333333333333332,
+      "fitsFullTextAtCurrentWidth" : false,
+      "fontPointSize" : 17,
+      "fullTextRequiredHeightAtCurrentWidth" : 22,
+      "hidden" : false,
+      "identifier" : "crumb.shake-prompt-title",
+      "numberOfLines" : 0,
+      "type" : "UILabel",
+      "windowFrame" : "(83.0, 763.6666666666666, 200.0, 20.33333333333337)"
+    },
+    {
+      "hidden" : false,
+      "identifier" : "crumb.shake-report",
+      "type" : "UIButton",
+      "windowFrame" : "(296.0, 773.6666666666666, 78.0, 40.33333333333337)"
+    }
+  ],
+  "iOSVersion" : "18.6",
+  "mode" : "prompt",
+  "preferredContentSizeCategory" : "UICTContentSizeCategoryL",
+  "reduceTransparencyEnabled" : false,
+  "visualEffects" : [
+    {
+      "ancestry" : [
+        "UIWindow",
+        "UITransitionView",
+        "UIDropShadowView",
+        "UILayoutContainerView",
+        "UINavigationBar",
+        "_UIBarBackground",
+        "UIVisualEffectView"
+      ],
+      "contentViewChildren" : [
+
+      ],
+      "cornerRadius" : 0,
+      "effectType" : "nil",
+      "frame" : "(0.0, 0.0, 402.0, 106.0)",
+      "isNativeUIGlassEffect" : false,
+      "windowFrame" : "(0.0, -5.666666666666657, 402.0, 106.0)"
+    },
+    {
+      "ancestry" : [
+        "UIWindow",
+        "UITransitionView",
+        "UIDropShadowView",
+        "UILayoutContainerView",
+        "UINavigationBar",
+        "_UIBarBackground",
+        "_UIBarBackgroundShadowView"
+      ],
+      "contentViewChildren" : [
+
+      ],
+      "cornerRadius" : 0,
+      "effectType" : "nil",
+      "frame" : "(0.0, 106.0, 402.0, 0.3333333333333333)",
+      "isNativeUIGlassEffect" : false,
+      "windowFrame" : "(0.0, 100.33333333333334, 402.0, 0.3333333333333286)"
+    },
+    {
+      "ancestry" : [
+        "UIWindow",
+        "UITransitionView",
+        "UIView",
+        "CrumbUI.CrumbGlassSurfaceView",
+        "UIVisualEffectView"
+      ],
+      "contentViewChildren" : [
+        "UIStackView"
+      ],
+      "cornerRadius" : 20,
+      "effectType" : "nil",
+      "frame" : "(0.0, 0.0, 378.0, 92.33333333333333)",
+      "isNativeUIGlassEffect" : false,
+      "windowFrame" : "(12.0, 747.6666666666666, 378.0, 92.33333333333337)"
+    }
+  ],
+  "windowBounds" : "(0.0, 0.0, 402.0, 874.0)"
+}

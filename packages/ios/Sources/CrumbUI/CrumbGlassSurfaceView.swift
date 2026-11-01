@@ -5,15 +5,28 @@ import UIKit
 @MainActor
 final class CrumbGlassSurfaceView: UIView {
     private let fallbackColor: UIColor
+    private let isInteractive: Bool
+    private let showsFallbackShadow: Bool
     private let materialView = UIVisualEffectView(effect: nil)
 
-    init(fallbackColor: UIColor) {
+    /// Host controls here so UIKit can apply the material's vibrancy and touch response.
+    var contentView: UIView { materialView.contentView }
+
+    init(fallbackColor: UIColor, isInteractive: Bool = false, showsFallbackShadow: Bool = false) {
         self.fallbackColor = fallbackColor
+        self.isInteractive = isInteractive
+        self.showsFallbackShadow = showsFallbackShadow
         super.init(frame: .zero)
-        clipsToBounds = true
-        materialView.isUserInteractionEnabled = false
-        materialView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        isOpaque = false
+        materialView.isOpaque = false
+        materialView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(materialView)
+        NSLayoutConstraint.activate([
+            materialView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            materialView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            materialView.topAnchor.constraint(equalTo: topAnchor),
+            materialView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(updateMaterial),
@@ -28,7 +41,12 @@ final class CrumbGlassSurfaceView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        materialView.frame = bounds
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            materialView.cornerConfiguration = .corners(radius: .fixed(layer.cornerRadius))
+            return
+        }
+        #endif
         materialView.layer.cornerRadius = layer.cornerRadius
         materialView.layer.cornerCurve = layer.cornerCurve
     }
@@ -39,17 +57,29 @@ final class CrumbGlassSurfaceView: UIView {
         if #available(iOS 26.0, *),
            !UIAccessibility.isReduceTransparencyEnabled,
            Bundle.main.object(forInfoDictionaryKey: "UIDesignRequiresCompatibility") as? Bool != true {
-            materialView.effect = UIGlassEffect(style: .regular)
-            materialView.isHidden = false
+            let glass = UIGlassEffect(style: .regular)
+            glass.isInteractive = isInteractive
+            materialView.effect = glass
             backgroundColor = .clear
+            // The native material draws its own edge and depth. Clipping its
+            // wrapper or adding the old card shadow flattens that appearance.
+            clipsToBounds = false
+            materialView.clipsToBounds = false
+            layer.shadowOpacity = 0
             return
         }
         #endif
         materialView.effect = nil
-        materialView.isHidden = true
+        // The content container stays visible and interactive with no effect.
+        clipsToBounds = false
+        materialView.clipsToBounds = true
         backgroundColor = UIAccessibility.isReduceTransparencyEnabled
             ? fallbackColor.withAlphaComponent(1)
             : fallbackColor
+        layer.shadowColor = CrumbDesign.Color.ink.cgColor
+        layer.shadowOpacity = showsFallbackShadow ? 0.16 : 0
+        layer.shadowRadius = 17
+        layer.shadowOffset = CGSize(width: 0, height: 12)
     }
 }
 #endif
