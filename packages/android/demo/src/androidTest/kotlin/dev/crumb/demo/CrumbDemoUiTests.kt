@@ -147,7 +147,7 @@ class CrumbDemoUiTests {
         onView(tagged("crumb.review-draft")).perform(scrollTo(), click())
 
         waitFor(withText("Review"))
-        onView(withText(containsString("Nothing has been sent yet"))).check(matches(isDisplayed()))
+        onView(withText(containsString("Nothing has been sent yet"))).check(doesNotExist())
         onView(withText("The payment button stopped responding")).check(matches(isDisplayed()))
         onView(withText(containsString("WHAT’S ATTACHED"))).check(matches(isDisplayed()))
 

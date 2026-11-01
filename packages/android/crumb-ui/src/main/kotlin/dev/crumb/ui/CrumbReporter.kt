@@ -685,32 +685,6 @@ object CrumbReporter {
         }, LinearLayout.LayoutParams(0, dp(activity, 48), 1f))
         content.addView(header, matchWrap().withMargins(activity, bottom = 12))
 
-        val localBanner = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.TOP
-            setPadding(dp(activity, 14), dp(activity, 12), dp(activity, 14), dp(activity, 12))
-            background = CrumbDesign.rounded(activity, CrumbDesign.MUTED_SURFACE, radius = 12, strokeWidth = 0)
-            addView(text(activity, "●", 12f, CrumbDesign.INK).apply {
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            }, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply { marginEnd = dp(activity, 10) })
-            addView(text(
-                activity,
-                activity.getString(R.string.crumb_local_only),
-                13.5f,
-                CrumbDesign.SECONDARY_TEXT,
-            ), LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f,
-            ))
-        }
-        localBanner.contentDescription =
-            activity.getString(R.string.crumb_local_only)
-        content.addView(localBanner, matchWrap().withMargins(activity, bottom = 16))
-
         val reportCard = verticalLayout(activity).apply {
             addView(text(
                 activity,
