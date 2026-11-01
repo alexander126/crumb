@@ -130,7 +130,6 @@ internal object CrumbScreenshotArtifactPipeline {
 
     private fun capturePlan(root: View, privacy: CrumbPrivacyOptions): CapturePlan {
         val maskViews = sensitiveViews(root, privacy.maskAllTextInputs)
-        val rootLocation = IntArray(2).also(root::getLocationInWindow)
         val regions = maskViews.mapNotNull { view ->
             if (
                 view.visibility != View.VISIBLE || view.alpha <= 0f ||
@@ -138,10 +137,8 @@ internal object CrumbScreenshotArtifactPipeline {
             ) {
                 return@mapNotNull null
             }
-            val location = IntArray(2).also(view::getLocationInWindow)
-            val left = location[0] - rootLocation[0] - 3
-            val top = location[1] - rootLocation[1] - 3
-            MaskRegion(left, top, left + view.width + 6, top + view.height + 6)
+            val bounds = CrumbScreenshotMaskBounds.calculate(view, root)
+            MaskRegion(bounds.left, bounds.top, bounds.right, bounds.bottom)
         }
         return CapturePlan(
             maskingConfigured = privacy.maskScreenshotsBeforeUpload ||
