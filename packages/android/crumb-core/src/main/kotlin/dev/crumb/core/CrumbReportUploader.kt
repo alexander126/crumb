@@ -1,6 +1,7 @@
 package dev.crumb.core
 
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -129,12 +130,29 @@ class CrumbReportUploadWorker internal constructor(
             else -> throw CrumbUploadFailure("init.terminal_state", false)
         }
 
-        sendLifecycle(
+        val completion = sendLifecycle(
             components = listOf("sdk", "v1", "reports", reportId, "complete"),
             reportId = reportId,
             operation = "complete",
             body = EMPTY_OPERATION_BODY,
         )
+        validateCompletion(completion.body, reportId)
+    }
+
+    private fun validateCompletion(bytes: ByteArray, reportId: String) {
+        val accepted = try {
+            val body = String(bytes, Charsets.UTF_8)
+            val tokens = JSONTokener(body)
+            val response = tokens.nextValue() as? JSONObject
+            // JSONTokener treats NUL as EOF and skips other raw control characters.
+            body.none { it < ' ' && it !in "\t\r\n" } && tokens.nextClean() == '\u0000' &&
+                response != null && response.opt("status") as? String == "accepted" &&
+                (!response.has("report_id") || response.opt("report_id") as? String == reportId)
+        } catch (_: Exception) {
+            false
+        }
+        checkCancellation()
+        if (!accepted) throw CrumbUploadFailure("complete.invalid_response", false)
     }
 
     private fun sendLifecycle(

@@ -65,6 +65,20 @@ Verified bytes are copied to a sealed object key before the database transaction
 marks the report accepted. A previously issued PUT URL therefore cannot mutate
 the artifact referenced by an accepted report.
 
+The minimal successful response body is:
+
+```json
+{ "status": "accepted" }
+```
+
+The SDK requires that parsed JSON state in a successful HTTP response before
+deleting the local queue item. A successful HTTP status alone, an empty body,
+a body that cannot be parsed as the required object, or another state such as
+`processing` does not confirm acceptance. A
+`report_id` field is optional; when supplied, it must be a string matching the
+report being completed. The SDK retains the local item for an invalid response
+and stores only a bounded `complete.invalid_response` failure code.
+
 ### `POST /sdk/v1/reports/{reportId}/cancel`
 
 Cancels an unfinished upload. Cancellation is idempotent and cannot delete a
