@@ -266,6 +266,9 @@ private final class ShakePromptViewController: UIViewController {
 
     private let titleLabel = UILabel()
     private var didMoveInitialAccessibilityFocus = false
+    private weak var promptCard: UIStackView?
+    private weak var promptReport: UIButton?
+    private var accessibilityWidthConstraints: [NSLayoutConstraint] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -286,15 +289,23 @@ private final class ShakePromptViewController: UIViewController {
         card.spacing = 13
         card.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         card.isLayoutMarginsRelativeArrangement = true
-        card.backgroundColor = CrumbDesign.Color.canvas.withAlphaComponent(0.94)
-        card.layer.cornerRadius = 20
-        card.layer.cornerCurve = .continuous
-        card.layer.shadowColor = CrumbDesign.Color.ink.cgColor
-        card.layer.shadowOpacity = 0.16
-        card.layer.shadowRadius = 17
-        card.layer.shadowOffset = CGSize(width: 0, height: 12)
+        let surface = CrumbGlassSurfaceView(
+            fallbackColor: CrumbDesign.Color.canvas.withAlphaComponent(0.94),
+            isInteractive: true,
+            showsFallbackShadow: true
+        )
+        surface.layer.cornerRadius = 20
+        surface.layer.cornerCurve = .continuous
+        surface.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(surface)
         card.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(card)
+        surface.contentView.addSubview(card)
+        NSLayoutConstraint.activate([
+            card.leadingAnchor.constraint(equalTo: surface.contentView.leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: surface.contentView.trailingAnchor),
+            card.topAnchor.constraint(equalTo: surface.contentView.topAnchor),
+            card.bottomAnchor.constraint(equalTo: surface.contentView.bottomAnchor)
+        ])
 
         let mark = CrumbMarkView(showsTile: true)
         mark.translatesAutoresizingMaskIntoConstraints = false
@@ -312,6 +323,7 @@ private final class ShakePromptViewController: UIViewController {
         titleLabel.text = crumbLocalized("Report a problem?")
         titleLabel.font = .preferredFont(forTextStyle: .headline).withWeight(.semibold)
         titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.numberOfLines = 0
         titleLabel.textColor = CrumbDesign.Color.ink
         titleLabel.accessibilityIdentifier = "crumb.shake-prompt-title"
         copy.addArrangedSubview(titleLabel)
@@ -347,16 +359,23 @@ private final class ShakePromptViewController: UIViewController {
         report.setContentCompressionResistancePriority(.required, for: .horizontal)
         report.addAction(UIAction { [weak self] _ in self?.onReport?() }, for: .touchUpInside)
         card.addArrangedSubview(report)
+        promptCard = card
+        promptReport = report
+        accessibilityWidthConstraints = [
+            copy.widthAnchor.constraint(equalTo: card.layoutMarginsGuide.widthAnchor),
+            report.widthAnchor.constraint(equalTo: card.layoutMarginsGuide.widthAnchor)
+        ]
+        updatePromptLayout()
 
         NSLayoutConstraint.activate([
             dismissSurface.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             dismissSurface.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             dismissSurface.topAnchor.constraint(equalTo: view.topAnchor),
             dismissSurface.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            card.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            card.heightAnchor.constraint(greaterThanOrEqualToConstant: 74)
+            surface.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            surface.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            surface.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            surface.heightAnchor.constraint(greaterThanOrEqualToConstant: 74)
         ])
     }
 
@@ -365,6 +384,21 @@ private final class ShakePromptViewController: UIViewController {
         guard !didMoveInitialAccessibilityFocus else { return }
         didMoveInitialAccessibilityFocus = true
         UIAccessibility.post(notification: .screenChanged, argument: titleLabel)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory {
+            updatePromptLayout()
+        }
+    }
+
+    private func updatePromptLayout() {
+        let accessibility = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+        promptCard?.axis = accessibility ? .vertical : .horizontal
+        promptCard?.alignment = accessibility ? .leading : .center
+        promptReport?.setContentHuggingPriority(accessibility ? .defaultLow : .required, for: .horizontal)
+        accessibilityWidthConstraints.forEach { $0.isActive = accessibility }
     }
 }
 
@@ -522,7 +556,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private let reviewHeaderButton = UIButton(type: .system)
     private let keyboardStatusRow = UIStackView()
     private let screenshotStatusLabel = UILabel()
-    private let formSurfaceView = UIView()
+    private let formSurfaceView = CrumbGlassSurfaceView(fallbackColor: CrumbDesign.Color.canvas)
     private var composerHeightConstraint: NSLayoutConstraint?
     private var composerBottomConstraint: NSLayoutConstraint?
     private var keyboardFrameInScreen: CGRect?
@@ -575,7 +609,6 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         title = crumbLocalized("Report a problem")
         view.backgroundColor = UIColor.black.withAlphaComponent(0.2)
 
-        formSurfaceView.backgroundColor = CrumbDesign.Color.canvas
         formSurfaceView.layer.cornerRadius = 26
         formSurfaceView.layer.cornerCurve = .continuous
         formSurfaceView.translatesAutoresizingMaskIntoConstraints = false
