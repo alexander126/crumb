@@ -113,13 +113,33 @@ public struct CrumbLogDiagnostic: Equatable, Sendable {
 package enum CrumbLogSanitizer {
     package static func sanitize(_ value: String) -> String {
         var sanitized = value
+        let credentialKeys = #"(?:proxy[-_]?authorization|authorization|(?:set[-_]?)?cookie|password|passwd|secret|(?:access|refresh|id|auth|session)[_-]?token|token|client[_-]?secret|(?:x[_-]?)?api[_-]?key)"#
+        let headerKeys = #"(?:proxy[-_]?authorization|authorization|(?:set[-_]?)?cookie)"#
+        let credentialPrefix = #"(?i)(?<![A-Za-z0-9_-])((["']?)"#
+            + credentialKeys + #"\2\s*+[:=]\s*+)"#
+        let headerPrefix = #"(?i)(?<![A-Za-z0-9_-])((["']?)"#
+            + headerKeys + #"\2\s*+[:=]\s*+)"#
         let replacements = [
+            // Preserve quoted keys and safe siblings while consuming escaped or truncated values.
+            (
+                credentialPrefix + #""(?:\\[^\r\n]|[^"\\\r\n])*+(?:"|\\?(?=[\r\n]|$))"#,
+                "$1\"[REDACTED]\""
+            ),
+            (
+                credentialPrefix + #"'(?:\\[^\r\n]|[^'\\\r\n])*+(?:'|\\?(?=[\r\n]|$))"#,
+                "$1'[REDACTED]'"
+            ),
+            // Unexpected containers fail closed, including multiline values, rather than leaking a suffix.
+            (credentialPrefix + #"(?!\[REDACTED\](?=[\s,;}\]]|$))[\[{][\s\S]*"#, "$1[REDACTED]"),
+            // Entire header values may contain spaces, commas, cookies, and folded continuations.
+            // Skip existing markers so another pass cannot consume the following safe log context.
+            (
+                headerPrefix + #"(?!["']|\[REDACTED\](?=[\s,;}\]]|$))[^\r\n]*(?:\r?\n[ \t]+[^\r\n]*)*"#,
+                "$1[REDACTED]"
+            ),
+            (credentialPrefix + #"(?!["']|\[REDACTED\](?=[\s,;}\]]|$))[^\s,;}\]]+"#, "$1[REDACTED]"),
             (#"(?i)(https?://)[^/\s:@]+:[^/@\s]+@"#, "$1[REDACTED]@"),
             (#"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+"#, "Bearer [REDACTED]"),
-            (
-                #"(?i)\b(authorization|cookie|set-cookie|password|passwd|secret|token|api[_-]?key)\s*[:=]\s*(\"[^\"]*\"|'[^']*'|[^\s,;]+)"#,
-                "$1=[REDACTED]"
-            ),
             (#"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"#, "[REDACTED_EMAIL]"),
             (#"\b(?:\d[ -]*?){13,19}\b"#, "[REDACTED_NUMBER]"),
             (#"([?&][A-Za-z0-9._~-]+)=([^&#\s]*)"#, "$1=[REDACTED]"),
