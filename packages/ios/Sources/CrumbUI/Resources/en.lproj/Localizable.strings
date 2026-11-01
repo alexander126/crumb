@@ -66,7 +66,6 @@
 "Saving locally…" = "Saving locally…";
 "Saving report locally" = "Saving report locally";
 "Report saved" = "Report saved";
-"Safely queued on this device. You can close Crumb without losing it." = "Safely queued on this device. You can close Crumb without losing it.";
 "Done" = "Done";
 "Try again" = "Try again";
 "The on-device queue is full. No existing report was deleted." = "The on-device queue is full. No existing report was deleted.";

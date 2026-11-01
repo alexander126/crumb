@@ -915,14 +915,8 @@ object CrumbReporter {
                 result.fold(
                     onSuccess = {
                         CrumbUploadCoordinator.reportDidQueue()
-                        AlertDialog.Builder(host)
-                            .setTitle(host.getString(R.string.crumb_report_saved))
-                            .setMessage(
-                                host.getString(R.string.crumb_report_saved_message),
-                            )
-                            .setCancelable(false)
-                            .setPositiveButton(host.getString(R.string.crumb_done)) { _, _ -> finishSession(session) }
-                            .show()
+                        button.announceForAccessibility(host.getString(R.string.crumb_report_saved))
+                        finishSession(session)
                     },
                     onFailure = { error ->
                         currentDialog.setContentView(buildSummary(host, currentDialog, session))
