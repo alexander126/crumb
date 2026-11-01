@@ -71,22 +71,46 @@ package enum CrumbReportQueueError: Error, Equatable {
 }
 
 package actor CrumbReportQueue {
-    package static let shared = CrumbReportQueue(rootURL: defaultRootURL())
+    package static let shared = configured(rootURL: defaultRootURL())
+
+    package static func configured(rootURL: URL) -> CrumbReportQueue {
+        CrumbReportQueue(
+            rootURL: rootURL,
+            ownerProvider: { try CrumbRuntime.shared.queueOwnerFingerprint() }
+        )
+    }
 
     private let rootURL: URL
     private let limits: CrumbQueueLimits
     private let fileManager: FileManager
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let ownerProvider: @Sendable () throws -> String?
 
     package init(
         rootURL: URL,
         limits: CrumbQueueLimits = .init(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        ownerFingerprint: String? = nil
+    ) {
+        self.init(
+            rootURL: rootURL,
+            limits: limits,
+            fileManager: fileManager,
+            ownerProvider: { ownerFingerprint }
+        )
+    }
+
+    private init(
+        rootURL: URL,
+        limits: CrumbQueueLimits = .init(),
+        fileManager: FileManager = .default,
+        ownerProvider: @escaping @Sendable () throws -> String?
     ) {
         self.rootURL = rootURL
         self.limits = limits
         self.fileManager = fileManager
+        self.ownerProvider = ownerProvider
         encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         decoder = JSONDecoder()
@@ -97,6 +121,7 @@ package actor CrumbReportQueue {
         envelope: CrumbSerializedReportEnvelope,
         artifacts: [CrumbQueueArtifact]
     ) throws -> CrumbQueuedReportSummary {
+        let owner = try ownerProvider()
         try validateLimits()
         try prepareRoot()
         try cleanupTemporaryDirectories()
@@ -109,6 +134,9 @@ package actor CrumbReportQueue {
 
         let destination = reportURL(envelope.reportID)
         if fileManager.fileExists(atPath: destination.path) {
+            guard ownerFingerprint(of: try readRecord(inside: destination)) == owner else {
+                throw CrumbReportQueueError.conflictingReport
+            }
             let existing = try load(reportID: envelope.reportID)
             guard existing.envelope == envelope.data,
                   artifactDataByID(existing.artifacts) == artifactDataByID(artifacts) else {
@@ -139,7 +167,7 @@ package actor CrumbReportQueue {
             }
 
             let record = StoredRecord(
-                schemaVersion: 1,
+                schemaVersion: 2,
                 reportID: envelope.reportID,
                 submittedAt: envelope.submittedAt,
                 state: .pending,
@@ -148,7 +176,8 @@ package actor CrumbReportQueue {
                 totalByteSize: totalByteSize,
                 envelopeByteSize: envelope.data.count,
                 envelopeSHA256: sha256(envelope.data),
-                artifacts: artifacts.map(StoredArtifact.init)
+                artifacts: artifacts.map(StoredArtifact.init),
+                ownerFingerprint: owner
             )
             try writeRecord(record, inside: temporary)
             try fileManager.moveItem(at: temporary, to: destination)
@@ -163,11 +192,12 @@ package actor CrumbReportQueue {
         }
     }
 
-    package func reports() throws -> [CrumbQueuedReportSummary] {
+    package func reports(ownedBy owner: String? = nil) throws -> [CrumbQueuedReportSummary] {
         try validateLimits()
         try prepareRoot()
         try cleanupTemporaryDirectories()
         return try readAllRecords()
+            .filter { owner == nil || ownerFingerprint(of: $0) == owner }
             .sorted { $0.submittedAt < $1.submittedAt }
             .map(summary)
     }
@@ -255,9 +285,15 @@ package actor CrumbReportQueue {
 
     /// Upload work interrupted by process termination becomes retryable on the next launch.
     package func recoverInterruptedUploads() throws {
+        guard let owner = try ownerProvider() else { return }
+        try recoverInterruptedUploads(ownedBy: owner)
+    }
+
+    package func recoverInterruptedUploads(ownedBy owner: String) throws {
         try prepareRoot()
         try cleanupTemporaryDirectories()
-        for record in try readAllRecords() where record.state == .uploading {
+        for record in try readAllRecords()
+            where record.state == .uploading && ownerFingerprint(of: record) == owner {
             try updateRecord(reportID: record.reportID) { value in
                 value.state = .pending
                 value.lastError = nil
@@ -365,7 +401,7 @@ package actor CrumbReportQueue {
         do {
             let data = try Data(contentsOf: directory.appendingPathComponent("record.json"))
             let record = try decoder.decode(StoredRecord.self, from: data)
-            guard record.schemaVersion == 1,
+            guard (1...2).contains(record.schemaVersion),
                   record.reportID == directory.lastPathComponent,
                   record.totalByteSize >= 0,
                   record.envelopeByteSize >= 0,
@@ -394,6 +430,15 @@ package actor CrumbReportQueue {
         } catch {
             throw CrumbReportQueueError.storageFailure
         }
+    }
+
+    private func ownerFingerprint(of record: StoredRecord) -> String? {
+        guard record.schemaVersion == 2,
+              let owner = record.ownerFingerprint,
+              owner.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+            return nil
+        }
+        return owner
     }
 
     private func updateRecord(
@@ -539,5 +584,6 @@ package actor CrumbReportQueue {
         let envelopeByteSize: Int
         let envelopeSHA256: String
         let artifacts: [StoredArtifact]
+        let ownerFingerprint: String?
     }
 }

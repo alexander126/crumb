@@ -61,10 +61,14 @@ package actor CrumbReportUploadWorker {
         var uploadedReportCount = 0
         var shouldRetry = false
         var wasCancelled = false
+        let owner = CrumbQueueOwnerFingerprint.make(
+            projectKey: settings.projectKey,
+            ingestionURL: settings.ingestionURL
+        )
 
         do {
-            try await queue.recoverInterruptedUploads()
-            let reports = try await queue.reports()
+            try await queue.recoverInterruptedUploads(ownedBy: owner)
+            let reports = try await queue.reports(ownedBy: owner)
             for report in reports {
                 do {
                     try Task.checkCancellation()
@@ -97,7 +101,7 @@ package actor CrumbReportUploadWorker {
             shouldRetry = true
         }
 
-        let remainingReports = try? await queue.reports()
+        let remainingReports = try? await queue.reports(ownedBy: owner)
         return CrumbUploadPassResult(
             uploadedReportCount: uploadedReportCount,
             remainingReportCount: remainingReports?.count ?? 1,

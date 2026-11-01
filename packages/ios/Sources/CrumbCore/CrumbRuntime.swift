@@ -146,6 +146,17 @@ final class CrumbRuntime: @unchecked Sendable {
         }
     }
 
+    func queueOwnerFingerprint() throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let configuration else { throw CrumbRuntimeError.notStarted }
+        return CrumbQueueOwnerFingerprint.make(
+            projectKey: configuration.projectKey,
+            ingestionURL: configuration.upload.ingestionURL
+        )
+    }
+
     func uploadSettings() throws -> CrumbUploadSettings? {
         lock.lock()
         defer { lock.unlock() }

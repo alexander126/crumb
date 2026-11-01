@@ -23,6 +23,45 @@ context. The handoff has independent count, record, and byte limits and is
 never used to capture native memory, Redux state, request bodies, or response
 bodies.
 
+## Ownership and delivery scope
+
+Each committed report records an opaque SHA-256 ownership fingerprint in queue
+metadata. Core derives it from the configured project write key and effective
+ingestion destination when committing the report. Neither the raw key nor the
+raw destination is stored in ownership metadata, and the fingerprint is not
+added to the report wire envelope or report-time UI settings.
+
+An uploader processes only reports whose persisted fingerprint matches its
+current transport settings. Reports owned by another configuration remain
+local and are excluded from that uploader's remaining-work and retry counts.
+They are never relabeled, deleted, or automatically migrated. Identical bytes
+under the same report ID are idempotent only when ownership also matches;
+another owner cannot overwrite or adopt the item.
+
+Changing a write key or effective destination creates a different scope. The
+SDK cannot infer that replacement credentials authorize the same project.
+Local-only reports retain their original no-destination scope; enabling upload
+later does not retrospectively authorize delivery of those earlier reports.
+Restoring an original upload-enabled configuration makes its owned reports
+eligible for delivery again.
+
+Legacy records without ownership remain readable and durable, but are not
+uploaded automatically because their original project cannot be established.
+Metadata version 2 carries ownership. A version 1 record is always treated as
+unowned, even if it contains an extra ownership-looking field. SDK versions
+that understand only metadata version 1 reject version 2 records instead of
+silently forgetting their owner. Downgrading to such a version can therefore
+block its queue operations until a version 2-capable SDK is restored; no
+downgrade migration is performed.
+
+The existing global queue limits continue to include all retained reports,
+including foreign and legacy items. Any migration or removal policy requires
+a separately defined explicit operation.
+
+This boundary applies to committed queue items. Ownership of a separate crash
+handoff before it is converted into a committed report is a distinct storage
+boundary.
+
 ## Atomic commit
 
 Each submission is first written to a uniquely named temporary directory on the
@@ -51,8 +90,9 @@ Queue items have three durable states:
 | `uploading` | A future uploader has begun an attempt. |
 | `failed` | The last upload attempt failed and may be retried. |
 
-Starting the reporter recovers any `uploading` item to `pending`, because a
-process restart makes the outcome of an interrupted attempt unknown. Attempt
+Starting the reporter recovers the current owner's `uploading` items to
+`pending`, because a process restart makes the outcome of an interrupted
+attempt unknown. Foreign and legacy/unowned items are left untouched. Attempt
 counts remain durable. Failure reasons are newline-stripped and bounded before
 storage.
 

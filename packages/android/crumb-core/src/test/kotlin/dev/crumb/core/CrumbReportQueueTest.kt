@@ -47,14 +47,15 @@ class CrumbReportQueueTest {
     @Test
     fun interruptedUploadReturnsToPendingAndFailureStatePersists() {
         val root = temporaryRoot()
+        val owner = CrumbQueueOwner.from("synthetic-write-key", "https://ingestion.example.test")
         try {
             val fixture = fixture("rpt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-            CrumbReportQueue(root).apply {
+            CrumbReportQueue(root, owner).apply {
                 enqueue(fixture.envelope, listOf(fixture.artifact!!))
                 markUploading(fixture.envelope.reportId)
             }
 
-            val restartedQueue = CrumbReportQueue(root)
+            val restartedQueue = CrumbReportQueue(root, owner)
             restartedQueue.recoverInterruptedUploads()
             var summary = restartedQueue.reports().single()
             assertEquals(CrumbQueuedReportState.PENDING, summary.state)

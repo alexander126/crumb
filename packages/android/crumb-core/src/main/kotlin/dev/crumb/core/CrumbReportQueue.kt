@@ -60,11 +60,22 @@ class CrumbReportQueue internal constructor(
     private val root: File,
     private val limits: CrumbQueueLimits = CrumbQueueLimits(),
 ) {
+    private var ownerProvider: () -> CrumbQueueOwner? = { null }
+
+    internal constructor(
+        root: File,
+        owner: CrumbQueueOwner,
+        limits: CrumbQueueLimits = CrumbQueueLimits(),
+    ) : this(root, limits) {
+        ownerProvider = { owner }
+    }
+
     @Synchronized
     fun enqueue(
         envelope: CrumbSerializedReportEnvelope,
         artifacts: List<CrumbQueueArtifact>,
     ): CrumbQueuedReportSummary {
+        val owner = ownerProvider()
         validateLimits()
         prepareRoot()
         cleanupTemporaryTransactions()
@@ -78,6 +89,9 @@ class CrumbReportQueue internal constructor(
 
         val destination = reportDirectory(envelope.reportId)
         if (destination.exists()) {
+            if (readRecord(destination).ownerFingerprint != owner?.fingerprint) {
+                throw CrumbReportQueueException.ConflictingReport()
+            }
             val existing = load(envelope.reportId)
             if (!existing.envelope.contentEquals(envelopeBytes) ||
                 !sameArtifactBytes(existing.artifacts, artifacts)
@@ -115,6 +129,8 @@ class CrumbReportQueue internal constructor(
                 envelopeByteSize = envelopeBytes.size.toLong(),
                 envelopeSha256 = sha256(envelopeBytes),
                 artifacts = artifacts.map(::StoredArtifact),
+                schemaVersion = 2,
+                ownerFingerprint = owner?.fingerprint,
             )
             writeRecord(temporary, record)
             atomicMove(temporary, destination)
@@ -134,6 +150,17 @@ class CrumbReportQueue internal constructor(
         prepareRoot()
         cleanupTemporaryTransactions()
         return readAllRecords()
+            .sortedBy(StoredRecord::submittedAtMillis)
+            .map(StoredRecord::summary)
+    }
+
+    @Synchronized
+    internal fun ownedReports(owner: CrumbQueueOwner): List<CrumbQueuedReportSummary> {
+        validateLimits()
+        prepareRoot()
+        cleanupTemporaryTransactions()
+        return readAllRecords()
+            .filter { it.ownerFingerprint == owner.fingerprint }
             .sortedBy(StoredRecord::submittedAtMillis)
             .map(StoredRecord::summary)
     }
@@ -202,10 +229,16 @@ class CrumbReportQueue internal constructor(
     /** Upload work interrupted by process termination becomes retryable on the next launch. */
     @Synchronized
     fun recoverInterruptedUploads() {
+        val owner = ownerProvider() ?: return
+        recoverInterruptedUploads(owner)
+    }
+
+    @Synchronized
+    internal fun recoverInterruptedUploads(owner: CrumbQueueOwner) {
         prepareRoot()
         cleanupTemporaryTransactions()
         readAllRecords()
-            .filter { it.state == CrumbQueuedReportState.UPLOADING }
+            .filter { it.ownerFingerprint == owner.fingerprint && it.state == CrumbQueuedReportState.UPLOADING }
             .forEach { record ->
                 updateRecord(record.reportId) { it.copy(state = CrumbQueuedReportState.PENDING, lastError = null) }
             }
@@ -293,6 +326,7 @@ class CrumbReportQueue internal constructor(
             val properties = Properties().apply {
                 FileInputStream(File(directory, RECORD_FILE)).use(::load)
             }
+            val schemaVersion = properties.requiredInt("schema_version")
             val artifactCount = properties.requiredInt("artifact_count")
             val artifacts = (0 until artifactCount).map { index ->
                 val prefix = "artifact.$index."
@@ -317,9 +351,13 @@ class CrumbReportQueue internal constructor(
                 envelopeByteSize = properties.requiredLong("envelope_byte_size"),
                 envelopeSha256 = properties.required("envelope_sha256"),
                 artifacts = artifacts,
+                schemaVersion = schemaVersion,
+                ownerFingerprint = if (schemaVersion == 2) {
+                    properties.getProperty("owner_fingerprint")?.takeIf { it.matches(OWNER_FINGERPRINT_PATTERN) }
+                } else null,
             )
             if (
-                properties.requiredInt("schema_version") != 1 ||
+                schemaVersion !in 1..2 ||
                 record.reportId != directory.name || record.attemptCount < 0 ||
                 record.totalByteSize < 0 || record.envelopeByteSize < 0 ||
                 artifacts.any {
@@ -338,7 +376,8 @@ class CrumbReportQueue internal constructor(
 
     private fun writeRecord(directory: File, record: StoredRecord) {
         val properties = Properties().apply {
-            setProperty("schema_version", "1")
+            setProperty("schema_version", record.schemaVersion.toString())
+            record.ownerFingerprint?.let { setProperty("owner_fingerprint", it) }
             setProperty("report_id", record.reportId)
             setProperty("submitted_at_millis", record.submittedAtMillis.toString())
             setProperty("state", record.state.name)
@@ -463,10 +502,13 @@ class CrumbReportQueue internal constructor(
         @JvmField val envelopeByteSize: Long,
         @JvmField val envelopeSha256: String,
         @JvmField val artifacts: List<StoredArtifact>,
+        @JvmField val schemaVersion: Int,
+        @JvmField val ownerFingerprint: String?,
     ) {
         fun copy(state: CrumbQueuedReportState = this.state, attemptCount: Int = this.attemptCount,
                  lastError: String? = this.lastError) = StoredRecord(reportId, submittedAtMillis, state,
-            attemptCount, lastError, totalByteSize, envelopeByteSize, envelopeSha256, artifacts)
+            attemptCount, lastError, totalByteSize, envelopeByteSize, envelopeSha256, artifacts,
+            schemaVersion, ownerFingerprint)
 
         fun summary() = CrumbQueuedReportSummary(
             reportId = reportId,
@@ -519,15 +561,20 @@ class CrumbReportQueue internal constructor(
         private const val DELETE_PREFIX = ".delete-"
         private const val RECORD_TEMPORARY_PREFIX = ".record.tmp-"
         private val ARTIFACT_ID_PATTERN = Regex("\"id\":\"(art_[A-Za-z0-9_-]{12,80})\"")
+        private val OWNER_FINGERPRINT_PATTERN = Regex("^[a-f0-9]{64}$")
 
         @Volatile
         private var shared: CrumbReportQueue? = null
+
+        internal fun configured(root: File): CrumbReportQueue = CrumbReportQueue(root).also { queue ->
+            queue.ownerProvider = { Crumb.queueOwner() }
+        }
 
         @JvmSynthetic
         fun from(context: Context): CrumbReportQueue {
             shared?.let { return it }
             return synchronized(this) {
-                shared ?: CrumbReportQueue(
+                shared ?: configured(
                     File(File(context.noBackupFilesDir, "dev.crumb"), "reports"),
                 ).also { shared = it }
             }
