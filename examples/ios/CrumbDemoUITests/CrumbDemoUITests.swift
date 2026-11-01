@@ -22,6 +22,83 @@ final class CrumbDemoUITests: XCTestCase {
     }
 
     @MainActor
+    func testBackdropDismissalAllowsAnotherReport() {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["demo.report-problem"].tap()
+        let reporter = app.staticTexts["crumb.reporter-title"]
+        XCTAssertTrue(reporter.waitForExistence(timeout: 5))
+        attachScreenshot(named: "ios-sheet-backdrop", app: app)
+        app.descendants(matching: .any)["crumb.reporter-backdrop"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["demo.report-problem"].waitForExistence(timeout: 3))
+        XCTAssertFalse(reporter.exists)
+        app.buttons["demo.report-problem"].tap()
+        XCTAssertTrue(reporter.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testBackdropDismissalKeepsDraftUntilDiscardIsConfirmed() {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["demo.report-problem"].tap()
+        let description = app.textViews["crumb.description"]
+        XCTAssertTrue(description.waitForExistence(timeout: 5))
+        description.tap()
+        description.typeText("Synthetic draft to keep\n")
+        let backdrop = app.descendants(matching: .any)["crumb.reporter-backdrop"].firstMatch
+        backdrop.tap()
+        let alert = app.alerts["Discard this report?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        attachScreenshot(named: "ios-backdrop-protects-draft", app: app)
+        alert.buttons["Keep editing"].tap()
+        XCTAssertEqual(description.value as? String, "Synthetic draft to keep")
+        backdrop.tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        alert.buttons["Discard report"].tap()
+        XCTAssertTrue(app.buttons["demo.report-problem"].waitForExistence(timeout: 3))
+        XCTAssertFalse(description.exists)
+    }
+
+    @MainActor
+    func testSlowSheetDragDismissesAndAllowsAnotherReport() {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["demo.report-problem"].tap()
+        let reporter = app.staticTexts["crumb.reporter-title"]
+        XCTAssertTrue(reporter.waitForExistence(timeout: 5))
+        let grabber = app.buttons["crumb.reporter-grabber"]
+        let destination = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: grabber.frame.midX,
+            dy: min(app.frame.maxY - 30, grabber.frame.midY + 240)
+        ))
+        grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(app.buttons["demo.report-problem"].waitForExistence(timeout: 3))
+        XCTAssertFalse(reporter.exists)
+        attachScreenshot(named: "ios-sheet-drag-dismissed", app: app)
+        app.buttons["demo.report-problem"].tap()
+        XCTAssertTrue(reporter.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testShortSheetDragReturnsToItsRestingPosition() {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["demo.report-problem"].tap()
+        let reporter = app.staticTexts["crumb.reporter-title"]
+        XCTAssertTrue(reporter.waitForExistence(timeout: 5))
+        let originalY = settledFrame(of: reporter).minY
+        let grabber = app.buttons["crumb.reporter-grabber"]
+        let destination = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: grabber.frame.midX, dy: grabber.frame.midY + 30
+        ))
+        grabber.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.4)
+        XCTAssertTrue(reporter.exists)
+        XCTAssertEqual(settledFrame(of: reporter).minY, originalY, accuracy: 2)
+    }
+
+    @MainActor
     func testReportSurvivesRotationAndBackgrounding() {
         let app = XCUIApplication()
         app.launch()

@@ -213,12 +213,18 @@ object CrumbReporter {
         if (session.dialog?.isShowing == true) return
         CrumbDesign.applyAppearance(activity, session.settings.reporter.theme)
 
-        val dialog = Dialog(activity)
+        val dialog = object : Dialog(activity) {
+            override fun cancel() {
+                if (session.isSaving) return
+                if (session.screen == ReporterScreen.PROMPT) finishSession(session)
+                else requestFinish(activity, session)
+            }
+        }
         session.dialog = dialog
         session.hostActivity = WeakReference(activity)
         dialog.setOwnerActivity(activity)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setCanceledOnTouchOutside(false)
+        dialog.setCanceledOnTouchOutside(true)
         dialog.setContentView(
             when (session.screen) {
                 ReporterScreen.PROMPT -> buildShakePrompt(activity, dialog, session)
@@ -247,7 +253,7 @@ object CrumbReporter {
             true
         }
         dialog.show()
-        dialog.setCanceledOnTouchOutside(session.screen == ReporterScreen.PROMPT)
+        dialog.setCanceledOnTouchOutside(true)
         dialog.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             navigationBarColor = CrumbDesign.CANVAS
@@ -332,7 +338,7 @@ object CrumbReporter {
                     isFocusable = true
                     tag = "crumb.shake-report"
                     setOnClickListener {
-                        dialog.setCanceledOnTouchOutside(false)
+                        dialog.setCanceledOnTouchOutside(true)
                         showReporter(activity, dialog, session)
                         startDiagnostics(session, activity.applicationContext)
                     }
@@ -554,7 +560,7 @@ object CrumbReporter {
                 android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED,
             )
         }
-        return ScrollView(activity).apply {
+        return draggableReporter(activity, session).apply {
             isFillViewport = true
             addView(content)
         }
@@ -590,11 +596,12 @@ object CrumbReporter {
     private fun showReporter(activity: Activity, dialog: Dialog, session: ReporterSession) {
         clearBindings(session)
         session.screen = ReporterScreen.FORM
-        dialog.setCanceledOnTouchOutside(false)
+        dialog.setCanceledOnTouchOutside(true)
         dialog.setContentView(buildReporter(activity, dialog, session))
     }
 
     private fun requestFinish(activity: Activity, session: ReporterSession) {
+        if (session.isSaving || session.discardConfirmation?.isShowing == true) return
         val hasMeaningfulInput = (
             session.settings.reporter.visibleFields.contains(dev.crumb.core.CrumbReporterField.CATEGORY) &&
                 session.categoryIndex != 0
@@ -604,13 +611,24 @@ object CrumbReporter {
             return
         }
 
-        AlertDialog.Builder(activity)
+        val confirmation = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.crumb_discard_title))
             .setMessage(activity.getString(R.string.crumb_discard_message))
             .setNegativeButton(activity.getString(R.string.crumb_keep_editing), null)
             .setPositiveButton(activity.getString(R.string.crumb_discard_report)) { _, _ -> finishSession(session) }
-            .show()
+            .create()
+        session.discardConfirmation = confirmation
+        confirmation.setOnDismissListener {
+            if (session.discardConfirmation === confirmation) session.discardConfirmation = null
+        }
+        confirmation.show()
     }
+
+    private fun draggableReporter(activity: Activity, session: ReporterSession) = CrumbDraggableScrollView(
+        activity,
+        canDismiss = { !session.isSaving && session.discardConfirmation?.isShowing != true },
+        onDismissRequested = { requestFinish(activity, session) },
+    )
 
     private fun buildEnvelope(
         session: ReporterSession,
@@ -891,7 +909,7 @@ object CrumbReporter {
             gravity = Gravity.CENTER
             textAlignment = View.TEXT_ALIGNMENT_CENTER
         }, matchWrap().withMargins(activity, top = 8))
-        return ScrollView(activity).apply {
+        return draggableReporter(activity, session).apply {
             isFillViewport = true
             addView(content)
         }
@@ -1079,7 +1097,15 @@ object CrumbReporter {
         session.actionHelperLabel?.visibility = if (isReady) View.GONE else View.VISIBLE
     }
 
+    private fun clearDiscardConfirmation(session: ReporterSession) {
+        val confirmation = session.discardConfirmation
+        session.discardConfirmation = null
+        confirmation?.setOnDismissListener(null)
+        confirmation?.dismiss()
+    }
+
     private fun detachForRecreation(session: ReporterSession) {
+        clearDiscardConfirmation(session)
         val dialog = session.dialog
         session.dialog = null
         session.hostActivity = WeakReference(null)
@@ -1091,6 +1117,7 @@ object CrumbReporter {
     private fun finishSession(session: ReporterSession) {
         if (session.finished) return
         session.finished = true
+        clearDiscardConfirmation(session)
         if (activeSession === session) activeSession = null
         val dialog = session.dialog
         session.dialog = null
@@ -1364,6 +1391,7 @@ object CrumbReporter {
             !settings.evidence.contains(dev.crumb.core.CrumbEvidenceCategory.SCREENSHOT)
         var formReadyRecorded = false
         var isSaving = false
+        var discardConfirmation: AlertDialog? = null
         var finished = false
     }
 }
