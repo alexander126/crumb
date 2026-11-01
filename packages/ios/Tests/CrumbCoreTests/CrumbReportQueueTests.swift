@@ -48,11 +48,12 @@ struct CrumbReportQueueTests {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let fixture = try makeFixture(reportID: "rpt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-        let queue = CrumbReportQueue(rootURL: root)
+        let owner = String(repeating: "a", count: 64)
+        let queue = CrumbReportQueue(rootURL: root, ownerFingerprint: owner)
         try await queue.enqueue(envelope: fixture.envelope, artifacts: [fixture.artifact])
         try await queue.markUploading(reportID: fixture.envelope.reportID)
 
-        let restartedQueue = CrumbReportQueue(rootURL: root)
+        let restartedQueue = CrumbReportQueue(rootURL: root, ownerFingerprint: owner)
         try await restartedQueue.recoverInterruptedUploads()
         var summary = try #require(try await restartedQueue.reports().first)
         #expect(summary.state == .pending)
@@ -107,6 +108,73 @@ struct CrumbReportQueueTests {
         #expect(try await queue.reports().isEmpty)
         #expect(!FileManager.default.fileExists(atPath: orphan.path))
         #expect(!FileManager.default.fileExists(atPath: tombstone.path))
+    }
+
+    @Test(arguments: [false, true])
+    func anotherOwnerCannotAdoptIdenticalCommittedBytes(originallyUnowned: Bool) async throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fixture = try makeFixture(reportID: "rpt_OwnershipAAAAAAAAAAAAAAAAAAAAAAA")
+        let original = CrumbReportQueue(
+            rootURL: root,
+            ownerFingerprint: originallyUnowned ? nil : String(repeating: "a", count: 64)
+        )
+        let first = try await original.enqueue(envelope: fixture.envelope, artifacts: [fixture.artifact])
+        #expect(try await original.enqueue(envelope: fixture.envelope, artifacts: [fixture.artifact]) == first)
+        let before = try await original.load(reportID: fixture.envelope.reportID)
+        let recordURL = root.appendingPathComponent(fixture.envelope.reportID).appendingPathComponent("record.json")
+        let beforeRecord = try Data(contentsOf: recordURL)
+        let other = CrumbReportQueue(rootURL: root, ownerFingerprint: String(repeating: "b", count: 64))
+
+        await #expect(throws: CrumbReportQueueError.conflictingReport) {
+            try await other.enqueue(envelope: fixture.envelope, artifacts: [fixture.artifact])
+        }
+
+        #expect(try await original.load(reportID: fixture.envelope.reportID) == before)
+        #expect(try Data(contentsOf: recordURL) == beforeRecord)
+    }
+
+    @Test
+    func foreignReportsStillConsumeTheGlobalQueueBudget() async throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let limits = CrumbQueueLimits(maximumReports: 1)
+        let original = CrumbReportQueue(
+            rootURL: root, limits: limits, ownerFingerprint: String(repeating: "a", count: 64)
+        )
+        let fixture = try makeFixture(reportID: "rpt_OriginalAAAAAAAAAAAAAAAAAAAAAAAA")
+        try await original.enqueue(envelope: fixture.envelope, artifacts: [fixture.artifact])
+        let replacement = CrumbReportQueue(
+            rootURL: root, limits: limits, ownerFingerprint: String(repeating: "b", count: 64)
+        )
+        let incoming = try makeFixture(reportID: "rpt_IncomingAAAAAAAAAAAAAAAAAAAAAAAA")
+
+        await #expect(throws: CrumbReportQueueError.queueFull) {
+            try await replacement.enqueue(envelope: incoming.envelope, artifacts: [incoming.artifact])
+        }
+        #expect(try await original.reports().count == 1)
+    }
+
+    @Test
+    func metadataStoresOnlyTheOpaqueOwnerAndDoesNotChangeTheEnvelope() async throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fixture = try makeFixture(reportID: "rpt_MetadataAAAAAAAAAAAAAAAAAAAAAAAA")
+        let key = "synthetic_private_write_key"
+        let destination = try #require(URL(string: "https://synthetic-destination.example.invalid/base"))
+        let owner = CrumbQueueOwnerFingerprint.make(projectKey: key, ingestionURL: destination)
+        let queue = CrumbReportQueue(rootURL: root, ownerFingerprint: owner)
+        try await queue.enqueue(envelope: fixture.envelope, artifacts: [fixture.artifact])
+        let recordURL = root.appendingPathComponent(fixture.envelope.reportID).appendingPathComponent("record.json")
+        let data = try Data(contentsOf: recordURL)
+        let metadata = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(metadata["schemaVersion"] as? Int == 2)
+        #expect(metadata["ownerFingerprint"] as? String == owner)
+        #expect(!String(decoding: data, as: UTF8.self).contains(key))
+        #expect(!String(decoding: data, as: UTF8.self).contains(destination.absoluteString))
+        #expect(try await queue.load(reportID: fixture.envelope.reportID).envelope == fixture.envelope.data)
+        #expect(!fixture.envelope.json.contains(owner))
     }
 
     private func temporaryRoot() -> URL {

@@ -5,6 +5,49 @@ import Testing
 @Suite(.serialized)
 struct CrumbCoreTests {
     @Test
+    func productionQueueCreatedBeforeStartBindsEachCommitToValidatedConfiguration() async throws {
+        Crumb.resetForTesting()
+        defer { Crumb.resetForTesting() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("crumb-configured-queue-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let earlyQueue = CrumbReportQueue.configured(rootURL: root)
+        let envelope = CrumbSerializedReportEnvelope(
+            reportID: "rpt_PreStartAAAAAAAAAAAAAAAAAAAAAAAA",
+            submittedAt: Date(),
+            data: Data()
+        )
+        await #expect(throws: CrumbRuntimeError.notStarted) {
+            try await earlyQueue.enqueue(envelope: envelope, artifacts: [])
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.path))
+        let localConfiguration = makeConfiguration()
+        try Crumb.start(localConfiguration)
+        let localOwner = try CrumbRuntime.shared.queueOwnerFingerprint()
+        #expect(localOwner == CrumbQueueOwnerFingerprint.make(
+            projectKey: localConfiguration.projectKey, ingestionURL: nil
+        ))
+        let built = try Crumb.buildReport(makeReportInput())
+        var document = try #require(JSONSerialization.jsonObject(with: built.data) as? [String: Any])
+        document["artifacts"] = []
+        let artifactFreeEnvelope = CrumbSerializedReportEnvelope(
+            reportID: built.reportID, submittedAt: built.submittedAt,
+            data: try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys])
+        )
+        try await earlyQueue.enqueue(envelope: artifactFreeEnvelope, artifacts: [])
+        try await earlyQueue.markUploading(reportID: built.reportID)
+        let recordURL = root.appendingPathComponent(built.reportID).appendingPathComponent("record.json")
+        let beforeRecord = try Data(contentsOf: recordURL)
+        let metadata = try #require(JSONSerialization.jsonObject(with: beforeRecord) as? [String: Any])
+        #expect(metadata["ownerFingerprint"] as? String == localOwner)
+        Crumb.resetForTesting()
+        let destination = try #require(URL(string: "https://synthetic-destination.example.invalid"))
+        try Crumb.start(makeConfiguration(upload: CrumbUploadOptions(ingestionURL: destination)))
+        #expect(try CrumbRuntime.shared.queueOwnerFingerprint() != localOwner)
+        try await earlyQueue.recoverInterruptedUploads()
+        #expect(try Data(contentsOf: recordURL) == beforeRecord)
+    }
+
+    @Test
     func screenIsFrozenBeforeCaptureAndSurvivesRestart() throws {
         Crumb.resetForTesting()
         defer { Crumb.resetForTesting() }

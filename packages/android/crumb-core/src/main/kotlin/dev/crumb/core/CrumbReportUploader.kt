@@ -43,6 +43,7 @@ class CrumbReportUploadWorker internal constructor(
     private val transport: CrumbUploadTransport,
 ) {
     private val cancelled = AtomicBoolean(false)
+    private val owner = CrumbQueueOwnerFingerprint.from(settings.projectKey, settings.ingestionUrl)
 
     @JvmSynthetic
     fun prepareForPass() {
@@ -62,8 +63,8 @@ class CrumbReportUploadWorker internal constructor(
         var wasCancelled = false
 
         try {
-            queue.recoverInterruptedUploads()
-            for (report in queue.reports()) {
+            queue.recoverInterruptedUploads(owner)
+            for (report in queue.ownedReports(owner)) {
                 try {
                     checkCancellation()
                     queue.markUploading(report.reportId)
@@ -92,7 +93,7 @@ class CrumbReportUploadWorker internal constructor(
             shouldRetry = true
         }
 
-        val remainingReportCount = runCatching { queue.reports().size }.getOrDefault(1)
+        val remainingReportCount = runCatching { queue.ownedReports(owner).size }.getOrDefault(1)
         return CrumbUploadPassResult(
             uploadedReportCount = uploadedReportCount,
             remainingReportCount = remainingReportCount,
