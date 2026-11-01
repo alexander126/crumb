@@ -86,7 +86,7 @@ class CrumbReportUploaderTest {
     private fun withTemporaryQueue(block: (CrumbReportQueue) -> Unit) {
         val root = Files.createTempDirectory("crumb-uploader-tests").toFile()
         try {
-            block(CrumbReportQueue(root, CrumbQueueOwner.from("write_test_key", "https://ingestion.example.test")))
+            block(CrumbReportQueue(root, CrumbQueueOwnerFingerprint.from("write_test_key", "https://ingestion.example.test")))
         } finally {
             root.deleteRecursively()
         }

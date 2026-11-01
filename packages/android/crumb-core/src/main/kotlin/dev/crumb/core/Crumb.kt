@@ -395,9 +395,9 @@ object Crumb {
     }
 
     /** Ownership is resolved only inside Core, including when upload is disabled. */
-    internal fun queueOwner(): CrumbQueueOwner = synchronized(lock) {
+    internal fun queueOwner(): String = synchronized(lock) {
         val activeConfiguration = configuration ?: error("Crumb.start must be called first")
-        CrumbQueueOwner.from(activeConfiguration.projectKey, activeConfiguration.upload.ingestionUrl)
+        CrumbQueueOwnerFingerprint.from(activeConfiguration.projectKey, activeConfiguration.upload.ingestionUrl)
     }
 
     /** Internal transport settings; the project write key never enters report UI or envelopes. */

@@ -43,7 +43,7 @@ class CrumbReportUploadWorker internal constructor(
     private val transport: CrumbUploadTransport,
 ) {
     private val cancelled = AtomicBoolean(false)
-    private val owner = CrumbQueueOwner.from(settings.projectKey, settings.ingestionUrl)
+    private val owner = CrumbQueueOwnerFingerprint.from(settings.projectKey, settings.ingestionUrl)
 
     @JvmSynthetic
     fun prepareForPass() {

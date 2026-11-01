@@ -55,12 +55,12 @@ class CrumbReportQueueOwnershipTest {
     fun matchingOwnerSurvivesRestartAndUploadsArtifactThroughTheNormalLifecycle() {
         val root = Files.createTempDirectory("crumb-owner-matching").toFile()
         try {
-            val owner = CrumbQueueOwner.from(originalKey, originalDestination)
+            val owner = CrumbQueueOwnerFingerprint.from(originalKey, originalDestination)
             val fixture = fixture("rpt_MatchingAAAAAAAAAAAAAAAAAAAAAAAA")
             CrumbReportQueue(root, owner).apply {
                 enqueue(fixture.envelope, fixture.artifacts)
                 markUploading(fixture.envelope.reportId)
-                assertEquals(owner.fingerprint, metadata(root, fixture.envelope.reportId).getProperty("owner_fingerprint"))
+                assertEquals(owner, metadata(root, fixture.envelope.reportId).getProperty("owner_fingerprint"))
             }
             val restarted = CrumbReportQueue(root, owner)
             val transport = AcceptingTransport()
@@ -86,7 +86,7 @@ class CrumbReportQueueOwnershipTest {
     fun foreignKeyOrDestinationDoesNotChangeAnyQueuedBytesOrStates() {
         val root = Files.createTempDirectory("crumb-owner-foreign").toFile()
         try {
-            val owner = CrumbQueueOwner.from(originalKey, originalDestination)
+            val owner = CrumbQueueOwnerFingerprint.from(originalKey, originalDestination)
             val queue = CrumbReportQueue(root, owner)
             val uploading = fixture("rpt_ForeignUploadingAAAAAAAAAAAAAAAA")
             val failed = fixture("rpt_ForeignFailedAAAAAAAAAAAAAAAAAAA")
@@ -105,7 +105,7 @@ class CrumbReportQueueOwnershipTest {
             )
 
             replacements.forEach { settings ->
-                val restarted = CrumbReportQueue(root, CrumbQueueOwner.from(settings.projectKey, settings.ingestionUrl))
+                val restarted = CrumbReportQueue(root, CrumbQueueOwnerFingerprint.from(settings.projectKey, settings.ingestionUrl))
                 restarted.recoverInterruptedUploads()
                 val transport = AcceptingTransport()
                 val result = CrumbReportUploadWorker(restarted, settings, transport).runPass()
@@ -127,7 +127,7 @@ class CrumbReportQueueOwnershipTest {
         val root = Files.createTempDirectory("crumb-owner-local").toFile()
         try {
             val fixture = fixture("rpt_LocalOnlyAAAAAAAAAAAAAAAAAAAAAAA")
-            val local = CrumbReportQueue(root, CrumbQueueOwner.from(originalKey, null))
+            val local = CrumbReportQueue(root, CrumbQueueOwnerFingerprint.from(originalKey, null))
             local.enqueue(fixture.envelope, fixture.artifacts)
             val before = snapshot(root)
             val transport = AcceptingTransport()
@@ -151,7 +151,7 @@ class CrumbReportQueueOwnershipTest {
     fun metadataContainsOnlyTheFingerprintAndOwnerChangesCannotReuseAReportId() {
         val root = Files.createTempDirectory("crumb-owner-metadata").toFile()
         try {
-            val owner = CrumbQueueOwner.from(originalKey, originalDestination)
+            val owner = CrumbQueueOwnerFingerprint.from(originalKey, originalDestination)
             val original = CrumbReportQueue(root, owner)
             val fixture = fixture("rpt_IdempotentAAAAAAAAAAAAAAAAAAAAAA")
             val first = original.enqueue(fixture.envelope, fixture.artifacts)
@@ -160,13 +160,13 @@ class CrumbReportQueueOwnershipTest {
             assertEquals(first, restarted.enqueue(fixture.envelope, fixture.artifacts))
             val stored = metadata(root, fixture.envelope.reportId)
             assertEquals("2", stored.getProperty("schema_version"))
-            assertEquals(owner.fingerprint, stored.getProperty("owner_fingerprint"))
+            assertEquals(owner, stored.getProperty("owner_fingerprint"))
             val metadataText = File(File(root, fixture.envelope.reportId), "record.properties").readText()
             assertFalse(metadataText.contains(originalKey))
             assertFalse(metadataText.contains("original.example.test"))
             assertFalse(fixture.envelope.json.contains(originalKey))
             assertFalse(fixture.envelope.json.contains("original.example.test"))
-            val foreign = CrumbReportQueue(root, CrumbQueueOwner.from("synthetic-rotated-key", originalDestination))
+            val foreign = CrumbReportQueue(root, CrumbQueueOwnerFingerprint.from("synthetic-rotated-key", originalDestination))
 
             assertThrows(CrumbReportQueueException.ConflictingReport::class.java) {
                 foreign.enqueue(fixture.envelope, fixture.artifacts)
@@ -182,13 +182,13 @@ class CrumbReportQueueOwnershipTest {
         val root = Files.createTempDirectory("crumb-owner-budget").toFile()
         try {
             val limits = CrumbQueueLimits(maximumReports = 1)
-            val original = CrumbReportQueue(root, CrumbQueueOwner.from(originalKey, originalDestination), limits)
+            val original = CrumbReportQueue(root, CrumbQueueOwnerFingerprint.from(originalKey, originalDestination), limits)
             val existing = fixture("rpt_BudgetExistingAAAAAAAAAAAAAAAAAA")
             original.enqueue(existing.envelope, existing.artifacts)
             val before = snapshot(root)
             val replacement = CrumbReportQueue(
                 root,
-                CrumbQueueOwner.from("synthetic-rotated-key", originalDestination),
+                CrumbQueueOwnerFingerprint.from("synthetic-rotated-key", originalDestination),
                 limits,
             )
             val next = fixture("rpt_BudgetNewAAAAAAAAAAAAAAAAAAAAAAA")
@@ -213,7 +213,7 @@ class CrumbReportQueueOwnershipTest {
             queue.enqueue(envelope(unknownId), emptyList())
             val stored = metadata(root, legacyId)
             stored.setProperty("schema_version", "1")
-            stored.setProperty("owner_fingerprint", CrumbQueueOwner.from(originalKey, originalDestination).fingerprint)
+            stored.setProperty("owner_fingerprint", CrumbQueueOwnerFingerprint.from(originalKey, originalDestination))
             File(File(root, legacyId), "record.properties").outputStream().use { stored.store(it, null) }
             val before = snapshot(root)
             val transport = AcceptingTransport()
@@ -236,35 +236,35 @@ class CrumbReportQueueOwnershipTest {
 
     @Test
     fun fingerprintsNormalizeOnlyEquivalentDestinationComponents() {
-        val owner = CrumbQueueOwner.from(originalKey, originalDestination)
-        assertEquals(owner, CrumbQueueOwner.from(originalKey, "HTTPS://ORIGINAL.EXAMPLE.TEST:443/base///"))
+        val owner = CrumbQueueOwnerFingerprint.from(originalKey, originalDestination)
+        assertEquals(owner, CrumbQueueOwnerFingerprint.from(originalKey, "HTTPS://ORIGINAL.EXAMPLE.TEST:443/base///"))
         assertEquals(
-            CrumbQueueOwner.from(originalKey, "https://original.example.test"),
-            CrumbQueueOwner.from(originalKey, "https://original.example.test:443///"),
+            CrumbQueueOwnerFingerprint.from(originalKey, "https://original.example.test"),
+            CrumbQueueOwnerFingerprint.from(originalKey, "https://original.example.test:443///"),
         )
-        assertNotEquals(owner, CrumbQueueOwner.from("synthetic-rotated-key", originalDestination))
-        assertNotEquals(owner, CrumbQueueOwner.from(originalKey, "https://original.example.test/Base"))
-        assertNotEquals(owner, CrumbQueueOwner.from(originalKey, null))
+        assertNotEquals(owner, CrumbQueueOwnerFingerprint.from("synthetic-rotated-key", originalDestination))
+        assertNotEquals(owner, CrumbQueueOwnerFingerprint.from(originalKey, "https://original.example.test/Base"))
+        assertNotEquals(owner, CrumbQueueOwnerFingerprint.from(originalKey, null))
         assertNotEquals(
-            CrumbQueueOwner.from(originalKey, "https://original.example.test/a%2Fb"),
-            CrumbQueueOwner.from(originalKey, "https://original.example.test/a/b"),
+            CrumbQueueOwnerFingerprint.from(originalKey, "https://original.example.test/a%2Fb"),
+            CrumbQueueOwnerFingerprint.from(originalKey, "https://original.example.test/a/b"),
         )
-        assertTrue(owner.fingerprint.matches(Regex("^[a-f0-9]{64}$")))
+        assertTrue(owner.matches(Regex("^[a-f0-9]{64}$")))
     }
 
     @Test
     fun fingerprintsMatchTheFramedUtf8CrossPlatformVectors() {
         assertEquals(
             "82ceb1c04d3054205b81c7ba7e5e73811d182b2e5793e5bac5afda3590802629",
-            CrumbQueueOwner.from("synthetic_write_key", "https://ingestion.example.invalid/base").fingerprint,
+            CrumbQueueOwnerFingerprint.from("synthetic_write_key", "https://ingestion.example.invalid/base"),
         )
         assertEquals(
             "c53bbbd95a08bd9a3e752264e981be5e9bd1c03e404b81841a89aa6e4a10fec9",
-            CrumbQueueOwner.from("synthetic_key_☃", "https://ingestion.example.invalid/base").fingerprint,
+            CrumbQueueOwnerFingerprint.from("synthetic_key_☃", "https://ingestion.example.invalid/base"),
         )
         assertEquals(
             "7ce7a235c1c39847d6b35e91ba5f90846ee4b4ef5ae4c59c488adbf876ff21b9",
-            CrumbQueueOwner.from("synthetic_write_key", null).fingerprint,
+            CrumbQueueOwnerFingerprint.from("synthetic_write_key", null),
         )
     }
 
@@ -289,7 +289,7 @@ class CrumbReportQueueOwnershipTest {
             queue.enqueue(original.envelope, original.artifacts)
             queue.markUploading(original.envelope.reportId)
             assertEquals(
-                CrumbQueueOwner.from(originalKey, originalDestination).fingerprint,
+                CrumbQueueOwnerFingerprint.from(originalKey, originalDestination),
                 metadata(root, original.envelope.reportId).getProperty("owner_fingerprint"),
             )
             val originalBytes = snapshot(root)

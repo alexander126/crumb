@@ -60,22 +60,25 @@ class CrumbReportQueue internal constructor(
     private val root: File,
     private val limits: CrumbQueueLimits = CrumbQueueLimits(),
 ) {
-    private var ownerProvider: () -> CrumbQueueOwner? = { null }
+    private var fixedOwner: String? = null
+    private var usesConfiguredOwner = false
 
     internal constructor(
         root: File,
-        owner: CrumbQueueOwner,
+        owner: String,
         limits: CrumbQueueLimits = CrumbQueueLimits(),
     ) : this(root, limits) {
-        ownerProvider = { owner }
+        fixedOwner = owner
     }
+
+    private fun resolveOwner(): String? = if (usesConfiguredOwner) Crumb.queueOwner() else fixedOwner
 
     @Synchronized
     fun enqueue(
         envelope: CrumbSerializedReportEnvelope,
         artifacts: List<CrumbQueueArtifact>,
     ): CrumbQueuedReportSummary {
-        val owner = ownerProvider()
+        val owner = resolveOwner()
         validateLimits()
         prepareRoot()
         cleanupTemporaryTransactions()
@@ -89,7 +92,7 @@ class CrumbReportQueue internal constructor(
 
         val destination = reportDirectory(envelope.reportId)
         if (destination.exists()) {
-            if (readRecord(destination).ownerFingerprint != owner?.fingerprint) {
+            if (readRecord(destination).ownerFingerprint != owner) {
                 throw CrumbReportQueueException.ConflictingReport()
             }
             val existing = load(envelope.reportId)
@@ -116,8 +119,10 @@ class CrumbReportQueue internal constructor(
             if (artifacts.isNotEmpty()) createDirectory(artifactDirectory)
 
             writeDurably(File(temporary, ENVELOPE_FILE), envelopeBytes)
-            artifacts.forEach { artifact ->
+            val manifests = ArrayList<CrumbArtifactManifest>(artifacts.size)
+            for (artifact in artifacts) {
                 writeDurably(File(artifactDirectory, fileName(artifact.manifest.id)), artifact.bytes)
+                manifests.add(artifact.manifest)
             }
             val record = StoredRecord(
                 reportId = envelope.reportId,
@@ -128,9 +133,9 @@ class CrumbReportQueue internal constructor(
                 totalByteSize = totalByteSize,
                 envelopeByteSize = envelopeBytes.size.toLong(),
                 envelopeSha256 = sha256(envelopeBytes),
-                artifacts = artifacts.map(::StoredArtifact),
+                artifacts = manifests,
                 schemaVersion = 2,
-                ownerFingerprint = owner?.fingerprint,
+                ownerFingerprint = owner,
             )
             writeRecord(temporary, record)
             atomicMove(temporary, destination)
@@ -145,24 +150,25 @@ class CrumbReportQueue internal constructor(
     }
 
     @Synchronized
-    fun reports(): List<CrumbQueuedReportSummary> {
-        validateLimits()
-        prepareRoot()
-        cleanupTemporaryTransactions()
-        return readAllRecords()
-            .sortedBy(StoredRecord::submittedAtMillis)
-            .map(StoredRecord::summary)
-    }
+    fun reports(): List<CrumbQueuedReportSummary> = reportSummaries(null)
 
     @Synchronized
-    internal fun ownedReports(owner: CrumbQueueOwner): List<CrumbQueuedReportSummary> {
+    internal fun ownedReports(owner: String): List<CrumbQueuedReportSummary> =
+        reportSummaries(owner)
+
+    private fun reportSummaries(ownerFingerprint: String?): List<CrumbQueuedReportSummary> {
         validateLimits()
         prepareRoot()
         cleanupTemporaryTransactions()
-        return readAllRecords()
-            .filter { it.ownerFingerprint == owner.fingerprint }
-            .sortedBy(StoredRecord::submittedAtMillis)
-            .map(StoredRecord::summary)
+        val records = readAllRecords().toMutableList()
+        records.sortWith(java.util.Comparator.comparingLong<StoredRecord> { it.submittedAtMillis })
+        val summaries = ArrayList<CrumbQueuedReportSummary>(records.size)
+        for (record in records) {
+            if (ownerFingerprint == null || record.ownerFingerprint == ownerFingerprint) {
+                summaries.add(record.summary())
+            }
+        }
+        return summaries
     }
 
     @Synchronized
@@ -179,14 +185,17 @@ class CrumbReportQueue internal constructor(
         ) {
             throw CrumbReportQueueException.CorruptQueue()
         }
-        val artifacts = record.artifacts.map { stored ->
-            val bytes = readData(File(File(directory, ARTIFACT_DIRECTORY), stored.fileName))
-            if (bytes.size.toLong() != stored.byteSize || sha256(bytes) != stored.sha256) {
+        val artifacts = ArrayList<CrumbQueueArtifact>(record.artifacts.size)
+        var payloadBytes = envelope.size.toLong()
+        for (manifest in record.artifacts) {
+            val bytes = readData(File(File(directory, ARTIFACT_DIRECTORY), fileName(manifest.id)))
+            if (bytes.size.toLong() != manifest.byteSize || sha256(bytes) != manifest.sha256) {
                 throw CrumbReportQueueException.CorruptQueue()
             }
-            CrumbQueueArtifact(stored.manifest(), bytes)
+            artifacts.add(CrumbQueueArtifact(manifest, bytes))
+            payloadBytes += bytes.size.toLong()
         }
-        if (envelope.size.toLong() + artifacts.sumOf { it.bytes.size.toLong() } != record.totalByteSize) {
+        if (payloadBytes != record.totalByteSize) {
             throw CrumbReportQueueException.CorruptQueue()
         }
         return CrumbQueuedReportPayload(record.summary(), envelope, artifacts)
@@ -229,19 +238,19 @@ class CrumbReportQueue internal constructor(
     /** Upload work interrupted by process termination becomes retryable on the next launch. */
     @Synchronized
     fun recoverInterruptedUploads() {
-        val owner = ownerProvider() ?: return
+        val owner = resolveOwner() ?: return
         recoverInterruptedUploads(owner)
     }
 
     @Synchronized
-    internal fun recoverInterruptedUploads(owner: CrumbQueueOwner) {
+    internal fun recoverInterruptedUploads(owner: String) {
         prepareRoot()
         cleanupTemporaryTransactions()
-        readAllRecords()
-            .filter { it.ownerFingerprint == owner.fingerprint && it.state == CrumbQueuedReportState.UPLOADING }
-            .forEach { record ->
+        for (record in readAllRecords()) {
+            if (record.ownerFingerprint == owner && record.state == CrumbQueuedReportState.UPLOADING) {
                 updateRecord(record.reportId) { it.copy(state = CrumbQueuedReportState.PENDING, lastError = null) }
             }
+        }
     }
 
     private fun validateLimits() {
@@ -263,17 +272,21 @@ class CrumbReportQueue internal constructor(
         if (
             envelopeBytes.size > limits.maximumEnvelopeBytes ||
             artifacts.size > limits.maximumArtifactsPerReport ||
-            artifacts.map { it.manifest.id }.toSet().size != artifacts.size ||
             !validReportId(envelope.reportId) ||
             !envelope.json.contains("\"report_id\":\"${envelope.reportId}\"")
         ) {
             throw CrumbReportQueueException.InvalidEnvelope()
         }
-        val envelopeArtifactIds = ARTIFACT_ID_PATTERN.findAll(envelope.json)
-            .map { it.groupValues[1] }
-            .toList()
-        if (envelopeArtifactIds.toSet() != artifacts.map { it.manifest.id }.toSet() ||
-            envelopeArtifactIds.size != artifacts.size
+        val artifactIds = HashSet<String>()
+        for (artifact in artifacts) artifactIds.add(artifact.manifest.id)
+        if (artifactIds.size != artifacts.size) throw CrumbReportQueueException.InvalidEnvelope()
+        val envelopeArtifactIds = HashSet<String>()
+        var envelopeArtifactCount = 0
+        for (match in ARTIFACT_ID_PATTERN.findAll(envelope.json)) {
+            envelopeArtifactIds.add(match.groupValues[1])
+            envelopeArtifactCount += 1
+        }
+        if (envelopeArtifactIds != artifactIds || envelopeArtifactCount != artifacts.size
         ) {
             throw CrumbReportQueueException.InvalidEnvelope()
         }
@@ -299,47 +312,57 @@ class CrumbReportQueue internal constructor(
     }
 
     private fun cleanupTemporaryTransactions() {
-        root.listFiles()
-            ?.filter { it.name.startsWith(TEMPORARY_PREFIX) || it.name.startsWith(DELETE_PREFIX) }
-            ?.forEach(File::deleteRecursively)
+        for (file in root.listFiles().orEmpty()) {
+            if (file.name.startsWith(TEMPORARY_PREFIX) || file.name.startsWith(DELETE_PREFIX)) {
+                file.deleteRecursively()
+            }
+        }
     }
 
-    private fun readAllRecords(): List<StoredRecord> = try {
-        root.listFiles()
-            ?.filter {
-                it.isDirectory && !it.name.startsWith(TEMPORARY_PREFIX) &&
-                    !it.name.startsWith(DELETE_PREFIX)
+    private fun readAllRecords(): List<StoredRecord> {
+        try {
+            val records = ArrayList<StoredRecord>()
+            for (directory in root.listFiles().orEmpty()) {
+                if (directory.isDirectory && !directory.name.startsWith(TEMPORARY_PREFIX) &&
+                    !directory.name.startsWith(DELETE_PREFIX)
+                ) {
+                    records.add(readRecord(directory))
+                }
             }
-            ?.map(::readRecord)
-            .orEmpty()
-    } catch (error: CrumbReportQueueException) {
-        throw error
-    } catch (_: Exception) {
-        throw CrumbReportQueueException.CorruptQueue()
+            return records
+        } catch (error: CrumbReportQueueException) {
+            throw error
+        } catch (_: Exception) {
+            throw CrumbReportQueueException.CorruptQueue()
+        }
     }
 
     private fun readRecord(directory: File): StoredRecord {
         try {
-            directory.listFiles()
-                ?.filter { it.name.startsWith(RECORD_TEMPORARY_PREFIX) }
-                ?.forEach(File::delete)
+            for (file in directory.listFiles().orEmpty()) {
+                if (file.name.startsWith(RECORD_TEMPORARY_PREFIX)) file.delete()
+            }
             val properties = Properties().apply {
                 FileInputStream(File(directory, RECORD_FILE)).use(::load)
             }
             val schemaVersion = properties.requiredInt("schema_version")
             val artifactCount = properties.requiredInt("artifact_count")
-            val artifacts = (0 until artifactCount).map { index ->
+            val artifacts = ArrayList<CrumbArtifactManifest>()
+            for (index in 0 until artifactCount) {
                 val prefix = "artifact.$index."
-                StoredArtifact(
-                    id = properties.required(prefix + "id"),
+                val id = properties.required(prefix + "id")
+                if (!validArtifactId(id) || properties.required(prefix + "file_name") != fileName(id)) {
+                    throw CrumbReportQueueException.CorruptQueue()
+                }
+                artifacts.add(CrumbArtifactManifest(
+                    id = id,
                     kind = properties.required(prefix + "kind"),
                     mimeType = decode(properties.required(prefix + "mime_type")),
                     byteSize = properties.requiredLong(prefix + "byte_size"),
                     sha256 = properties.required(prefix + "sha256"),
                     redactionState = properties.required(prefix + "redaction_state"),
                     uploadId = properties.required(prefix + "upload_id"),
-                    fileName = properties.required(prefix + "file_name"),
-                )
+                ))
             }
             val record = StoredRecord(
                 reportId = properties.required("report_id"),
@@ -361,7 +384,7 @@ class CrumbReportQueue internal constructor(
                 record.reportId != directory.name || record.attemptCount < 0 ||
                 record.totalByteSize < 0 || record.envelopeByteSize < 0 ||
                 artifacts.any {
-                    !validArtifactId(it.id) || it.fileName != fileName(it.id) || it.byteSize < 0
+                    it.byteSize < 0
                 }
             ) {
                 throw CrumbReportQueueException.CorruptQueue()
@@ -387,7 +410,8 @@ class CrumbReportQueue internal constructor(
             setProperty("envelope_byte_size", record.envelopeByteSize.toString())
             setProperty("envelope_sha256", record.envelopeSha256)
             setProperty("artifact_count", record.artifacts.size.toString())
-            record.artifacts.forEachIndexed { index, artifact ->
+            for (index in record.artifacts.indices) {
+                val artifact = record.artifacts[index]
                 val prefix = "artifact.$index."
                 setProperty(prefix + "id", artifact.id)
                 setProperty(prefix + "kind", artifact.kind)
@@ -396,7 +420,7 @@ class CrumbReportQueue internal constructor(
                 setProperty(prefix + "sha256", artifact.sha256)
                 setProperty(prefix + "redaction_state", artifact.redactionState)
                 setProperty(prefix + "upload_id", artifact.uploadId)
-                setProperty(prefix + "file_name", artifact.fileName)
+                setProperty(prefix + "file_name", fileName(artifact.id))
             }
         }
         val temporary = File(directory, "$RECORD_TEMPORARY_PREFIX${UUID.randomUUID()}")
@@ -501,7 +525,7 @@ class CrumbReportQueue internal constructor(
         @JvmField val totalByteSize: Long,
         @JvmField val envelopeByteSize: Long,
         @JvmField val envelopeSha256: String,
-        @JvmField val artifacts: List<StoredArtifact>,
+        @JvmField val artifacts: List<CrumbArtifactManifest>,
         @JvmField val schemaVersion: Int,
         @JvmField val ownerFingerprint: String?,
     ) {
@@ -521,38 +545,6 @@ class CrumbReportQueue internal constructor(
         )
     }
 
-    private class StoredArtifact(
-        @JvmField val id: String,
-        @JvmField val kind: String,
-        @JvmField val mimeType: String,
-        @JvmField val byteSize: Long,
-        @JvmField val sha256: String,
-        @JvmField val redactionState: String,
-        @JvmField val uploadId: String,
-        @JvmField val fileName: String,
-    ) {
-        constructor(artifact: CrumbQueueArtifact) : this(
-            id = artifact.manifest.id,
-            kind = artifact.manifest.kind,
-            mimeType = artifact.manifest.mimeType,
-            byteSize = artifact.manifest.byteSize,
-            sha256 = artifact.manifest.sha256,
-            redactionState = artifact.manifest.redactionState,
-            uploadId = artifact.manifest.uploadId,
-            fileName = "${artifact.manifest.id}.blob",
-        )
-
-        fun manifest() = CrumbArtifactManifest(
-            id = id,
-            kind = kind,
-            mimeType = mimeType,
-            byteSize = byteSize,
-            sha256 = sha256,
-            redactionState = redactionState,
-            uploadId = uploadId,
-        )
-    }
-
     companion object {
         private const val ENVELOPE_FILE = "envelope.json"
         private const val RECORD_FILE = "record.properties"
@@ -567,7 +559,7 @@ class CrumbReportQueue internal constructor(
         private var shared: CrumbReportQueue? = null
 
         internal fun configured(root: File): CrumbReportQueue = CrumbReportQueue(root).also { queue ->
-            queue.ownerProvider = { Crumb.queueOwner() }
+            queue.usesConfiguredOwner = true
         }
 
         @JvmSynthetic

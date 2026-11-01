@@ -4,6 +4,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
@@ -16,6 +17,50 @@ class CrumbReportQueueTest {
         assertEquals(1_048_576L, limits.maximumEnvelopeBytes)
         assertEquals(26_214_400L, limits.maximumArtifactBytes)
         assertEquals(27_262_976L, limits.maximumReportBytes)
+    }
+
+    @Test(expected = CrumbReportQueueException.InvalidEnvelope::class)
+    fun duplicateManifestOccurrencesCannotReuseOneArtifact() {
+        val root = temporaryRoot()
+        try {
+            val fixture = fixture("rpt_DuplicateAAAAAAAAAAAAAAAAAAAAAAA")
+            val artifact = requireNotNull(fixture.artifact)
+            val json = org.json.JSONObject(fixture.envelope.json)
+            val manifests = json.getJSONArray("artifacts")
+            manifests.put(manifests.getJSONObject(0))
+            val duplicated = fixture.envelope.copy(json = json.toString())
+            CrumbReportQueue(root).enqueue(duplicated, listOf(artifact))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun corruptedArtifactFilenameIsRejectedWithoutChangingCommittedBytes() {
+        val root = temporaryRoot()
+        try {
+            val fixture = fixture("rpt_FilenameAAAAAAAAAAAAAAAAAAAAAAAA")
+            val artifact = requireNotNull(fixture.artifact)
+            val queue = CrumbReportQueue(root)
+            queue.enqueue(fixture.envelope, listOf(artifact))
+            val reportDirectory = File(root, fixture.envelope.reportId)
+            val metadata = File(reportDirectory, "record.properties")
+            val properties = java.util.Properties().apply { metadata.inputStream().use(::load) }
+            properties.setProperty("artifact.0.file_name", "../../outside.blob")
+            metadata.outputStream().use { properties.store(it, null) }
+            val corruptedMetadata = metadata.readBytes()
+            val outside = File(root, "outside.blob").apply { writeBytes(artifact.bytes) }
+
+            assertThrows(CrumbReportQueueException.CorruptQueue::class.java) {
+                queue.load(fixture.envelope.reportId)
+            }
+
+            assertArrayEquals(corruptedMetadata, metadata.readBytes())
+            assertArrayEquals(artifact.bytes, outside.readBytes())
+            assertArrayEquals(artifact.bytes, File(File(reportDirectory, "artifacts"), artifact.manifest.id + ".blob").readBytes())
+        } finally {
+            root.deleteRecursively()
+        }
     }
 
     @Test
@@ -47,7 +92,7 @@ class CrumbReportQueueTest {
     @Test
     fun interruptedUploadReturnsToPendingAndFailureStatePersists() {
         val root = temporaryRoot()
-        val owner = CrumbQueueOwner.from("synthetic-write-key", "https://ingestion.example.test")
+        val owner = CrumbQueueOwnerFingerprint.from("synthetic-write-key", "https://ingestion.example.test")
         try {
             val fixture = fixture("rpt_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
             CrumbReportQueue(root, owner).apply {
