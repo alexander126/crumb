@@ -1268,26 +1268,6 @@ private final class DraftSummaryViewController: UIViewController {
         header.addArrangedSubview(cancel)
         content.addArrangedSubview(header)
 
-        let localBanner = UIStackView()
-        localBanner.axis = .horizontal
-        localBanner.alignment = .top
-        localBanner.spacing = 10
-        localBanner.layoutMargins = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
-        localBanner.isLayoutMarginsRelativeArrangement = true
-        CrumbDesign.styleCard(localBanner, fill: CrumbDesign.Color.mutedSurface, border: .clear)
-        localBanner.addArrangedSubview(CrumbDesign.statusDot(color: CrumbDesign.Color.ink))
-        let localOnlyLabel = CrumbDesign.label(
-            crumbLocalized("Nothing has been sent yet. This is saved only on your phone."),
-            style: .caption1,
-            color: CrumbDesign.Color.secondaryText
-        )
-        localOnlyLabel.font = .systemFont(ofSize: 13.5)
-        localBanner.addArrangedSubview(localOnlyLabel)
-        localBanner.accessibilityLabel = crumbLocalized(
-            "Nothing has been sent yet. This is saved only on your phone."
-        )
-        content.addArrangedSubview(localBanner)
-
         let reportCard = UIStackView()
         reportCard.axis = .vertical
         reportCard.spacing = 8

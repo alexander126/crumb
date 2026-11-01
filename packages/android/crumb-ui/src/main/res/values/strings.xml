@@ -40,7 +40,6 @@
     <string name="crumb_keep_editing">Keep editing</string>
     <string name="crumb_discard_report">Discard report</string>
     <string name="crumb_back_to_report">Back to report</string>
-    <string name="crumb_local_only">Nothing has been sent yet. This is saved only on your phone.</string>
     <string name="crumb_your_report">YOUR REPORT · %1$s</string>
     <string name="crumb_whats_attached">WHAT’S ATTACHED · 22 ITEMS</string>
     <string name="crumb_unavailable">Unavailable</string>
