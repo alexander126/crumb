@@ -59,6 +59,8 @@ for (const path of [
   "README.md",
   "CHANGELOG.md",
   "PRIVACY.md",
+  "packages/ios/Sources/CrumbCore/Resources/PrivacyInfo.xcprivacy",
+  "packages/ios/Sources/CrumbUI/Resources/PrivacyInfo.xcprivacy",
 ]) copy(path);
 if (existsSync(join(root, "LICENSE"))) copy("LICENSE");
 

@@ -81,6 +81,20 @@ options, invocation controls, and whether upload is enabled. Server-side
 retention, access, deletion, and regional processing are controlled by the
 customer workspace and the hosted Crumb service terms.
 
+## iOS required-reason declarations
+
+CrumbCore and CrumbUI ship their own `PrivacyInfo.xcprivacy` resources through
+SwiftPM, CocoaPods, and the React Native package's bundled native pods.
+Both declare System Boot Time reason `35F9.1` for elapsed in-app measurements.
+CrumbUI also declares User Defaults reason `CA92.1` for its app-private workspace
+policy cache. PLCrashReporter's separate manifest remains part of that dependency.
+
+These manifests contain required-reason declarations only. They do not assert
+that no data is collected or establish complete collection disclosures or App
+Store approval. Collected-data categories, purposes, linkage, and tracking
+require a separate review of the SDK and its configured integration under
+[Apple's data-collection guidance](https://developer.apple.com/documentation/technotes/tn3184-adding-data-collection-details-to-your-privacy-manifest).
+
 ## Host-application responsibilities
 
 Applications integrating Crumb remain responsible for:

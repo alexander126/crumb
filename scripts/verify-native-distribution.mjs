@@ -2,13 +2,12 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  writeFileSync,
-  mkdirSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { lintPodspecWithPrivacy, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const version = readFileSync(join(root, "VERSION"), "utf8").trim();
@@ -108,39 +107,11 @@ function verifyAndroidArtifacts() {
 }
 
 function verifySwiftConsumer() {
-  const consumer = join(rehearsalRoot, "swift-consumer");
-  const sources = join(consumer, "Sources", "CrumbDistributionConsumer");
-  mkdirSync(sources, { recursive: true });
-
-  const dependency = remoteRevision
-    ? `.package(url: "https://github.com/alexander126/crumb.git", revision: "${remoteRevision}")`
-    : `.package(name: "crumb", path: ${JSON.stringify(root)})`;
-
-  writeFileSync(
-    join(consumer, "Package.swift"),
-    `// swift-tools-version: 6.0\n\nimport PackageDescription\n\nlet package = Package(\n    name: "CrumbDistributionConsumer",\n    platforms: [.macOS(.v13)],\n    dependencies: [${dependency}],\n    targets: [\n        .executableTarget(\n            name: "CrumbDistributionConsumer",\n            dependencies: [\n                .product(name: "CrumbCore", package: "crumb"),\n                .product(name: "CrumbUI", package: "crumb")\n            ]\n        )\n    ]\n)\n`,
-  );
-
-  writeFileSync(
-    join(sources, "main.swift"),
-    `import CrumbCore\nimport CrumbUI\n\ntry Crumb.start(\n    CrumbConfiguration(\n        projectKey: "distribution_rehearsal",\n        environment: "test",\n        release: CrumbRelease(appVersion: "1.0", nativeBuild: "1")\n    )\n)\nprecondition(CrumbSDKVersion.current == "${version}")\nprint(CrumbSDKVersion.current)\n`,
-  );
-
-  run("swift", ["build", "--package-path", consumer]);
+  verifySwiftPrivacyConsumers(root, rehearsalRoot, remoteRevision);
 }
 
 function lintPodspec(path, ancillaryGlob = null) {
-  const args = [
-    "lib",
-    "lint",
-    path,
-    "--platforms=ios",
-    "--swift-version=6.0",
-    "--use-static-frameworks",
-    "--fail-fast",
-  ];
-  if (ancillaryGlob) args.push(`--include-podspecs=${ancillaryGlob}`);
-  run("pod", args);
+  lintPodspecWithPrivacy(root, rehearsalRoot, path, ancillaryGlob);
 }
 
 try {

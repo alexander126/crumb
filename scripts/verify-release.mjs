@@ -57,6 +57,8 @@ for (const requiredEntry of [
   "CrumbSDK.podspec",
   "CrumbSDKCore.podspec",
   "CrumbSDKUI.podspec",
+  "packages/ios/Sources/CrumbCore/Resources/PrivacyInfo.xcprivacy",
+  "packages/ios/Sources/CrumbUI/Resources/PrivacyInfo.xcprivacy",
 ]) {
   if (!appleEntries.includes(requiredEntry)) {
     throw new Error(`Apple metadata archive is missing ${requiredEntry}`);

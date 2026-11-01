@@ -11,9 +11,13 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyOwnedPrivacyBundles } from '../../../scripts/ios-required-reasons.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = mkdtempSync(join(tmpdir(), 'crumb-expo-consumer-'));
+if (process.argv.includes('--keep-products')) {
+  console.log(`Packed iOS consumer products: ${temporary}`);
+}
 const env = {
   ...process.env,
   CI: '1',
@@ -132,6 +136,11 @@ try {
       ],
       consumer
     );
+    verifyOwnedPrivacyBundles(
+      join(temporary, 'build/Build/Products/Debug-iphonesimulator/CrumbPackedConsumer.app'),
+      ['CrumbCore', 'CrumbUI'],
+      'cocoapods'
+    );
     console.log(
       'Standalone packed Expo iOS consumer built; clean prebuild is idempotent and Crumb dependencies are local.'
     );
@@ -203,5 +212,7 @@ end
     'Bare React Native Podfile helper installed the packed dependencies and built the adapter.'
   );
 } finally {
-  rmSync(temporary, { recursive: true, force: true });
+  if (!process.argv.includes('--keep-products')) {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 }

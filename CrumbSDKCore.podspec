@@ -20,6 +20,9 @@ Pod::Spec.new do |spec|
   spec.swift_version = "6.0"
   spec.module_name = "CrumbCore"
   spec.source_files = "packages/ios/Sources/CrumbCore/**/*.swift"
+  spec.resource_bundles = {
+    "CrumbCore" => "packages/ios/Sources/CrumbCore/Resources/**/*"
+  }
   spec.frameworks = ["CryptoKit"]
   spec.dependency "PLCrashReporter", "1.12.0"
   spec.pod_target_xcconfig = {
