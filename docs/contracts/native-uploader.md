@@ -17,7 +17,10 @@ For each oldest queued report, both native SDKs:
    upload ID, then upload the exact integrity-checked queued bytes;
 4. send `POST /sdk/v1/reports/<report_id>/complete` with
    `Idempotency-Key: <report_id>:complete`;
-5. remove the local queue directory only after completion succeeds.
+5. validate a successful completion response as a JSON object with
+   `status: accepted`, validate any supplied `report_id` against the current
+   report, and only then remove the local queue directory. The documented
+   minimal accepted response does not require `report_id`.
 
 All lifecycle calls authenticate with the configured bearer project write key.
 Signed artifact requests do not carry that key. HTTPS upload targets are

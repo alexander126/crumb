@@ -195,7 +195,7 @@ class CrumbRecoveryUploadTest {
                         """{"report_id":"$reportId","status":"initialized","artifacts":[]}"""
                     } else {
                         completions.incrementAndGet()
-                        "{}"
+                        """{"status":"accepted"}"""
                     }
                     socket.getOutputStream().write(
                         ("HTTP/1.1 200 OK\r\nContent-Length: ${body.toByteArray().size}\r\nConnection: close\r\n\r\n" + body).toByteArray(),

@@ -140,12 +140,23 @@ package actor CrumbReportUploadWorker {
             throw CrumbUploadFailure(reason: "init.terminal_state", retryable: false)
         }
 
-        _ = try await sendLifecycle(
+        let completion = try await sendLifecycle(
             path: ["sdk", "v1", "reports", reportID, "complete"],
             reportID: reportID,
             operation: "complete",
             body: Data("{}".utf8)
         )
+        try validateCompletion(completion.data, reportID: reportID)
+    }
+
+    private func validateCompletion(_ data: Data, reportID: String) throws {
+        let response = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        try Task.checkCancellation()
+        guard let response,
+              response["status"] as? String == "accepted",
+              response["report_id"] == nil || response["report_id"] as? String == reportID else {
+            throw CrumbUploadFailure(reason: "complete.invalid_response", retryable: false)
+        }
     }
 
     private func sendLifecycle(
