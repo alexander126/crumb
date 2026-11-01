@@ -177,7 +177,7 @@ final class CrumbDemoUITests: XCTestCase {
         app.buttons["crumb.show-technical-detail"].tap()
         let summary = app.textViews["crumb.draft-summary"]
         XCTAssertTrue(summary.waitForExistence(timeout: 3))
-        XCTAssertTrue((summary.value as? String)?.contains("LOCAL ONLY — NOT UPLOADED") == true)
+        XCTAssertTrue((summary.value as? String)?.hasPrefix("Envelope: ") == true)
         XCTAssertTrue((summary.value as? String)?.contains("ON-DEMAND DIAGNOSTICS") == true)
         XCTAssertTrue((summary.value as? String)?.contains("Network:") == true)
         XCTAssertTrue((summary.value as? String)?.contains("The payment button stopped responding") == true)

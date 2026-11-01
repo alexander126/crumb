@@ -781,8 +781,6 @@ object CrumbReporter {
         content.addView(attachmentCard, matchWrap().withMargins(activity, bottom = 14))
 
         val summary = buildString {
-            appendLine("LOCAL ONLY — NOT UPLOADED")
-            appendLine()
             appendLine("Envelope: ${envelope.reportId}")
             appendLine("Serialized size: ${envelope.json.toByteArray(Charsets.UTF_8).size} bytes")
             appendLine("Category: $category")
