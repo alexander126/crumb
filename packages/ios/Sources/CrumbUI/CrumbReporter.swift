@@ -1599,8 +1599,6 @@ private final class DraftSummaryViewController: UIViewController {
         envelope: CrumbSerializedReportEnvelope
     ) -> String {
         var lines = [
-            "LOCAL ONLY — NOT UPLOADED",
-            "",
             "Envelope: \(envelope.reportID)",
             "Serialized size: \(envelope.data.count) bytes",
             "Category: \(category)",
