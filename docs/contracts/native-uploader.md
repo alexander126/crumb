@@ -38,6 +38,10 @@ accepted.
 
 - Network errors, HTTP 408/425/429, 5xx responses, and an expired artifact
   target (`403`) are retryable.
+- A response body above the 1 MiB read ceiling is refused while it is being
+  received and is terminal, not a network error: the ceiling is a property of
+  the endpoint, so resending would repeat it on every pass. It is stored as
+  `transport.response_too_large`.
 - Other 4xx responses and structurally invalid or mismatched responses remain
   durably `failed` and are skipped by automatic passes in the same foreground
   delivery session, including timer, connectivity, and new-report wakes. Their
