@@ -46,7 +46,12 @@ final class CrumbReporterLifecycle: NSObject {
             try? await CrumbReportQueue.shared.recoverInterruptedUploads()
         }
         CrumbWorkspacePolicyCoordinator.shared.install()
-        CrumbUploadCoordinator.shared.resume()
+        // Delivery is foreground-only. A host can install from a background
+        // launch, so adopt the application's actual state instead of assuming
+        // it is active; didBecomeActiveNotification resumes delivery later.
+        if UIApplication.shared.applicationState == .active {
+            CrumbUploadCoordinator.shared.resume()
+        }
         startShakeMonitoringIfNeeded()
         return true
     }
