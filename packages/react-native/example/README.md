@@ -51,6 +51,15 @@ CRUMB_SOURCE_MAP_DRY_RUN=1 CRUMB_SOURCE_MAP_STRICT=1 \
   -PreactNativeArchitectures=arm64-v8a
 ```
 
+From `packages/react-native`, run `corepack yarn test:android-release --no-daemon`
+after the Android prebuild to check release retention. It builds a minified arm64
+APK with the normal consumer rules, then uses Android SDK 36's `dexdump` to verify
+the concrete Nitro class and its declared public zero-argument constructor.
+The check forces a fresh JavaScript bundle with a synthetic SDK key, disables
+ingestion and source-map uploads, and writes its APK, build log, merged rules
+and hashes to the printed temporary
+directory. Extracted DEX files are removed after inspection.
+
 The explicit Android bundle step is required after changing `.env.local`:
 Gradle can otherwise reuse an older bundle because those environment values
 are not tracked as task inputs. Package the regenerated bundle with the second

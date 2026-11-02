@@ -139,7 +139,9 @@ package enum CrumbReportEnvelopeBuilder {
         try validate(settings: settings, input: input)
         let diagnostics = effectiveDiagnostics(input.diagnostics, settings: settings)
         let category = input.category.trimmingCharacters(in: .whitespacesAndNewlines)
-        let description = input.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = CrumbLogSanitizer.sanitize(input.description, preserveNewlines: true)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        try validateDescription(description)
         let screenshotEnabled = settings.capture.screenshot
             && settings.evidence.contains(.screenshot)
         let screenshotCapture: CrumbScreenshotCaptureState = if !settings.capture.screenshot {
@@ -330,10 +332,7 @@ package enum CrumbReportEnvelopeBuilder {
         guard !category.isEmpty, category.unicodeScalars.count <= 64 else {
             throw CrumbReportEnvelopeError.invalidCategory
         }
-        let description = input.description.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !description.isEmpty, description.unicodeScalars.count <= 4_000 else {
-            throw CrumbReportEnvelopeError.invalidDescription
-        }
+        try validateDescription(input.description.trimmingCharacters(in: .whitespacesAndNewlines))
         guard input.artifacts.count <= 10 else {
             throw CrumbReportEnvelopeError.tooManyArtifacts
         }
@@ -423,6 +422,12 @@ package enum CrumbReportEnvelopeBuilder {
             ), rendering: performanceEnabled && settings.diagnostics.renderingEnabled ? input.rendering?.validated() : nil,
             screenContext: settings.evidence.contains(.customContext) ? input.screenContext?.validated() : nil
         )
+    }
+
+    private static func validateDescription(_ description: String) throws {
+        guard !description.isEmpty, description.unicodeScalars.count <= 4_000 else {
+            throw CrumbReportEnvelopeError.invalidDescription
+        }
     }
 
     private static func hasLength(_ value: String, maximum: Int) -> Bool {

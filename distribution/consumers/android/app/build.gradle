@@ -34,3 +34,30 @@ dependencies {
     // Core must arrive transitively through the published UI POM.
     implementation "com.crumbsdk:crumb-ui:${sdkVersion}"
 }
+
+tasks.register("writeCrumbResolutionEvidence") {
+    doLast {
+        def evidencePath = providers.gradleProperty("crumbConsumerEvidence").orNull
+        if (!evidencePath) {
+            throw new GradleException("Pass -PcrumbConsumerEvidence with the evidence output path")
+        }
+        def describe = { artifact ->
+            [
+                group: artifact.moduleVersion.id.group,
+                name: artifact.moduleVersion.id.name,
+                version: artifact.moduleVersion.id.version,
+                moduleComponent: artifact.id.componentIdentifier instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier,
+                file: artifact.file.absolutePath,
+                sha256: java.security.MessageDigest.getInstance("SHA-256").digest(artifact.file.bytes).encodeHex().toString(),
+            ]
+        }
+        def evidence = [
+            compile: configurations.debugCompileClasspath.resolvedConfiguration.resolvedArtifacts.collect(describe),
+            runtime: configurations.debugRuntimeClasspath.resolvedConfiguration.resolvedArtifacts.collect(describe),
+            compiler: configurations.kotlinCompilerClasspath.resolvedConfiguration.resolvedArtifacts.collect(describe),
+        ]
+        def destination = file(evidencePath)
+        destination.parentFile.mkdirs()
+        destination.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(evidence)) + "\n"
+    }
+}

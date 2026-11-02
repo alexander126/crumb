@@ -81,7 +81,8 @@ internal object CrumbReportEnvelopeBuilder {
         validate(settings, input)
         val diagnostics = effectiveDiagnostics(input.diagnostics, settings)
         val category = input.category.trim()
-        val description = input.description.trim()
+        val description = CrumbFailureText.sanitize(input.description, preserveNewlines = true).trim()
+        if (!description.hasLength(4_000)) throw CrumbReportEnvelopeException.InvalidDescription()
         val screenshotEnabled = settings.capture.screenshot &&
             CrumbEvidenceCategory.SCREENSHOT in settings.evidence
         val screenshotCapture = when {
