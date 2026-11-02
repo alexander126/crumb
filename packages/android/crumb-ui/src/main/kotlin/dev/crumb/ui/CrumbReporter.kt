@@ -151,21 +151,26 @@ object CrumbReporter {
         if (session.diagnosticsStarted) return
         session.diagnosticsStarted = true
         Thread({
-            val diagnostics = OnDemandDiagnosticsCollector.capture(
-                context = context,
-                location = session.location,
-                options = session.settings.diagnostics,
-                evidence = session.settings.evidence,
-                screenContext = session.settings.screenContext,
-            )
-            CrumbQualityInstrumentation.record(
-                CrumbQualityEventKind.DIAGNOSTICS_READY,
-                session.invocationStartedAtNanos,
-            )
-            mainHandler.post {
-                if (activeSession !== session || session.finished) return@post
-                session.diagnostics = diagnostics
-                updateDiagnosticBindings(session)
+            // Nothing may escape this thread: it has no handler, so an exception
+            // here would take the host process down while the user is writing a
+            // report, and the save action is gated on diagnostics arriving.
+            runCatching {
+                val diagnostics = OnDemandDiagnosticsCollector.capture(
+                    context = context,
+                    location = session.location,
+                    options = session.settings.diagnostics,
+                    evidence = session.settings.evidence,
+                    screenContext = session.settings.screenContext,
+                )
+                CrumbQualityInstrumentation.record(
+                    CrumbQualityEventKind.DIAGNOSTICS_READY,
+                    session.invocationStartedAtNanos,
+                )
+                mainHandler.post {
+                    if (activeSession !== session || session.finished) return@post
+                    session.diagnostics = diagnostics
+                    updateDiagnosticBindings(session)
+                }
             }
         }, "Crumb diagnostics").start()
     }
