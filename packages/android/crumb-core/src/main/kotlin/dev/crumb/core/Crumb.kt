@@ -256,11 +256,32 @@ object Crumb {
 
     @JvmStatic
     fun start(configuration: CrumbConfiguration) = synchronized(lock) {
-        validate(configuration)
+        val owned = owned(configuration)
+        validate(owned)
         val existing = this.configuration
-        if (existing != null && existing != configuration) throw CrumbStartException.AlreadyStarted()
-        if (existing == null) this.configuration = configuration
+        if (existing != null && existing != owned) throw CrumbStartException.AlreadyStarted()
+        if (existing == null) this.configuration = owned
     }
+
+    /**
+     * Copies the caller's collections. Kotlin's Set and Map are read-only but
+     * not immutable, so a caller passing mutable instances could otherwise keep
+     * changing invocation, evidence or the allowed custom-context keys of an
+     * already validated, already started SDK - and could corrupt the
+     * already-started comparison, which reads the same mutating instance.
+     * The log provider stays the caller's object: it exists to be called.
+     */
+    private fun owned(configuration: CrumbConfiguration) = configuration.copy(
+        invocation = configuration.invocation.toSet(),
+        evidence = configuration.evidence.toSet(),
+        reporter = configuration.reporter.copy(
+            visibleFields = configuration.reporter.visibleFields.toSet(),
+        ),
+        customContext = configuration.customContext.copy(
+            values = configuration.customContext.values.toMap(),
+            allowedKeys = configuration.customContext.allowedKeys.toSet(),
+        ),
+    )
 
     @JvmStatic
     fun canCollectLogs(): Boolean = synchronized(lock) {
