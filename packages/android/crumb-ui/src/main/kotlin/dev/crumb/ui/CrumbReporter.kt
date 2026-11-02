@@ -469,7 +469,7 @@ object CrumbReporter {
             } else {
                 activity.getString(
                     R.string.crumb_context_ready_items,
-                    diagnosticItemCount(requireNotNull(session.diagnostics)),
+                    CrumbEvidenceCounts.diagnosticItemCount(requireNotNull(session.diagnostics)),
                 )
             },
             14f,
@@ -972,7 +972,7 @@ object CrumbReporter {
         session.diagnosticsLabel?.apply {
             text = activity.getString(
                 R.string.crumb_context_ready_items,
-                diagnosticItemCount(diagnostics),
+                CrumbEvidenceCounts.diagnosticItemCount(diagnostics),
             )
             contentDescription = "Context ready. $summary"
             announceForAccessibility(activity.getString(R.string.crumb_context_ready_announcement))
@@ -1163,9 +1163,6 @@ object CrumbReporter {
         return "$cpu · $memory · $connection ${diagnostics.network.status} · " +
             "${diagnostics.logs.entries.size} recent logs"
     }
-
-    @Suppress("UNUSED_PARAMETER")
-    private fun diagnosticItemCount(diagnostics: CrumbDiagnosticsSnapshot): Int = 22
 
     private fun networkSummary(network: CrumbNetworkDiagnostic): String {
         val parts = mutableListOf(network.status, network.transport)
