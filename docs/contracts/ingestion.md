@@ -118,6 +118,12 @@ The current server accepts at most a 1 MiB envelope, 10 artifacts, 25 MiB per
 artifact, and 26 MiB for the combined envelope and declared artifact payload.
 The native queue's bounds are no larger than these ingestion bounds.
 
+The SDK also bounds what it reads back. A lifecycle response body above 1 MiB
+is refused while it is being received — from a declared `Content-Length` before
+the body is read, or at the ceiling while reading — so an oversized response is
+never fully accumulated in the host application's memory. The SDK records a
+bounded `transport.response_too_large` failure code for that refusal.
+
 ## Errors
 
 Errors use `{ "error": { "code": "...", "message": "..." } }`. Authentication
