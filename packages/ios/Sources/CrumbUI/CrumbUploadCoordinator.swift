@@ -13,7 +13,7 @@ final class CrumbUploadCoordinator {
     private var retryTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
     private var retryStep = 0
-    private var isForeground = false
+    private var scheduler = CrumbUploadPassScheduler()
     private var foregroundRetryRequested = false
     private(set) var connectivityGeneration = 0
     private let observesConnectivity: Bool
@@ -23,14 +23,16 @@ final class CrumbUploadCoordinator {
         self.observesConnectivity = observesConnectivity
     }
 
+    private var isForeground: Bool { scheduler.isForeground }
+
     func resume() {
         if !isForeground { foregroundRetryRequested = true }
-        isForeground = true
+        scheduler.enterForeground()
         wake()
     }
 
     func pause() {
-        isForeground = false
+        scheduler.leaveForeground()
         foregroundRetryRequested = false
         retryTask?.cancel()
         retryTask = nil
@@ -51,7 +53,9 @@ final class CrumbUploadCoordinator {
         guard let worker else { return }
 
         startConnectivityMonitoring()
-        guard uploadTask == nil else { return }
+        // A request raised during a running pass is remembered, not dropped: the
+        // pass cannot see a report committed after it took its queue snapshot.
+        guard scheduler.requestWake() else { return }
         retryTask?.cancel()
         retryTask = nil
         let retryTerminalReports = foregroundRetryRequested
@@ -66,8 +70,11 @@ final class CrumbUploadCoordinator {
     }
 
     private func handle(_ result: CrumbUploadPassResult) {
+        // Always settle the scheduler, even when backgrounded, so a cancelled
+        // pass does not leave it believing one is still running.
+        let pendingWake = scheduler.passDidFinish()
         guard isForeground else { return }
-        if foregroundRetryRequested {
+        if pendingWake || foregroundRetryRequested {
             wake()
             return
         }
