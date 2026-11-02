@@ -75,12 +75,22 @@ package enum CrumbHTTPSession {
         maximumByteSize: Int
     ) async throws -> (Data, HTTPURLResponse) {
         let (bytes, urlResponse) = try await session.bytes(for: request)
-        let response = try httpResponse(urlResponse, maximumByteSize: maximumByteSize)
+        let response: HTTPURLResponse
+        do {
+            response = try httpResponse(urlResponse, maximumByteSize: maximumByteSize)
+        } catch {
+            // Refusing from the headers must end the transfer, not just stop
+            // reading it: dropping the stream alone leaves the task running and
+            // the endpoint free to keep sending into the session's buffer.
+            bytes.task.cancel()
+            throw error
+        }
         var data = Data()
         data.reserveCapacity(expectedCapacity(for: response, maximumByteSize: maximumByteSize))
 
         for try await byte in bytes {
             guard data.count < maximumByteSize else {
+                bytes.task.cancel()
                 throw CrumbHTTPSessionError.responseTooLarge
             }
             data.append(byte)
