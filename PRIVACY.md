@@ -59,6 +59,11 @@ are constrained by age, count, and bytes and are sanitized on-device for known
 credentials, authorization values, email addresses, payment-card-shaped
 numbers, URL credentials and query values, and control characters.
 
+Written descriptions receive the same known-sensitive-value redaction before
+durable queueing, preserving paragraph breaks and tabs. Both the trimmed input
+and the trimmed redacted result must contain 1–4000 characters. An empty or
+oversized redacted result rejects submission.
+
 The SDK rejects invalid or oversized report fields and artifacts before queue
 commit. A project write key is transport configuration and is never added to a
 report envelope, artifact, log, or queue manifest.

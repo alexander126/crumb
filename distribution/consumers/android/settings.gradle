@@ -14,9 +14,11 @@ if (stagedRepository == null || stagedRepository.trim().isEmpty()) {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven {
-            url = uri(stagedRepository)
-            content {
+        exclusiveContent {
+            forRepository {
+                maven { url = uri(stagedRepository) }
+            }
+            filter {
                 includeGroup("com.crumbsdk")
             }
         }

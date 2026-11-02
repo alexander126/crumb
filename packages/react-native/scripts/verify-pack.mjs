@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import {
   lstatSync,
+  existsSync,
   mkdirSync,
   writeFileSync,
   mkdtempSync,
@@ -35,6 +36,24 @@ try {
   execFileSync('tar', ['-xzf', join(temporary, archive), '-C', temporary]);
   const packed = join(temporary, 'package');
   verifyBundledNativePrivacy(resolve(root, '../..'), join(packed, 'native/ios'));
+  const androidImplementation =
+    'android/src/main/java/com/margelo/nitro/crumbsdk/reactnative/CrumbReactNative.kt';
+  assert.deepEqual(
+    readFileSync(join(packed, androidImplementation)),
+    readFileSync(join(root, androidImplementation)),
+    'The package must contain the current Android Nitro implementation.'
+  );
+  for (const developmentOnly of [
+    'scripts/android-release-retention.mjs',
+    'scripts/verify-android-release-retention.mjs',
+    'test/android-release-retention',
+    'example/android',
+  ]) {
+    assert.ok(
+      !existsSync(join(packed, developmentOnly)),
+      `Development release check must not ship: ${developmentOnly}`
+    );
+  }
   function compareTree(source, destination) {
     for (const entry of readdirSync(source, { withFileTypes: true })) {
       const original = join(source, entry.name);

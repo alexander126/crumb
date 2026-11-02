@@ -53,6 +53,7 @@
     "prepare:ios": "node scripts/prepare-ios.mjs",
     "prepack": "yarn prepare:ios",
     "test:packaging": "node --test test/packaging/*.test.cjs",
+    "test:android-release": "node --test test/android-release-retention/*.test.mjs && node scripts/verify-android-release-retention.mjs",
     "pack:check:ios": "node scripts/verify-pack.mjs --ios",
     "pack:check:expo": "node scripts/verify-expo-consumer.mjs"
   },

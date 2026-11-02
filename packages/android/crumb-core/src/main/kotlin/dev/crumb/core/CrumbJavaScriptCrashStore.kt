@@ -138,7 +138,7 @@ class CrumbJavaScriptCrashStore internal constructor(
         }
         return byFingerprint.values
             .map { it.second }
-            .sortedBy(CrumbJavaScriptCrash::occurredAt)
+            .sortedWith { left, right -> left.occurredAt.compareTo(right.occurredAt) }
     }
 
     fun remove(recordId: String): Boolean = synchronized(STORAGE_LOCK) {
