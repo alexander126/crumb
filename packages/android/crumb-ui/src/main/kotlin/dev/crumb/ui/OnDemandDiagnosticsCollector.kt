@@ -24,13 +24,36 @@ import java.io.File
 
 internal object OnDemandDiagnosticsCollector {
     private const val sampleDurationMillis = 200L
+    private const val UNAVAILABLE = "unavailable"
+    private const val UNKNOWN = "unknown"
+    private const val UNKNOWN_PROCESS = "unknown"
 
+    /**
+     * Always returns a snapshot. Report submission is gated on diagnostics
+     * having arrived, and the collector runs on a bare thread, so an escaping
+     * exception would both crash the host process and leave the user unable to
+     * save the report they are writing. A source that cannot be read is
+     * unavailable evidence, never a failure of the whole capture.
+     */
     fun capture(
         context: Context,
         location: String,
         options: CrumbDiagnosticsOptions,
         evidence: Set<CrumbEvidenceCategory> = CrumbEvidenceCategory.entries.toSet(),
         screenContext: String? = null,
+        collect: () -> CrumbDiagnosticsSnapshot = {
+            collect(context, location, options, evidence, screenContext)
+        },
+    ): CrumbDiagnosticsSnapshot = runCatching(collect).getOrElse { failure ->
+        unavailableSnapshot(context, location, screenContext, evidence, failure)
+    }
+
+    private fun collect(
+        context: Context,
+        location: String,
+        options: CrumbDiagnosticsOptions,
+        evidence: Set<CrumbEvidenceCategory>,
+        screenContext: String?,
     ): CrumbDiagnosticsSnapshot {
         val capturesPerformance = CrumbEvidenceCategory.PERFORMANCE in evidence
         val firstThreads = if (capturesPerformance) readThreads() else emptyMap()
@@ -60,13 +83,17 @@ internal object OnDemandDiagnosticsCollector {
             )
         }.sortedByDescending { it.cpuUsagePercent ?: 0.0 }
 
-        val memory = if (capturesPerformance) Debug.MemoryInfo().also(Debug::getMemoryInfo) else null
+        val memory = if (capturesPerformance) {
+            runCatching { Debug.MemoryInfo().also(Debug::getMemoryInfo) }.getOrNull()
+        } else {
+            null
+        }
         return CrumbDiagnosticsSnapshot(
             screenContext = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in evidence) screenContext else null,
             rendering = if (options.renderingEnabled && CrumbEvidenceCategory.PERFORMANCE in evidence) dev.crumb.core.CrumbRenderingEvidence.provider?.invoke(true) else null,
             capturedAtMillis = System.currentTimeMillis(),
             location = location,
-            processName = processName(context),
+            processName = runCatching { processName(context) }.getOrDefault(UNKNOWN_PROCESS),
             processId = Process.myPid(),
             cpuUsagePercent = if (capturesPerformance) {
                 processCpuMillis.toDouble() / elapsedMillis.toDouble() * 100.0
@@ -75,7 +102,11 @@ internal object OnDemandDiagnosticsCollector {
             },
             residentMemoryBytes = if (capturesPerformance) residentMemoryBytes() else null,
             physicalFootprintBytes = memory?.totalPss?.toLong()?.times(1_024),
-            thermalState = if (capturesPerformance) thermalState(context) else "unavailable",
+            thermalState = if (capturesPerformance) {
+                runCatching { thermalState(context) }.getOrDefault(UNAVAILABLE)
+            } else {
+                UNAVAILABLE
+            },
             threadCount = threads.size,
             busiestThreads = threads.take(12),
             gpuStatus = "Unavailable on demand on Android",
@@ -124,6 +155,59 @@ internal object OnDemandDiagnosticsCollector {
             },
         )
     }
+
+    /**
+     * Partial diagnostics for a capture that could not be completed. Evidence is
+     * marked unavailable rather than fabricated, and the failure carries a
+     * bounded type name only - never an exception message or source content.
+     */
+    private fun unavailableSnapshot(
+        context: Context,
+        location: String,
+        screenContext: String?,
+        evidence: Set<CrumbEvidenceCategory>,
+        failure: Throwable,
+    ) = CrumbDiagnosticsSnapshot(
+        screenContext = if (CrumbEvidenceCategory.CUSTOM_CONTEXT in evidence) screenContext else null,
+        rendering = null,
+        capturedAtMillis = System.currentTimeMillis(),
+        location = location,
+        processName = runCatching { context.packageName }.getOrDefault(UNKNOWN_PROCESS),
+        processId = Process.myPid(),
+        cpuUsagePercent = null,
+        residentMemoryBytes = null,
+        physicalFootprintBytes = null,
+        thermalState = UNAVAILABLE,
+        threadCount = 0,
+        busiestThreads = emptyList(),
+        gpuStatus = "Unavailable on demand on Android",
+        network = CrumbNetworkDiagnostic(
+            status = UNKNOWN,
+            transport = UNKNOWN,
+            cellularGeneration = null,
+            isExpensive = false,
+            isConstrained = false,
+            healthCheck = null,
+        ),
+        logs = CrumbLogDiagnostic(
+            status = CrumbLogCaptureStatus.UNAVAILABLE,
+            sources = emptyList(),
+            entries = emptyList(),
+            truncated = false,
+            droppedEntryCount = 0,
+            failures = listOf(failureName(failure)),
+        ),
+        stackTraces = CrumbStackTraceDiagnostic(
+            status = CrumbStackTraceCaptureStatus.UNAVAILABLE,
+            scope = "none",
+            threads = emptyList(),
+            truncated = false,
+            unavailableReason = failureName(failure),
+        ),
+    )
+
+    private fun failureName(failure: Throwable): String =
+        "collector_failed:" + (failure.javaClass.simpleName.ifEmpty { "Throwable" }).take(64)
 
     private fun readThreads(): Map<Long, ThreadSample> {
         return File("/proc/self/task").listFiles().orEmpty().mapNotNull { directory ->
@@ -182,8 +266,15 @@ internal object OnDemandDiagnosticsCollector {
         options: CrumbDiagnosticsOptions,
         includeHealthCheck: Boolean,
     ): CrumbNetworkDiagnostic {
-        val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
+        // A host can strip the merged ACCESS_NETWORK_STATE permission, and
+        // these calls then raise SecurityException. Unknown connectivity is
+        // evidence; it must not discard the rest of the snapshot.
+        val connectivity = runCatching {
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        }.getOrNull() ?: return unknownNetwork(options, includeHealthCheck)
+        val capabilities = runCatching {
+            connectivity.getNetworkCapabilities(connectivity.activeNetwork)
+        }.getOrElse { return unknownNetwork(options, includeHealthCheck) }
         val transport = when {
             capabilities == null -> "none"
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
@@ -202,15 +293,42 @@ internal object OnDemandDiagnosticsCollector {
         return CrumbNetworkDiagnostic(
             status = status,
             transport = transport,
-            cellularGeneration = if (transport == "cellular") cellularGeneration(context) else null,
-            isExpensive = connectivity.isActiveNetworkMetered,
-            isConstrained = connectivity.restrictBackgroundStatus ==
-                ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED,
-            healthCheck = if (includeHealthCheck) options.healthCheckUrl?.let {
-                CrumbInfrastructureHealthProbe.capture(it, options.timeoutMillis)
-            } else null,
+            cellularGeneration = if (transport == "cellular") {
+                runCatching { cellularGeneration(context) }.getOrNull()
+            } else {
+                null
+            },
+            isExpensive = runCatching { connectivity.isActiveNetworkMetered }.getOrDefault(false),
+            isConstrained = runCatching {
+                connectivity.restrictBackgroundStatus ==
+                    ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+            }.getOrDefault(false),
+            healthCheck = healthCheck(options, includeHealthCheck),
         )
     }
+
+    private fun unknownNetwork(
+        options: CrumbDiagnosticsOptions,
+        includeHealthCheck: Boolean,
+    ) = CrumbNetworkDiagnostic(
+        status = UNKNOWN,
+        transport = UNKNOWN,
+        cellularGeneration = null,
+        isExpensive = false,
+        isConstrained = false,
+        healthCheck = healthCheck(options, includeHealthCheck),
+    )
+
+    private fun healthCheck(options: CrumbDiagnosticsOptions, includeHealthCheck: Boolean) =
+        if (includeHealthCheck) {
+            options.healthCheckUrl?.let {
+                runCatching {
+                    CrumbInfrastructureHealthProbe.capture(it, options.timeoutMillis)
+                }.getOrNull()
+            }
+        } else {
+            null
+        }
 
     @Suppress("DEPRECATION")
     private fun cellularGeneration(context: Context): String? {
