@@ -8,6 +8,8 @@ def crumb_native_pods!
   required = [
     'VERSION', 'CrumbSDKCore.podspec', 'CrumbSDKUI.podspec',
     'packages/ios/Sources/CrumbCore/CrumbConfiguration.swift',
+    'packages/ios/Sources/CrumbCore/Resources/PrivacyInfo.xcprivacy',
+    'packages/ios/Sources/CrumbUI/Resources/PrivacyInfo.xcprivacy',
     'PLCrashReporter/PLCrashReporter.podspec',
     'PLCrashReporter/CrashReporter.xcframework/Info.plist'
   ]

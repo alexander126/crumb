@@ -20,7 +20,8 @@ let package = Package(
         .target(
             name: "CrumbCore",
             dependencies: [.product(name: "CrashReporter", package: "plcrashreporter")],
-            path: "packages/ios/Sources/CrumbCore"
+            path: "packages/ios/Sources/CrumbCore",
+            resources: [.process("Resources")]
         ),
         .target(
             name: "CrumbUI",

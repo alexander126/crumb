@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyBundledNativePrivacy } from '../../../scripts/ios-required-reasons.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = mkdtempSync(join(tmpdir(), 'crumb-packed-'));
@@ -34,6 +35,7 @@ try {
   assert.ok(archive);
   execFileSync('tar', ['-xzf', join(temporary, archive), '-C', temporary]);
   const packed = join(temporary, 'package');
+  verifyBundledNativePrivacy(resolve(root, '../..'), join(packed, 'native/ios'));
   const androidImplementation =
     'android/src/main/java/com/margelo/nitro/crumbsdk/reactnative/CrumbReactNative.kt';
   assert.deepEqual(
