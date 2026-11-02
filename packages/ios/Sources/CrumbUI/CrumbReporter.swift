@@ -239,10 +239,12 @@ private final class CrumbReporterPresenter: NSObject, UIAdaptivePresentationCont
     }
 
     private static func topViewController() -> UIViewController? {
-        let window = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-            .first { $0.isKeyWindow }
+        let window = CrumbWindowSelection.presentationWindow(
+            scenes: UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .map { (isForegroundActive: $0.activationState == .foregroundActive, windows: $0.windows) },
+            isKeyWindow: { $0.isKeyWindow }
+        )
 
         var current = window?.rootViewController
         while true {
