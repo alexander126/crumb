@@ -44,21 +44,36 @@ struct CrumbUploadResponseLimitTests {
 
     @Test
     func anUndeclaredOversizeResponseStopsBeingReadAtTheCeiling() async throws {
+        let chunkCount = 256
         let plan = CrumbResponsePlan(
             declaredContentLength: nil,
             chunkSize: Self.ceiling,
-            chunkCount: 64,
+            chunkCount: chunkCount,
             finishes: true
         )
+        let session = plannedSession(plan)
+        let transport = CrumbURLSessionUploadTransport(
+            session: session,
+            maximumResponseByteSize: Self.ceiling
+        )
 
-        let failure = await capturedFailure(plan)
+        let failure = await captured(transport, plan)
+        // Checked before the session is torn down, so cancellation is
+        // attributable to the reader abandoning the body rather than to
+        // invalidation.
+        let wasCancelled = await plan.waitUntilCancelled()
+        let delivered = plan.deliveredByteCount
+        session.invalidateAndCancel()
 
         #expect(failure?.reason == "transport.response_too_large")
         #expect(failure?.retryable == false)
-        // Read far enough to exceed the ceiling, then stopped well short of the
-        // body the endpoint was willing to send.
-        #expect(plan.deliveredByteCount >= Self.ceiling)
-        #expect(plan.deliveredByteCount <= 4 * Self.ceiling)
+        // The ceiling was reached by reading, not from a declared length.
+        #expect(delivered >= Self.ceiling)
+        // The read was abandoned rather than completed. How many chunks the
+        // endpoint had already pushed when the cancellation landed depends on
+        // scheduling, so it is deliberately not asserted.
+        #expect(wasCancelled)
+        #expect(delivered < chunkCount * Self.ceiling)
     }
 
     @Test
@@ -146,7 +161,13 @@ struct CrumbUploadResponseLimitTests {
             session: session,
             maximumResponseByteSize: Self.ceiling
         )
+        return await captured(transport, plan)
+    }
 
+    private func captured(
+        _ transport: CrumbURLSessionUploadTransport,
+        _ plan: CrumbResponsePlan
+    ) async -> CrumbUploadFailure? {
         do {
             _ = try await transport.send(request(for: plan))
             return nil
@@ -214,6 +235,17 @@ final class CrumbResponsePlan: @unchecked Sendable {
         cancelled = true
     }
 
+    /// Waits, bounded, for the loader to cancel the request. The protocol stops
+    /// delivering as soon as it observes this, so a test can assert on the
+    /// abandonment without racing the delivery loop.
+    func waitUntilCancelled(timeout: TimeInterval = 2) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline, !isCancelled {
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+        return isCancelled
+    }
+
     private static let registryLock = NSLock()
     nonisolated(unsafe) private static var registry: [String: CrumbResponsePlan] = [:]
 
@@ -278,18 +310,26 @@ final class CrumbPlannedResponseURLProtocol: URLProtocol, @unchecked Sendable {
 
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
 
+        // Delivered off the loading thread: while startLoading is executing,
+        // the loader cannot call stopLoading, so a synchronous loop would push
+        // the whole body no matter when the reader gave up — and the test could
+        // not tell an abandoned transfer from a completed one.
         let chunk = Data(repeating: 0x7A, count: plan.chunkSize)
-        for _ in 0..<plan.chunkCount {
-            if plan.isCancelled { return }
-            client?.urlProtocol(self, didLoad: chunk)
-            plan.recordDelivery(chunk.count)
-            usleep(1_000)
-        }
-
-        if plan.finishes {
-            client?.urlProtocolDidFinishLoading(self)
+        Self.deliveryQueue.async { [weak self] in
+            guard let self else { return }
+            for _ in 0..<plan.chunkCount {
+                if plan.isCancelled { return }
+                self.client?.urlProtocol(self, didLoad: chunk)
+                plan.recordDelivery(chunk.count)
+                usleep(1_000)
+            }
+            if plan.finishes {
+                self.client?.urlProtocolDidFinishLoading(self)
+            }
         }
     }
+
+    private static let deliveryQueue = DispatchQueue(label: "crumb.test.planned-response")
 
     override func stopLoading() {
         CrumbResponsePlan.plan(for: request)?.cancel()
