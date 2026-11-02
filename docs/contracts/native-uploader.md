@@ -39,8 +39,17 @@ accepted.
 - Network errors, HTTP 408/425/429, 5xx responses, and an expired artifact
   target (`403`) are retryable.
 - Other 4xx responses and structurally invalid or mismatched responses remain
-  durably `failed` without a battery-consuming retry loop. A later foreground
-  lifecycle transition may try them again after host configuration changes.
+  durably `failed` and are skipped by automatic passes in the same foreground
+  delivery session, including timer, connectivity, and new-report wakes. Their
+  attempts and stored bytes stay unchanged while skipped. A later transition
+  from the background to the foreground explicitly makes them eligible again; repeated
+  resume calls while already foreground do not. That foreground intent survives
+  completion or cancellation of an older active pass. A fresh worker after
+  process restart also starts with all owned reports eligible.
+- Terminal eligibility is held in memory, bounded by retained owned reports
+  that remain `failed`. Removed reports and reports returned to `pending` no
+  longer carry the previous terminal classification. The durable queue format
+  and the count of remaining owned reports are unchanged.
 - Foreground retries use 1, 2, 4, 8, 16, 32, then at most 60-second delays.
   A connectivity-restored signal wakes the uploader immediately and resets the
   delay. Connectivity monitoring stops when the queue drains or only a terminal

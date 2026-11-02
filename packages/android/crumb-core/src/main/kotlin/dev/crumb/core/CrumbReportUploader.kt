@@ -45,10 +45,18 @@ class CrumbReportUploadWorker internal constructor(
 ) {
     private val cancelled = AtomicBoolean(false)
     private val owner = CrumbQueueOwnerFingerprint.from(settings.projectKey, settings.ingestionUrl)
+    private val terminalReportIds = HashSet<String>()
 
     @JvmSynthetic
     fun prepareForPass() {
         cancelled.set(false)
+    }
+
+    /** Call only after the previous pass finishes, at the start of a new foreground session. */
+    @JvmSynthetic
+    fun prepareForForegroundPass() {
+        terminalReportIds.clear()
+        prepareForPass()
     }
 
     @JvmSynthetic
@@ -65,7 +73,10 @@ class CrumbReportUploadWorker internal constructor(
 
         try {
             queue.recoverInterruptedUploads(owner)
-            for (report in queue.ownedReports(owner)) {
+            val reports = queue.ownedReports(owner)
+            terminalReportIds.retainAll(reports.filter { it.state == CrumbQueuedReportState.FAILED }.map { it.reportId }.toSet())
+            for (report in reports) {
+                if (report.reportId in terminalReportIds) continue
                 try {
                     checkCancellation()
                     queue.markUploading(report.reportId)
@@ -84,6 +95,7 @@ class CrumbReportUploadWorker internal constructor(
                         shouldRetry = true
                         break
                     }
+                    terminalReportIds.add(report.reportId)
                 } catch (_: Exception) {
                     runCatching { queue.markFailed(report.reportId, "uploader.local_failure") }
                 }
@@ -348,13 +360,13 @@ private fun InputStream?.readBounded(maximumBytes: Int = 1_048_576): ByteArray {
     }
 }
 
-private data class InitializationResponse(
+private class InitializationResponse(
     val reportId: String,
     val status: String,
     val artifacts: List<InitializationArtifact>,
 )
 
-private data class InitializationArtifact(
+private class InitializationArtifact(
     val id: String,
     val uploadId: String,
     val method: String,

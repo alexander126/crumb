@@ -1,7 +1,7 @@
 import CrumbCore
-#if canImport(UIKit) && canImport(Network)
+#if canImport(Network)
+import Foundation
 import Network
-import UIKit
 
 @MainActor
 final class CrumbUploadCoordinator {
@@ -9,21 +9,29 @@ final class CrumbUploadCoordinator {
 
     private let monitorQueue = DispatchQueue(label: "dev.crumb.upload-connectivity")
     private var worker: CrumbReportUploadWorker?
-    private var uploadTask: Task<Void, Never>?
+    private(set) var uploadTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
     private var retryStep = 0
     private var isForeground = false
+    private var foregroundRetryRequested = false
+    private(set) var connectivityGeneration = 0
+    private let observesConnectivity: Bool
 
-    private init() {}
+    init(worker: CrumbReportUploadWorker? = nil, observesConnectivity: Bool = true) {
+        self.worker = worker
+        self.observesConnectivity = observesConnectivity
+    }
 
     func resume() {
+        if !isForeground { foregroundRetryRequested = true }
         isForeground = true
         wake()
     }
 
     func pause() {
         isForeground = false
+        foregroundRetryRequested = false
         retryTask?.cancel()
         retryTask = nil
         uploadTask?.cancel()
@@ -46,7 +54,10 @@ final class CrumbUploadCoordinator {
         guard uploadTask == nil else { return }
         retryTask?.cancel()
         retryTask = nil
+        let retryTerminalReports = foregroundRetryRequested
+        foregroundRetryRequested = false
         uploadTask = Task { [weak self] in
+            if retryTerminalReports { await worker.prepareForForegroundPass() }
             let result = await worker.runPass()
             guard let self else { return }
             self.uploadTask = nil
@@ -55,12 +66,16 @@ final class CrumbUploadCoordinator {
     }
 
     private func handle(_ result: CrumbUploadPassResult) {
+        guard isForeground else { return }
+        if foregroundRetryRequested {
+            wake()
+            return
+        }
         if result.remainingReportCount == 0 {
             retryStep = 0
             stopConnectivityMonitoring()
             return
         }
-        guard isForeground else { return }
         if result.wasCancelled {
             wake()
         } else if result.shouldRetry {
@@ -89,16 +104,14 @@ final class CrumbUploadCoordinator {
     }
 
     private func startConnectivityMonitoring() {
-        guard pathMonitor == nil else { return }
+        guard observesConnectivity, pathMonitor == nil else { return }
+        connectivityGeneration += 1
+        let generation = connectivityGeneration
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
             Task { @MainActor [weak self] in
-                guard let self, self.isForeground else { return }
-                self.retryStep = 0
-                self.retryTask?.cancel()
-                self.retryTask = nil
-                self.wake()
+                self?.connectivityDidBecomeAvailable(generation: generation)
             }
         }
         pathMonitor = monitor
@@ -106,8 +119,17 @@ final class CrumbUploadCoordinator {
     }
 
     private func stopConnectivityMonitoring() {
+        connectivityGeneration += 1
         pathMonitor?.cancel()
         pathMonitor = nil
+    }
+
+    func connectivityDidBecomeAvailable(generation: Int) {
+        guard isForeground, generation == connectivityGeneration else { return }
+        retryStep = 0
+        retryTask?.cancel()
+        retryTask = nil
+        wake()
     }
 }
 #endif
