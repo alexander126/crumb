@@ -87,19 +87,19 @@ enum OnDemandLogCollector {
     }
 
     private static func captureUnifiedLogs(earliest: Date) -> UnifiedLogCapture {
-        var entries: [CrumbLogEntry] = []
+        var window = CrumbNewestLogWindow(capacity: scanLimit, earliest: earliest)
         do {
             let store = try OSLogStore(scope: .currentProcessIdentifier)
-            // Start at the newest entry and stop once the configured window is
-            // crossed. Forward enumeration from `earliest` can scan a large store
-            // before reaching the evidence the report actually keeps.
+            // Anchor the scan at the start of the window instead of scanning the
+            // whole store, and do not assume an enumeration order: the reverse
+            // option is not honored for this scope, so an out-of-window entry
+            // skips rather than ends the scan, and the window keeps the newest
+            // entries it is offered.
             for case let entry as OSLogEntryLog in try store.getEntries(
-                with: .reverse,
-                at: nil,
+                at: store.position(date: earliest),
                 matching: nil
             ) {
-                guard entry.date >= earliest else { break }
-                entries.append(
+                window.offer(
                     CrumbLogEntry(
                         timestamp: entry.date,
                         level: level(entry.level),
@@ -110,11 +110,13 @@ enum OnDemandLogCollector {
                         message: entry.composedMessage
                     )
                 )
-                if entries.count >= scanLimit {
-                    return UnifiedLogCapture(entries: entries, dropped: 1, failure: nil)
-                }
             }
-            return UnifiedLogCapture(entries: entries, dropped: 0, failure: nil)
+            let captured = window.finish()
+            return UnifiedLogCapture(
+                entries: captured.entries,
+                dropped: captured.evicted,
+                failure: nil
+            )
         } catch {
             return UnifiedLogCapture(
                 entries: [],
