@@ -44,7 +44,9 @@ package enum CrumbInfrastructureHealthProbe {
         let startedAt = DispatchTime.now()
         let result = HealthProbeValue()
         let semaphore = DispatchSemaphore(value: 0)
-        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+        let task = CrumbHTTPSession.isolated.dataTask(
+            with: CrumbHTTPSession.scoped(request)
+        ) { _, response, error in
             result.setIfEmpty(
                 CrumbHealthHeadResult(
                     statusCode: (response as? HTTPURLResponse)?.statusCode,
