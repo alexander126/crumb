@@ -60,8 +60,16 @@ class CrumbTerminalUploadRetryTest {
                 assertEquals(failed.summary, queue.load(oldest.first.reportId).summary)
                 assertArrayEquals(stored, record.readBytes())
 
-                record.writeText("invalid-record")
+                // Failed enumeration must not discard the remembered terminal
+                // classification. The failure has to be genuine I/O: malformed
+                // metadata is now isolated per item rather than failing the
+                // scan, and a permission bit would not hold when tests run as
+                // root. A directory where the metadata file belongs fails the
+                // read for every uid.
+                assertTrue(record.delete())
+                assertTrue(record.mkdir())
                 assertTrue(worker.runPass().shouldRetry)
+                assertTrue(record.delete())
                 record.writeBytes(stored)
                 assertFalse(worker.runPass().shouldRetry)
                 assertEquals(1, transport.counts[oldest.first.reportId])

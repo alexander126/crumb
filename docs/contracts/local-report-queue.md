@@ -82,6 +82,37 @@ The metadata record contains envelope and artifact byte sizes and SHA-256
 digests. Loading a report verifies those values before returning any payload.
 Missing, renamed, truncated, or changed data is treated as queue corruption.
 
+### Valid listing, retained occupancy, and unsupported versions
+
+Three different situations used to be one "corrupt queue" outcome. They are now
+distinguished, because they call for different behavior:
+
+- **Confirmed invalid metadata is isolated.** Bytes that were read successfully
+  and then rejected by supported-format decoding or shape validation, and a
+  committed directory with positively no metadata, affect only that entry. It is
+  skipped by listing and recovery, and it is never repaired, renamed, or
+  deleted. Its healthy siblings continue to list, recover, upload, and accept
+  new submissions. Naming it directly is still strict: a direct load, and
+  committing a new report under the same report ID, both refuse it.
+- **An I/O failure is a storage failure.** Metadata the SDK cannot read — a
+  protected file, a transient device error — is retried rather than quarantined.
+  Restoring access makes the original record usable again, unchanged.
+- **An unsupported metadata version fails the whole operation.** The version is
+  read before any version-specific field is decoded, so a newer format written
+  by a future SDK is never mistaken for corruption, never skipped, and never
+  adopted — including a future shape that omits fields this version expects.
+
+Admission accounting is deliberately independent of metadata. A new report is
+measured against what the queue actually retains: every retained committed
+directory consumes a report slot, including an entry whose metadata cannot be
+read, and payload bytes are the real envelope and artifact file sizes, including
+artifact blobs no manifest references. Metadata itself remains outside the
+payload budget. A directory whose payload is confirmed absent contributes zero
+bytes while still consuming its slot and reserving its report ID. Anything the
+queue cannot positively account for — an unexpected layout, a symbolic link, a
+failed listing or stat, an entry that disappears mid-scan — fails admission
+closed, leaving every existing byte and path intact.
+
 Queue items have three durable states:
 
 | State | Meaning |
