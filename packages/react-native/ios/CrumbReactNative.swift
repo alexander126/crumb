@@ -5,7 +5,11 @@ import NitroModules
 
 final class CrumbReactNative: HybridCrumbReactNativeSpec {
     private let decoder = JSONDecoder()
-    private let logBuffer = ReactNativeLogBuffer()
+    // Process lifetime, not instance lifetime: a JavaScript reload constructs a
+    // new HybridObject, and the native core compares log providers by identity,
+    // so a per-instance buffer made an otherwise identical configuration look
+    // like a different one and left the configured buffer orphaned.
+    private let logBuffer = ReactNativeLogBuffer.shared
 
     func start(configurationJson: String) throws {
         let data = Data(configurationJson.utf8)
@@ -345,6 +349,8 @@ private extension String {
 }
 
 private final class ReactNativeLogBuffer: CrumbLogProvider, @unchecked Sendable {
+    static let shared = ReactNativeLogBuffer()
+
     private let lock = NSLock()
     private var entries: [CrumbLogEntry] = []
     private var lookback: TimeInterval = 60

@@ -33,7 +33,12 @@ import org.json.JSONObject
 @Keep
 @DoNotStrip
 class CrumbReactNative : HybridCrumbReactNativeSpec() {
-    private val logBuffer = ReactNativeLogBuffer()
+    // Process lifetime, not instance lifetime: a JavaScript reload constructs a
+    // new HybridObject, and CrumbLogOptions compares providers with equals -
+    // identity for this class - so a per-instance buffer made an otherwise
+    // identical configuration look like a different one and left the configured
+    // buffer orphaned.
+    private val logBuffer = ReactNativeLogBuffer.shared
 
     override fun start(configurationJson: String) {
         val context = requireNotNull(NitroModules.applicationContext) {
@@ -300,6 +305,10 @@ private fun String.toNativeLogLevel(): CrumbLogLevel = when (this) {
 }
 
 private class ReactNativeLogBuffer : CrumbLogProvider {
+    companion object {
+        val shared = ReactNativeLogBuffer()
+    }
+
     private val lock = Any()
     private val entries = ArrayDeque<CrumbLogEntry>()
     private var lookbackMillis = 60_000L
