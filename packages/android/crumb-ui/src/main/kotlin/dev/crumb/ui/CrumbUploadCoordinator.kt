@@ -20,6 +20,7 @@ internal object CrumbUploadCoordinator {
     private var running = false
     private var wakeRequested = false
     private var foreground = false
+    private var foregroundRetryRequested = false
     private var retryStep = 0
     private var retryRunnable: Runnable? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -33,12 +34,14 @@ internal object CrumbUploadCoordinator {
 
     fun resume(application: Application) {
         install(application)
+        if (!foreground) foregroundRetryRequested = true
         foreground = true
         wake()
     }
 
     fun pause() {
         foreground = false
+        foregroundRetryRequested = false
         wakeRequested = false
         retryRunnable?.let(mainHandler::removeCallbacks)
         retryRunnable = null
@@ -63,7 +66,12 @@ internal object CrumbUploadCoordinator {
         retryRunnable?.let(mainHandler::removeCallbacks)
         retryRunnable = null
         running = true
-        activeWorker.prepareForPass()
+        if (foregroundRetryRequested) {
+            foregroundRetryRequested = false
+            activeWorker.prepareForForegroundPass()
+        } else {
+            activeWorker.prepareForPass()
+        }
         Thread({
             val result = activeWorker.runPass()
             mainHandler.post {
@@ -75,7 +83,7 @@ internal object CrumbUploadCoordinator {
 
     private fun handle(result: CrumbUploadPassResult) {
         if (!foreground) return
-        if (wakeRequested) {
+        if (foregroundRetryRequested || wakeRequested) {
             wake()
             return
         }
@@ -111,7 +119,7 @@ internal object CrumbUploadCoordinator {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 mainHandler.post {
-                    if (!foreground) return@post
+                    if (!foreground || networkCallback !== this) return@post
                     retryStep = 0
                     retryRunnable?.let(mainHandler::removeCallbacks)
                     retryRunnable = null

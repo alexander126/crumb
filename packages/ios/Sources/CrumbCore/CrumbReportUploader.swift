@@ -46,6 +46,7 @@ package actor CrumbReportUploadWorker {
     private let queue: CrumbReportQueue
     private let settings: CrumbUploadSettings
     private let transport: any CrumbUploadTransport
+    private var terminalReportIDs: Set<String> = []
 
     package init(
         queue: CrumbReportQueue = .shared,
@@ -55,6 +56,11 @@ package actor CrumbReportUploadWorker {
         self.queue = queue
         self.settings = settings
         self.transport = transport
+    }
+
+    /// Call only when the previous pass has finished and a new foreground session begins.
+    package func prepareForForegroundPass() {
+        terminalReportIDs.removeAll()
     }
 
     package func runPass() async -> CrumbUploadPassResult {
@@ -69,7 +75,9 @@ package actor CrumbReportUploadWorker {
         do {
             try await queue.recoverInterruptedUploads(ownedBy: owner)
             let reports = try await queue.reports(ownedBy: owner)
+            terminalReportIDs.formIntersection(reports.lazy.filter { $0.state == .failed }.map(\.reportID))
             for report in reports {
+                guard !terminalReportIDs.contains(report.reportID) else { continue }
                 do {
                     try Task.checkCancellation()
                     try await queue.markUploading(reportID: report.reportID)
@@ -88,6 +96,7 @@ package actor CrumbReportUploadWorker {
                         shouldRetry = true
                         break
                     }
+                    terminalReportIDs.insert(report.reportID)
                 } catch {
                     try? await queue.markFailed(
                         reportID: report.reportID,
