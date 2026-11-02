@@ -87,7 +87,16 @@ object CrumbReporter {
         Thread({
             runCatching { CrumbReportQueue.from(application).recoverInterruptedUploads() }
         }, "Crumb queue recovery").start()
-        activity?.takeUnless { it.isFinishing || it.isDestroyed }?.let(callbacks::onActivityResumed)
+        val resumed = activity?.takeUnless { it.isFinishing || it.isDestroyed }
+        if (resumed != null) {
+            callbacks.onActivityResumed(resumed)
+        } else if (CrumbProcessState.isForeground(application)) {
+            // Lifecycle callbacks do not replay, so installing after the host's
+            // Activity already resumed would otherwise leave queued reports
+            // waiting for the next transition. Delivery needs no Activity.
+            CrumbUploadCoordinator.resume(application)
+            CrumbWorkspacePolicyCoordinator.refresh()
+        }
         syncShakeDetection(settings.invocation)
         return true
     }
@@ -133,6 +142,24 @@ object CrumbReporter {
         }
         syncShakeDetection(settings.invocation)
         return true
+    }
+
+    /**
+     * Clears installed process state. Internal, additive test seam: Robolectric
+     * reuses one sandbox across test classes, so these singletons would
+     * otherwise leak between tests. Mirrors Crumb.resetForTesting in core.
+     */
+    @JvmSynthetic
+    internal fun resetForTesting() {
+        lifecycleCallbacks?.let { callbacks ->
+            installedApplication?.unregisterActivityLifecycleCallbacks(callbacks)
+        }
+        installedApplication = null
+        lifecycleCallbacks = null
+        resumedActivity = WeakReference(null)
+        activeSession = null
+        stopShakeDetection()
+        CrumbUploadCoordinator.resetForTesting()
     }
 
     private fun ensureInstalled(application: Application) {

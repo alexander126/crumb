@@ -24,11 +24,26 @@ internal object CrumbUploadCoordinator {
     private var retryRunnable: Runnable? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
+    /** Whether delivery is currently armed. Internal, additive test seam. */
+    @get:JvmSynthetic
+    internal val isDeliveryActive: Boolean
+        get() = foreground
+
     fun install(application: Application) {
         if (this.application != null) return
         val settings = runCatching { Crumb.uploadSettings() }.getOrNull() ?: return
         this.application = application
         worker = CrumbReportUploadWorker.create(CrumbReportQueue.from(application), settings)
+    }
+
+    /** Internal, additive test seam. See CrumbReporter.resetForTesting. */
+    @JvmSynthetic
+    internal fun resetForTesting() {
+        pause()
+        application = null
+        worker = null
+        running = false
+        retryStep = 0
     }
 
     fun resume(application: Application) {
