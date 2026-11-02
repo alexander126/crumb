@@ -19,18 +19,31 @@ package protocol CrumbUploadTransport: Sendable {
 
 package struct CrumbURLSessionUploadTransport: CrumbUploadTransport {
     private let session: URLSession
+    private let maximumResponseByteSize: Int
 
-    package init(session: URLSession = CrumbHTTPSession.isolated) {
+    package init(
+        session: URLSession = CrumbHTTPSession.isolated,
+        maximumResponseByteSize: Int = CrumbHTTPSession.maximumResponseByteSize
+    ) {
         self.session = session
+        self.maximumResponseByteSize = maximumResponseByteSize
     }
 
     package func send(_ request: URLRequest) async throws -> CrumbUploadHTTPResponse {
-        let (data, response) = try await session.data(for: CrumbHTTPSession.scoped(request))
-        guard data.count <= 1_048_576,
-              let response = response as? HTTPURLResponse else {
+        do {
+            let (data, response) = try await CrumbHTTPSession.boundedData(
+                for: request,
+                on: session,
+                maximumByteSize: maximumResponseByteSize
+            )
+            return CrumbUploadHTTPResponse(statusCode: response.statusCode, data: data)
+        } catch CrumbHTTPSessionError.responseTooLarge {
+            // Terminal: a response above the ceiling is a property of the
+            // endpoint, so resending the same report would repeat it every pass.
+            throw CrumbUploadFailure(reason: "transport.response_too_large", retryable: false)
+        } catch CrumbHTTPSessionError.invalidResponse {
             throw CrumbUploadFailure(reason: "transport.invalid_response", retryable: true)
         }
-        return CrumbUploadHTTPResponse(statusCode: response.statusCode, data: data)
     }
 }
 
@@ -313,7 +326,9 @@ package actor CrumbReportUploadWorker {
     }
 }
 
-private struct CrumbUploadFailure: Error, Sendable {
+/// Internal rather than file-private so transport classification can be
+/// asserted directly from the module's tests.
+struct CrumbUploadFailure: Error, Sendable {
     let reason: String
     let retryable: Bool
 }
