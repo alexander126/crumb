@@ -141,10 +141,10 @@ class CrumbReportQueue internal constructor(
             atomicMove(temporary, destination)
             return record.summary()
         } catch (error: CrumbReportQueueException) {
-            temporary.deleteRecursively()
+            deleteWithoutFollowingLinks(temporary)
             throw error
         } catch (_: Exception) {
-            temporary.deleteRecursively()
+            deleteWithoutFollowingLinks(temporary)
             throw CrumbReportQueueException.StorageFailure()
         }
     }
@@ -232,7 +232,7 @@ class CrumbReportQueue internal constructor(
         val tombstone = File(root, "$DELETE_PREFIX$reportId-${UUID.randomUUID()}")
         atomicMove(directory, tombstone)
         // The atomic rename is the durable removal. Byte cleanup may finish later.
-        tombstone.deleteRecursively()
+        deleteWithoutFollowingLinks(tombstone)
     }
 
     /** Upload work interrupted by process termination becomes retryable on the next launch. */
@@ -314,9 +314,25 @@ class CrumbReportQueue internal constructor(
     private fun cleanupTemporaryTransactions() {
         for (file in root.listFiles().orEmpty()) {
             if (file.name.startsWith(TEMPORARY_PREFIX) || file.name.startsWith(DELETE_PREFIX)) {
-                file.deleteRecursively()
+                deleteWithoutFollowingLinks(file)
             }
         }
+    }
+
+    /**
+     * Deletes queue bytes without following symbolic links.
+     *
+     * Kotlin's File.deleteRecursively walks with FileTreeWalk, which follows
+     * links to directories and offers no no-follow option, so a link planted in
+     * a staging or tombstone tree deleted its target's contents outside the
+     * queue root. Here a link is never listed, and File.delete unlinks the link
+     * itself. Best effort, like the deletion it replaces.
+     */
+    private fun deleteWithoutFollowingLinks(file: File) {
+        if (!Files.isSymbolicLink(file.toPath())) {
+            file.listFiles()?.forEach(::deleteWithoutFollowingLinks)
+        }
+        file.delete()
     }
 
     private fun readAllRecords(): List<StoredRecord> {
