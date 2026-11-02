@@ -1764,7 +1764,7 @@ private final class DraftSummaryViewController: UIViewController {
             "Resident memory: \(diagnostics.residentMemoryBytes.map(DiagnosticsFormatting.byteCount) ?? "unavailable")",
             "Physical footprint: \(diagnostics.physicalFootprintBytes.map(DiagnosticsFormatting.byteCount) ?? "unavailable")",
             "Thermal state: \(diagnostics.thermalState)",
-            "Threads: \(diagnostics.threadCount)",
+            "Threads: \(CrumbEvidenceCounts.threadCountDescription(diagnostics.threadCount))",
             "GPU: \(diagnostics.gpuStatus)",
             "Network: \(networkSummary(diagnostics.network))"
         ]

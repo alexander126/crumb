@@ -41,6 +41,13 @@ enum CrumbEvidenceCounts {
             : String(format: crumbLocalized("%lld items"), count)
     }
 
+    /// A running process always has at least one thread, so zero is not a
+    /// measurement: it means the enumeration failed or was never asked for.
+    /// Every other unavailable measurement on the same screen says so too.
+    static func threadCountDescription(_ threadCount: Int) -> String {
+        threadCount > 0 ? String(threadCount) : crumbLocalized("Unavailable")
+    }
+
     /// Evidence the report does not contain. Each entry is a thing the reporter
     /// would otherwise list, so an absent one is worth telling the user about.
     static func unavailableItemCount(
