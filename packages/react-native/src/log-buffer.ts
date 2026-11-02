@@ -31,10 +31,15 @@ let limits: BufferLimits = {
 let entries: CrumbLogEntry[] = [];
 let usedBytes = 0;
 let nativeStarted = false;
-let originalWarn: ConsoleMethod | undefined;
-let originalError: ConsoleMethod | undefined;
-let capturedWarn: ConsoleMethod | undefined;
-let capturedError: ConsoleMethod | undefined;
+let captureEnabled = false;
+let installedWarn: ConsoleMethod | undefined;
+let installedError: ConsoleMethod | undefined;
+let restoreWarn: ConsoleMethod | undefined;
+let restoreError: ConsoleMethod | undefined;
+/** Set while one of our wrappers is forwarding, so a chain that contains more
+ *  than one of them records a single entry per call. */
+let forwarding = false;
+const crumbWrappers = new WeakSet<ConsoleMethod>();
 
 export function configureLogBuffer(options: CrumbLogOptions | undefined): void {
   limits = {
@@ -105,33 +110,68 @@ export function writeLog(
 }
 
 export function enableConsoleCapture(): void {
-  if (capturedWarn || capturedError) return;
+  // Arming first means a wrapper that is still installed from an earlier cycle
+  // starts recording again without being wrapped a second time.
+  captureEnabled = true;
 
-  originalWarn = console.warn;
-  originalError = console.error;
-  capturedWarn = (...data: unknown[]) => {
-    originalWarn?.apply(console, data);
-    writeConsoleLog('warning', data);
-  };
-  capturedError = (...data: unknown[]) => {
-    originalError?.apply(console, data);
-    writeConsoleLog('error', data);
-  };
-  console.warn = capturedWarn;
-  console.error = capturedError;
+  if (!crumbWrappers.has(console.warn)) {
+    restoreWarn = console.warn;
+    installedWarn = wrapConsoleMethod('warning', console.warn);
+    console.warn = installedWarn;
+  }
+  if (!crumbWrappers.has(console.error)) {
+    restoreError = console.error;
+    installedError = wrapConsoleMethod('error', console.error);
+    console.error = installedError;
+  }
 }
 
 export function disableConsoleCapture(): void {
-  if (capturedWarn && console.warn === capturedWarn && originalWarn) {
-    console.warn = originalWarn;
+  // A wrapper we cannot uninstall - because another library wrapped on top of
+  // it - stays installed and becomes a pass-through. It must never be left
+  // unable to reach what it wrapped.
+  captureEnabled = false;
+
+  if (installedWarn && console.warn === installedWarn && restoreWarn) {
+    console.warn = restoreWarn;
+    crumbWrappers.delete(installedWarn);
+    installedWarn = undefined;
+    restoreWarn = undefined;
   }
-  if (capturedError && console.error === capturedError && originalError) {
-    console.error = originalError;
+  if (installedError && console.error === installedError && restoreError) {
+    console.error = restoreError;
+    crumbWrappers.delete(installedError);
+    installedError = undefined;
+    restoreError = undefined;
   }
-  originalWarn = undefined;
-  originalError = undefined;
-  capturedWarn = undefined;
-  capturedError = undefined;
+}
+
+function wrapConsoleMethod(
+  level: 'warning' | 'error',
+  wrapped: ConsoleMethod
+): ConsoleMethod {
+  // `wrapped` is captured immutably: the wrapper can always reach the function
+  // it was installed over, whatever happens to module state afterwards.
+  const wrapper: ConsoleMethod = (...data: unknown[]) => {
+    if (forwarding) {
+      wrapped.apply(console, data);
+      return;
+    }
+    forwarding = true;
+    try {
+      wrapped.apply(console, data);
+    } finally {
+      forwarding = false;
+    }
+    if (!captureEnabled) return;
+    try {
+      writeConsoleLog(level, data);
+    } catch {
+      // Capturing a log must never make the host's console call throw.
+    }
+  };
+  crumbWrappers.add(wrapper);
+  return wrapper;
 }
 
 function writeConsoleLog(level: 'warning' | 'error', data: unknown[]): void {
@@ -171,9 +211,11 @@ function renderConsoleValue(value: unknown): string {
 }
 
 function serializeMetadata(metadata: CrumbLogMetadata): string {
-  const seen = new WeakSet<object>();
-  const bounded = boundValue(metadata, 0, seen);
   try {
+    // Traversal belongs inside the boundary: it reads properties, so a throwing
+    // getter or proxy trap would otherwise escape through writeLog and out of
+    // the host's own console.error call.
+    const bounded = boundValue(metadata, 0, new WeakSet<object>());
     return truncateUtf8(JSON.stringify(bounded), MAXIMUM_ENTRY_BYTES / 2);
   } catch {
     return '"[Unserializable metadata]"';
@@ -218,15 +260,40 @@ function boundValue(
   }
 
   const result: Record<string, unknown> = {};
-  for (const key of Object.keys(value).slice(0, MAXIMUM_OBJECT_KEYS)) {
-    result[truncateString(key)] = boundValue(
-      (value as Record<string, unknown>)[key],
-      depth + 1,
-      seen
-    );
+  for (const key of ownKeys(value).slice(0, MAXIMUM_OBJECT_KEYS)) {
+    result[truncateString(key)] = readProperty(value, key, depth, seen);
   }
   seen.delete(value);
   return result;
+}
+
+function ownKeys(value: object): string[] {
+  try {
+    return Object.keys(value);
+  } catch {
+    // A proxy can throw from ownKeys itself.
+    return [];
+  }
+}
+
+/** One unreadable property degrades to a placeholder; the rest is still kept. */
+function readProperty(
+  value: object,
+  key: string,
+  depth: number,
+  seen: WeakSet<object>
+): unknown {
+  let read: unknown;
+  try {
+    read = (value as Record<string, unknown>)[key];
+  } catch {
+    return '[Unreadable]';
+  }
+  try {
+    return boundValue(read, depth + 1, seen);
+  } catch {
+    return '[Unreadable]';
+  }
 }
 
 function prune(now: number): void {
