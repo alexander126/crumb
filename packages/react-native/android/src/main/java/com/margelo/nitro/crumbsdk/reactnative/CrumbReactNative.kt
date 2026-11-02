@@ -2,6 +2,8 @@ package com.margelo.nitro.crumbsdk.reactnative
 
 import android.app.Application
 import android.os.Build
+import androidx.annotation.Keep
+import com.facebook.proguard.annotations.DoNotStrip
 import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.common.LifecycleState
 import com.margelo.nitro.NitroModules
@@ -28,6 +30,8 @@ import dev.crumb.core.CrumbWorkspacePolicyOptions
 import dev.crumb.ui.CrumbReporter
 import org.json.JSONObject
 
+@Keep
+@DoNotStrip
 class CrumbReactNative : HybridCrumbReactNativeSpec() {
     private val logBuffer = ReactNativeLogBuffer()
 

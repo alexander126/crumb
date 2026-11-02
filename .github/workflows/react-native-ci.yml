@@ -71,6 +71,8 @@ jobs:
       - run: yarn nitrogen
       - run: yarn example expo prebuild --platform android --clean
       - run: yarn example build:android
+      - name: Verify minified Android Nitro retention
+        run: yarn test:android-release --no-daemon
 
   ios-example:
     runs-on: macos-26
