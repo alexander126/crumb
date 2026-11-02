@@ -1500,7 +1500,10 @@ private final class DraftSummaryViewController: UIViewController {
                 weight: .semibold
             ))
             screenshotCopy.addArrangedSubview(CrumbDesign.label(
-                screenshotWasMasked ? crumbLocalized("4 text fields hidden") : crumbLocalized("Text-field masking is off"),
+                CrumbEvidenceCounts.maskingCaption(
+                    maskingApplied: screenshotWasMasked,
+                    maskedViewCount: screenshotArtifact?.maskedViewCount ?? 0
+                ),
                 style: .caption1,
                 color: CrumbDesign.Color.mutedText
             ))
@@ -1532,51 +1535,54 @@ private final class DraftSummaryViewController: UIViewController {
         attachmentCard.spacing = 0
         attachmentCard.layoutMargins = UIEdgeInsets(top: 12, left: 15, bottom: 12, right: 15)
         attachmentCard.isLayoutMarginsRelativeArrangement = true
-        attachmentCard.addArrangedSubview(CrumbDesign.metadataLabel(
-            crumbLocalized("What’s attached · 21 items")
-        ))
-
         let appVersion = [
             Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
             Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         ].compactMap { $0 }.joined(separator: " (")
         let version = appVersion.isEmpty ? crumbLocalized("Unavailable") : appVersion + (appVersion.contains("(") ? ")" : "")
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("App release"),
-            value: version
+        // Built as data first so the header counts the rows that are actually
+        // rendered instead of stating a fixed number above them.
+        var rows: [(title: String, value: String)] = [
+            (crumbLocalized("App release"), version),
+            (
+                crumbLocalized("Screen at the time"),
+                diagnostics.screenContext?.name ?? diagnostics.location
+            ),
+            (
+                crumbLocalized("Device & OS"),
+                "\(UIDevice.current.model) · iOS \(UIDevice.current.systemVersion)"
+            ),
+            (crumbLocalized("Network"), Self.compactNetworkSummary(diagnostics.network)),
+            (crumbLocalized("Memory & CPU"), Self.compactPerformanceSummary(diagnostics)),
+            (
+                crumbLocalized("Recent app logs"),
+                "\(diagnostics.logs.entries.count) lines · sanitized"
+            )
+        ]
+        let unavailableItemCount = CrumbEvidenceCounts.unavailableItemCount(
+            diagnostics: diagnostics,
+            hasScreenshot: screenshot != nil
         )
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("Screen at the time"),
-            value: diagnostics.screenContext?.name ?? diagnostics.location
-        )
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("Device & OS"),
-            value: "\(UIDevice.current.model) · iOS \(UIDevice.current.systemVersion)"
-        )
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("Network"),
-            value: Self.compactNetworkSummary(diagnostics.network)
-        )
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("Memory & CPU"),
-            value: Self.compactPerformanceSummary(diagnostics)
-        )
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("Recent app logs"),
-            value: "\(diagnostics.logs.entries.count) lines · sanitized"
-        )
-        Self.addAttachmentRow(
-            to: attachmentCard,
-            title: crumbLocalized("Not available"),
-            value: crumbLocalized("3 items"),
-            isLast: true
-        )
+        if unavailableItemCount > 0 {
+            rows.append(
+                (
+                    crumbLocalized("Not available"),
+                    CrumbEvidenceCounts.itemsValue(unavailableItemCount)
+                )
+            )
+        }
+
+        attachmentCard.addArrangedSubview(CrumbDesign.metadataLabel(
+            CrumbEvidenceCounts.attachedItemsTitle(rowCount: rows.count)
+        ))
+        for (index, row) in rows.enumerated() {
+            Self.addAttachmentRow(
+                to: attachmentCard,
+                title: row.title,
+                value: row.value,
+                isLast: index == rows.count - 1
+            )
+        }
         evidenceCard.addArrangedSubview(attachmentCard)
         content.addArrangedSubview(evidenceCard)
 

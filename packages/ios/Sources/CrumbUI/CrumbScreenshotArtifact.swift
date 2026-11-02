@@ -30,6 +30,9 @@ package struct CrumbScreenshotArtifact {
     package let encodedData: Data
     package let manifest: CrumbArtifactManifest
     package let maskingState: CrumbScreenshotMaskingState
+    /// Views actually filled over in this capture. The reporter tells the user
+    /// what was hidden, so the number has to come from the capture itself.
+    package let maskedViewCount: Int
 }
 
 @MainActor
@@ -52,6 +55,7 @@ package enum CrumbScreenshotArtifactPipeline {
         let format = UIGraphicsImageRendererFormat()
         format.scale = window.screen.scale
         format.opaque = true
+        var maskedViewCount = 0
         let rendered = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { renderer in
             window.layer.render(in: renderer.cgContext)
             renderer.cgContext.setFillColor(UIColor.black.cgColor)
@@ -61,6 +65,7 @@ package enum CrumbScreenshotArtifactPipeline {
                     .intersection(window.bounds)
                 guard !frame.isNull, !frame.isEmpty else { continue }
                 renderer.cgContext.fill(frame)
+                maskedViewCount += 1
             }
         }
 
@@ -85,7 +90,8 @@ package enum CrumbScreenshotArtifactPipeline {
                 redactionState: maskingConfigured ? "masked" : "not_applicable",
                 uploadID: "upl_\(token)"
             ),
-            maskingState: maskingState
+            maskingState: maskingState,
+            maskedViewCount: maskedViewCount
         )
     }
 
