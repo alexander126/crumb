@@ -112,6 +112,10 @@ public struct CrumbLogDiagnostic: Equatable, Sendable {
 
 package enum CrumbLogSanitizer {
     package static func sanitize(_ value: String) -> String {
+        sanitize(value, preserveNewlines: false)
+    }
+
+    package static func sanitize(_ value: String, preserveNewlines: Bool) -> String {
         var sanitized = value
         let credentialKeys = #"(?:proxy[-_]?authorization|authorization|(?:set[-_]?)?cookie|password|passwd|secret|(?:access|refresh|id|auth|session)[_-]?token|token|client[_-]?secret|(?:x[_-]?)?api[_-]?key)"#
         let headerKeys = #"(?:proxy[-_]?authorization|authorization|(?:set[-_]?)?cookie)"#
@@ -143,7 +147,7 @@ package enum CrumbLogSanitizer {
             (#"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"#, "[REDACTED_EMAIL]"),
             (#"\b(?:\d[ -]*?){13,19}\b"#, "[REDACTED_NUMBER]"),
             (#"([?&][A-Za-z0-9._~-]+)=([^&#\s]*)"#, "$1=[REDACTED]"),
-            (#"[\u0000-\u001F\u007F]"#, " ")
+            (preserveNewlines ? #"[\u0000-\u0008\u000B-\u001F\u007F]"# : #"[\u0000-\u001F\u007F]"#, " ")
         ]
 
         for (pattern, replacement) in replacements {
