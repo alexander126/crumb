@@ -47,6 +47,8 @@ import dev.crumb.core.CrumbScreenshotCaptureState
 import dev.crumb.core.CrumbScreenshotMaskingState
 import dev.crumb.core.CrumbSerializedReportEnvelope
 import java.lang.ref.WeakReference
+import java.util.Collections
+import java.util.WeakHashMap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -59,6 +61,16 @@ object CrumbReporter {
     private var installedApplication: Application? = null
     private var lifecycleCallbacks: ReporterLifecycleCallbacks? = null
     private var resumedActivity = WeakReference<Activity>(null)
+
+    /**
+     * Every Activity currently resumed, weakly held. Since Android 10 more than
+     * one can be resumed at a time (multi-window, multi-display), and a
+     * translucent Activity can pause the one behind it while the application is
+     * still in front of the user. Delivery and shake detection must follow the
+     * application, not any single Activity.
+     */
+    private val resumedActivities: MutableSet<Activity> =
+        Collections.newSetFromMap(WeakHashMap())
     private var shakeDetector: CrumbShakeDetector? = null
     private var activeSession: ReporterSession? = null
 
@@ -157,6 +169,7 @@ object CrumbReporter {
         installedApplication = null
         lifecycleCallbacks = null
         resumedActivity = WeakReference(null)
+        resumedActivities.clear()
         activeSession = null
         stopShakeDetection()
         CrumbUploadCoordinator.resetForTesting()
@@ -1141,6 +1154,7 @@ object CrumbReporter {
     }
 
     private fun handleActivityResumed(activity: Activity) {
+        resumedActivities.add(activity)
         resumedActivity = WeakReference(activity)
         val session = activeSession
         if (session != null && session.dialog == null) presentSession(activity, session)
@@ -1149,15 +1163,33 @@ object CrumbReporter {
     }
 
     private fun handleActivityPaused(activity: Activity) {
-        if (resumedActivity.get() === activity) resumedActivity = WeakReference(null)
-        stopShakeDetection()
+        resumedActivities.remove(activity)
+        if (resumedActivity.get() === activity) {
+            resumedActivity = WeakReference(resumedActivities.firstOrNull())
+        }
+        if (resumedActivities.isEmpty()) {
+            stopShakeDetection()
+        } else {
+            // Still foreground: keep shake detection armed, now against the
+            // Activity that remains resumed.
+            val invocation = runCatching { Crumb.reportSettings().invocation }
+                .getOrDefault(emptySet())
+            syncShakeDetection(invocation)
+        }
         val session = activeSession
         if (session?.hostActivity?.get() === activity && activity.isChangingConfigurations) {
             detachForRecreation(session)
         }
     }
 
+    /** True once no Activity of this application is resumed any more. */
+    private fun didLeaveForeground(activity: Activity): Boolean {
+        resumedActivities.remove(activity)
+        return resumedActivities.isEmpty()
+    }
+
     private fun handleActivityDestroyed(activity: Activity) {
+        resumedActivities.remove(activity)
         val session = activeSession ?: return
         if (session.hostActivity.get() !== activity) return
         if (activity.isChangingConfigurations) {
@@ -1340,7 +1372,9 @@ object CrumbReporter {
         }
 
         override fun onActivityPaused(activity: Activity) {
-            CrumbUploadCoordinator.pause()
+            // Pausing one Activity is not the application leaving the
+            // foreground: another Activity may still be resumed.
+            if (didLeaveForeground(activity)) CrumbUploadCoordinator.pause()
             handleActivityPaused(activity)
         }
         override fun onActivityDestroyed(activity: Activity) = handleActivityDestroyed(activity)
