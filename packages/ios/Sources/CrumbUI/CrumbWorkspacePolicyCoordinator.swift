@@ -61,12 +61,11 @@ final class CrumbWorkspacePolicyCoordinator {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         do {
-            let (data, response) = try await CrumbHTTPSession.isolated.data(
-                for: CrumbHTTPSession.scoped(request)
+            let (data, response) = try await CrumbHTTPSession.boundedData(
+                for: request,
+                maximumByteSize: CrumbPolicyCache.maximumBytes
             )
-            guard data.count <= CrumbPolicyCache.maximumBytes,
-                  let response = response as? HTTPURLResponse,
-                  (200..<300).contains(response.statusCode) else {
+            guard (200..<300).contains(response.statusCode) else {
                 throw PolicyFetchError.invalidResponse
             }
             let policy = try CrumbWorkspacePolicy.decode(data)
