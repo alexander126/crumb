@@ -86,6 +86,29 @@ options, invocation controls, and whether upload is enabled. Server-side
 retention, access, deletion, and regional processing are controlled by the
 customer workspace and the hosted Crumb service terms.
 
+### Request isolation from host HTTP state
+
+Crumb sends only report content it owns. On iOS it uses an SDK-owned
+`URLSession` with no cookie storage, no credential storage, and no response
+cache, and every request disables cookie handling, so a host cookie never
+travels with an SDK request and an ingestion response can never write into the
+host's cookie jar.
+
+Android cannot be isolated the same way. The uploader uses
+`HttpURLConnection`, which consults the process-wide
+`CookieHandler.getDefault()`, and `java.net` offers no per-connection override.
+A host that installs a default cookie handler — directly, or through an HTTP
+stack that installs one on initialization — therefore has cookies matching the
+configured ingestion host attached to Crumb's requests, and a `Set-Cookie`
+response can be written into that shared store. Crumb installs no cookie
+handler of its own and never reads one.
+
+Hosts that need isolation on Android should scope their cookie handler to their
+own client rather than installing it process-wide. Closing this inside the SDK
+would require replacing `HttpURLConnection` with a client whose cookie jar
+Crumb controls; that is tracked as a transport decision rather than left
+implied here.
+
 ## iOS required-reason declarations
 
 CrumbCore and CrumbUI ship their own `PrivacyInfo.xcprivacy` resources through
