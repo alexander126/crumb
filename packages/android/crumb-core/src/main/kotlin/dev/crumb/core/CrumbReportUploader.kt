@@ -215,6 +215,11 @@ class CrumbReportUploadWorker internal constructor(
             transport.send(request).also { checkCancellation() }
         } catch (_: CancellationException) {
             throw CancellationException()
+        } catch (_: CrumbOversizedResponseException) {
+            // Terminal: a response above the ceiling is a property of the
+            // endpoint, so resending the report would repeat it every pass.
+            checkCancellation()
+            throw CrumbUploadFailure("transport.response_too_large", false)
         } catch (_: Exception) {
             checkCancellation()
             throw CrumbUploadFailure("$operation.network", true)
@@ -332,6 +337,9 @@ private class CrumbHttpUrlConnectionUploadTransport : CrumbUploadTransport {
                 connection.outputStream.use { it.write(body) }
             }
             val statusCode = connection.responseCode
+            if (connection.contentLengthLong > MAXIMUM_RESPONSE_BYTES) {
+                throw CrumbOversizedResponseException()
+            }
             val input = if (statusCode >= 400) connection.errorStream else connection.inputStream
             return CrumbUploadHttpResponse(statusCode, input.readBounded())
         } finally {
@@ -345,7 +353,13 @@ private class CrumbHttpUrlConnectionUploadTransport : CrumbUploadTransport {
     }
 }
 
-private fun InputStream?.readBounded(maximumBytes: Int = 1_048_576): ByteArray {
+internal const val MAXIMUM_RESPONSE_BYTES = 1_048_576
+
+/** Raised while reading, so an oversized body is never fully accumulated. */
+internal class CrumbOversizedResponseException : IOException("upload response exceeded limit")
+
+@JvmSynthetic
+internal fun InputStream?.readBounded(maximumBytes: Int = MAXIMUM_RESPONSE_BYTES): ByteArray {
     if (this == null) return ByteArray(0)
     use { stream ->
         val output = ByteArrayOutputStream()
@@ -353,7 +367,7 @@ private fun InputStream?.readBounded(maximumBytes: Int = 1_048_576): ByteArray {
         while (true) {
             val count = stream.read(buffer)
             if (count < 0) break
-            if (output.size() + count > maximumBytes) throw IOException("upload response exceeded limit")
+            if (output.size() + count > maximumBytes) throw CrumbOversizedResponseException()
             output.write(buffer, 0, count)
         }
         return output.toByteArray()
