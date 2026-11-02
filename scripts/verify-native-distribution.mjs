@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { verifyKotlinClassMetadata, verifyPublishedKotlinDependencies, verifyResolvedKotlinConsumer, verifyUploadTransportCompatibility } from "./android-kotlin-compatibility.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const version = readFileSync(join(root, "VERSION"), "utf8").trim();
@@ -21,8 +22,6 @@ if (revisionFlag !== -1 && !/^[0-9a-f]{40}$/.test(remoteRevision ?? "")) {
 
 const rehearsalRoot = mkdtempSync(join(tmpdir(), "crumb-distribution-"));
 const mavenRepository = join(rehearsalRoot, "maven");
-const androidCache = join(rehearsalRoot, "android-project-cache");
-const androidBuild = join(rehearsalRoot, "android-consumer-build");
 
 function run(command, args, cwd = root) {
   execFileSync(command, args, { cwd, stdio: "inherit" });
@@ -98,12 +97,61 @@ function verifyAndroidArtifacts() {
     console.log(`Verified ${label}.`);
   }
 
-  for (const [aar, label] of [[coreAar, "Core AAR"], [uiAar, "UI AAR"]]) {
+  for (const [aar, label, base, artifact] of [
+    [coreAar, "Core AAR", coreBase, "crumb-core"],
+    [uiAar, "UI AAR", uiBase, "crumb-ui"],
+  ]) {
     const rules = execFileSync("unzip", ["-p", aar, "proguard.txt"], { encoding: "utf8" });
     if (!rules.includes("LineNumberTable")) {
       throw new Error(`${label} does not contain the expected consumer rules`);
     }
     console.log(`Verified ${label} consumer rules.`);
+    verifyPublishedKotlinDependencies(
+      readFileSync(join(base, `${artifact}-${version}.pom`), "utf8"),
+      JSON.parse(readFileSync(join(base, `${artifact}-${version}.module`), "utf8")),
+    );
+    const classesJar = join(rehearsalRoot, `${artifact}-classes.jar`);
+    writeFileSync(classesJar, execFileSync("unzip", ["-p", aar, "classes.jar"]));
+    const classes = execFileSync("unzip", ["-Z1", classesJar], { encoding: "utf8" })
+      .split("\n")
+      .filter((name) => name.endsWith(".class"))
+      .map((name) => name.slice(0, -6).replaceAll("/", "."));
+    const javap = process.env.JAVA_HOME ? join(process.env.JAVA_HOME, "bin/javap") : "javap";
+    const metadata = execFileSync(javap, ["-v", "-classpath", classesJar, ...classes], {
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    if (artifact === "crumb-core") {
+      verifyUploadTransportCompatibility(execFileSync(javap, ["-public", "-classpath", classesJar, "dev.crumb.core.CrumbUploadTransport", "dev.crumb.core.CrumbUploadTransport$DefaultImpls"], { encoding: "utf8" }));
+    }
+    console.log(`Verified ${label}: ${verifyKotlinClassMetadata(metadata)} Kotlin metadata annotations target 2.0; POM/module expose stdlib 2.0.21.`);
+  }
+}
+
+function verifyAndroidConsumers() {
+  for (const compilerVersion of ["2.0.21", "2.2.0"]) {
+    const consumer = join(rehearsalRoot, `android-${compilerVersion}`);
+    mkdirSync(consumer, { recursive: true });
+    const evidence = join(consumer, "resolution.json");
+    const args = [
+      "-p",
+      join(root, "distribution/consumers/android"),
+      "--rerun-tasks",
+      "--no-daemon",
+      "--project-cache-dir",
+      join(consumer, "project-cache"),
+      `-Pkotlin.project.persistent.dir=${join(consumer, "kotlin")}`,
+      `-PcrumbRepository=${mavenRepository}`,
+      `-PcrumbVersion=${version}`,
+      `-PcrumbConsumerBuildDir=${join(consumer, "build")}`,
+      `-PcrumbConsumerEvidence=${evidence}`,
+    ];
+    // The modern invocation also verifies the unchanged default compiler version.
+    if (compilerVersion === "2.0.21") args.push(`-PcrumbConsumerKotlinVersion=${compilerVersion}`);
+    args.push(":app:writeCrumbResolutionEvidence", ":app:assembleDebug");
+    run(join(root, "packages/android/gradlew"), args);
+    const resolution = verifyResolvedKotlinConsumer(JSON.parse(readFileSync(evidence, "utf8")), mavenRepository, version, compilerVersion);
+    console.log(`Verified Maven artifact consumer: ${JSON.stringify(resolution)}`);
   }
 }
 
@@ -157,17 +205,7 @@ try {
   ]);
   verifyAndroidArtifacts();
 
-  run(join(root, "packages/android/gradlew"), [
-    "-p",
-    join(root, "distribution/consumers/android"),
-    "--rerun-tasks",
-    "--project-cache-dir",
-    androidCache,
-    `-PcrumbRepository=${mavenRepository}`,
-    `-PcrumbVersion=${version}`,
-    `-PcrumbConsumerBuildDir=${androidBuild}`,
-    ":app:assembleDebug",
-  ]);
+  verifyAndroidConsumers();
 
   lintPodspec("CrumbSDKCore.podspec");
   lintPodspec("CrumbSDKUI.podspec", "CrumbSDKCore.podspec");
