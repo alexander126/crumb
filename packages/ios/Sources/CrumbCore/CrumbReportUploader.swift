@@ -20,12 +20,12 @@ package protocol CrumbUploadTransport: Sendable {
 package struct CrumbURLSessionUploadTransport: CrumbUploadTransport {
     private let session: URLSession
 
-    package init(session: URLSession = .shared) {
+    package init(session: URLSession = CrumbHTTPSession.isolated) {
         self.session = session
     }
 
     package func send(_ request: URLRequest) async throws -> CrumbUploadHTTPResponse {
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: CrumbHTTPSession.scoped(request))
         guard data.count <= 1_048_576,
               let response = response as? HTTPURLResponse else {
             throw CrumbUploadFailure(reason: "transport.invalid_response", retryable: true)
