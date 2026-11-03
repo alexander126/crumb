@@ -34,7 +34,12 @@ data class CrumbArtifactManifest(
     val uploadId: String,
 )
 
-data class CrumbReportBuildInput(
+/**
+ * Deliberately not a data class, for the same reason as
+ * [CrumbDiagnosticsSnapshot]: hosts construct it and read its properties, and
+ * the generated members cost about 1.5 KiB in the release AAR.
+ */
+class CrumbReportBuildInput(
     val reportId: String,
     val trigger: CrumbInvocation,
     val triggeredAtMillis: Long,

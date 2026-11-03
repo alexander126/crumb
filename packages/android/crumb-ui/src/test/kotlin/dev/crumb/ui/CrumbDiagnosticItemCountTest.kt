@@ -36,12 +36,10 @@ class CrumbDiagnosticItemCountTest {
         val full = CrumbEvidenceCounts.diagnosticItemCount(fullSnapshot())
 
         val withoutRendering = CrumbEvidenceCounts.diagnosticItemCount(
-            fullSnapshot().copy(rendering = null),
+            fullSnapshot(rendering = null),
         )
         val withoutHealthCheck = CrumbEvidenceCounts.diagnosticItemCount(
-            fullSnapshot().copy(
-                network = fullSnapshot().network.copy(healthCheck = null),
-            ),
+            fullSnapshot(healthCheck = null),
         )
 
         assertEquals(full - 1, withoutRendering)
@@ -53,7 +51,16 @@ class CrumbDiagnosticItemCountTest {
         assertEquals(2, CrumbEvidenceCounts.diagnosticItemCount(emptySnapshot()))
     }
 
-    private fun fullSnapshot() = CrumbDiagnosticsSnapshot(
+    private fun fullSnapshot(
+        rendering: String? = "{\"source\":\"android_frame_metrics\"}",
+        healthCheck: CrumbHealthCheckDiagnostic? = CrumbHealthCheckDiagnostic(
+            host = "ingestion.example.invalid",
+            succeeded = true,
+            statusCode = 204,
+            latencyMilliseconds = 18,
+            failure = null,
+        ),
+    ) = CrumbDiagnosticsSnapshot(
         capturedAtMillis = 1_700_000_000_000,
         location = "SyntheticActivity",
         processName = "synthetic.app",
@@ -73,13 +80,7 @@ class CrumbDiagnosticItemCountTest {
             cellularGeneration = "5G",
             isExpensive = false,
             isConstrained = false,
-            healthCheck = CrumbHealthCheckDiagnostic(
-                host = "ingestion.example.invalid",
-                succeeded = true,
-                statusCode = 204,
-                latencyMilliseconds = 18,
-                failure = null,
-            ),
+            healthCheck = healthCheck,
         ),
         logs = CrumbLogDiagnostic(
             status = CrumbLogCaptureStatus.CAPTURED,
@@ -110,7 +111,7 @@ class CrumbDiagnosticItemCountTest {
             truncated = false,
             unavailableReason = null,
         ),
-        rendering = "{\"source\":\"android_frame_metrics\"}",
+        rendering = rendering,
         screenContext = "{\"name\":\"SyntheticScreen\"}",
     )
 

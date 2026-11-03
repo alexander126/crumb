@@ -26,8 +26,7 @@ class CrumbTest {
         Crumb.setScreenContext("""{"name":"Home","route":["Home"],"source":"manual"}""")
         assertEquals("Checkout", JSONObject(requireNotNull(captured.screenContext)).getString("name"))
         assertEquals("Home", JSONObject(requireNotNull(Crumb.reportSettings().screenContext)).getString("name"))
-        val original = reportInput()
-        val savedInput = original.copy(diagnostics = original.diagnostics.copy(screenContext = captured.screenContext))
+        val savedInput = reportInput(screenContext = captured.screenContext)
         val report = JSONObject(Crumb.buildReport(savedInput).json)
         assertEquals("1.2", report.getString("schema_version"))
         assertEquals("Checkout", report.getJSONObject("diagnostics").getJSONObject("screen_context").getString("name"))
@@ -479,6 +478,7 @@ class CrumbTest {
         artifactKind: String = "screenshot",
         healthCheckSucceeded: Boolean = true,
         javascriptCrash: CrumbJavaScriptCrash? = null,
+        screenContext: String? = null,
     ) = CrumbReportBuildInput(
         reportId = CrumbReportEnvelopeBuilder.makeReportId(
             UUID.fromString("01234567-89ab-cdef-0123-456789abcdef"),
@@ -494,7 +494,7 @@ class CrumbTest {
         ),
         category = "Bug",
         description = "Checkout froze after tapping Pay",
-        diagnostics = diagnostics(triggeredAtMillis + 1_000, healthCheckSucceeded),
+        diagnostics = diagnostics(triggeredAtMillis + 1_000, healthCheckSucceeded, screenContext),
         screenshotCapture = CrumbScreenshotCaptureState.ENABLED,
         screenshotMasking = CrumbScreenshotMaskingState.APPLIED,
         artifacts = listOf(
@@ -514,6 +514,7 @@ class CrumbTest {
     private fun diagnostics(
         capturedAtMillis: Long,
         healthCheckSucceeded: Boolean,
+        screenContext: String? = null,
     ) = CrumbDiagnosticsSnapshot(
         capturedAtMillis = capturedAtMillis,
         location = "CheckoutActivity",
@@ -571,6 +572,7 @@ class CrumbTest {
             truncated = false,
             unavailableReason = null,
         ),
+        screenContext = screenContext,
     )
 
     private fun configuration(

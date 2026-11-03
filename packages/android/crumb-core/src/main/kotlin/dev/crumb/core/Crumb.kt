@@ -163,7 +163,12 @@ data class CrumbNetworkDiagnostic(
     val healthCheck: CrumbHealthCheckDiagnostic?,
 )
 
-data class CrumbDiagnosticsSnapshot(
+/**
+ * Deliberately not a data class: its generated equals, hashCode, toString, copy
+ * and componentN cost about 1.5 KiB in the release AAR, which `crumb-core`
+ * does not have, and nothing reads them. Keep it a plain class.
+ */
+class CrumbDiagnosticsSnapshot(
     val capturedAtMillis: Long,
     val location: String,
     val processName: String,
