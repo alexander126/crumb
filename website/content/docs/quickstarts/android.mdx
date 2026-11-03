@@ -106,6 +106,7 @@ The installed reporter also supports foreground shake invocation. The explicit b
 | Dependency does not resolve              | Add Maven Central to the repositories actually used by the app and check the exact artifact version. |
 | JVM target mismatch                      | Align Java and Kotlin compilation with Java 17.                                                      |
 | Reporter never installs                  | Confirm the manifest uses the correct `Application` class and startup executes.                      |
+| `install` returns `false` in a service   | Crumb is single-process: start it in the main process, not one declared with `android:process`.      |
 | A report stays local                     | Check the ingestion URL and key. Reconnect and foreground the app after an offline submission.       |
 | Compose or WebView content needs masking | Mark the containing Android View; see [privacy](/docs/guides/privacy#mask-sensitive-regions).        |
 

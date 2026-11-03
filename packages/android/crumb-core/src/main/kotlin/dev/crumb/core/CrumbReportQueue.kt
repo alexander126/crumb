@@ -57,6 +57,8 @@ sealed class CrumbReportQueueException(message: String) : IllegalStateException(
     class ReportNotFound : CrumbReportQueueException("queued report does not exist")
     class CorruptQueue : CrumbReportQueueException("local report queue is corrupt")
     class StorageFailure : CrumbReportQueueException("local report queue could not be written")
+    class UnsupportedProcess :
+        CrumbReportQueueException("local report queue is supported only in the application's main process")
 }
 
 class CrumbReportQueue internal constructor(
@@ -692,7 +694,31 @@ class CrumbReportQueue internal constructor(
         }
 
         @JvmSynthetic
-        fun from(context: Context): CrumbReportQueue {
+        /**
+         * The queue is single-process: its mutual exclusion is in-process only,
+         * so two processes would interleave record writes and each admit
+         * reports against the same quota. It refuses rather than let that drift
+         * silently.
+         *
+         * [processName] defaults to this process and is a parameter so the
+         * boundary is testable where the runtime cannot name its own process. A
+         * process that cannot be named is treated as the main one: an
+         * unidentifiable process must not break a working single-process host.
+         */
+        /** Null when the process cannot be named. No Context, no permission. */
+        private fun currentProcessName(): String? = try {
+            File("/proc/self/cmdline").readText().substringBefore('\u0000').trim().ifEmpty { null }
+        } catch (_: Exception) {
+            null
+        }
+
+        fun from(
+            context: Context,
+            processName: String? = currentProcessName(),
+        ): CrumbReportQueue {
+            if (processName != null && processName != context.packageName) {
+                throw CrumbReportQueueException.UnsupportedProcess()
+            }
             shared?.let { return it }
             return synchronized(this) {
                 shared ?: configured(
