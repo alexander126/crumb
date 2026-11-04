@@ -4,7 +4,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Bounded managed frames. This never installs a handler or claims C/C++ coverage. */
-internal object CrumbFailureStacks {
+@CrumbInternalApi
+object CrumbFailureStacks {
     private const val maximumBytes = 12_288
 
     fun capture(): CrumbStackTraceDiagnostic? = runCatching {

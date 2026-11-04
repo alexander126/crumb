@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "crumb-android"
-include ":crumb-core", ":crumb-ui", ":demo"
+include ":crumb-core", ":crumb-ui", ":crumb-react-native", ":demo"

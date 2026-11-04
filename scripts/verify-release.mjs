@@ -69,7 +69,7 @@ const androidArchive = join(releaseRoot, `crumb-android-maven-${version}.zip`);
 const androidEntries = new Set(execFileSync("unzip", ["-Z1", androidArchive], { encoding: "utf8" })
   .trim()
   .split("\n"));
-for (const artifact of ["crumb-core", "crumb-ui"]) {
+for (const artifact of ["crumb-core", "crumb-ui", "crumb-react-native"]) {
   for (const extension of ["aar", "pom"]) {
     const requiredEntry = `com/crumbsdk/${artifact}/${version}/${artifact}-${version}.${extension}`;
     if (!androidEntries.has(requiredEntry)) {

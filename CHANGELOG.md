@@ -5,6 +5,32 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Changed
+
+- Android: the React Native JavaScript crash handoff moved out of `crumb-core`
+  into a new `com.crumbsdk:crumb-react-native` artifact. `crumb-core`'s release
+  AAR is about 25 KiB smaller, which a native-only Android application no longer
+  carries for machinery it never calls. `@crumbsdk/react-native` depends on the
+  new artifact; native integrations do not and should not add it. The React
+  Native JavaScript API is unchanged, and so is the on-disk handoff format.
+
+### Removed
+
+- Android: `Crumb.recordJavaScriptCrash` and `Crumb.recoverJavaScriptCrashes`
+  are no longer on `dev.crumb.core.Crumb`, and `CrumbReporter` exposes
+  `reportDidQueue()` in place of its `recoverJavaScriptCrashes(context)` bridge.
+  The entry point is now
+  `dev.crumb.reactnative.CrumbJavaScriptCrashes.record` / `.recover` in the new
+  `crumb-react-native` artifact. A native integration that called the old
+  functions directly should add `com.crumbsdk:crumb-react-native` and use the
+  new entry point.
+
+  `@crumbsdk/react-native` still calls the previous functions, because its
+  Android module compiles against the *published* native artifacts rather than
+  this repository's sources. Its switch to the new entry point is a separate
+  change that has to land with the native version that publishes it; until
+  then the shipped adapter keeps working against `0.0.1-rc.6`.
+
 ## [0.0.1-rc.6] - Candidate
 
 See the [rc.6 release and migration notes](docs/releases/0.0.1-rc.6.md).

@@ -1,4 +1,4 @@
-package dev.crumb.core
+package dev.crumb.reactnative
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,37 +10,31 @@ import java.nio.file.StandardCopyOption
 import java.time.Instant
 import java.util.Locale
 import java.util.UUID
-
-data class CrumbJavaScriptCrashRelease(
-    val appVersion: String?,
-    val nativeBuild: String?,
-    val bundleVersion: String?,
-)
-
-data class CrumbJavaScriptBreadcrumb(
-    val timestamp: Instant,
-    val source: String,
-    val category: String,
-    val message: String,
-)
-
-data class CrumbJavaScriptCrash(
-    val recordId: String,
-    val fingerprint: String,
-    val source: String,
-    val kind: String,
-    val type: String,
-    val message: String,
-    val stack: String?,
-    val occurredAt: Instant,
-    val release: CrumbJavaScriptCrashRelease,
-    val breadcrumbs: List<CrumbJavaScriptBreadcrumb>,
-    val context: Map<String, String>,
-    val isFatal: Boolean,
-    val nativeTerminationWrapperObserved: Boolean,
-) {
-    internal var failureContext: CrumbJavaScriptFailureContext? = null
-}
+import dev.crumb.core.CrumbArtifactManifest
+import dev.crumb.core.CrumbCustomContextOptions
+import dev.crumb.core.CrumbCustomContextSanitizer
+import dev.crumb.core.CrumbDiagnosticsSnapshot
+import dev.crumb.core.CrumbEvidenceCategory
+import dev.crumb.core.CrumbFailureStacks
+import dev.crumb.core.CrumbFailureText
+import dev.crumb.core.CrumbInvocation
+import dev.crumb.core.CrumbJavaScriptBreadcrumb
+import dev.crumb.core.CrumbJavaScriptCrash
+import dev.crumb.core.CrumbJavaScriptCrashRelease
+import dev.crumb.core.CrumbJavaScriptFailureContext
+import dev.crumb.core.CrumbLogCaptureStatus
+import dev.crumb.core.CrumbLogDiagnostic
+import dev.crumb.core.CrumbNetworkDiagnostic
+import dev.crumb.core.CrumbRelease
+import dev.crumb.core.CrumbRenderingEvidence
+import dev.crumb.core.CrumbReportBuildInput
+import dev.crumb.core.CrumbReportRuntime
+import dev.crumb.core.CrumbReportSettings
+import dev.crumb.core.CrumbScreenContext
+import dev.crumb.core.CrumbScreenshotCaptureState
+import dev.crumb.core.CrumbScreenshotMaskingState
+import dev.crumb.core.CrumbStackTraceCaptureStatus
+import dev.crumb.core.CrumbStackTraceDiagnostic
 
 data class CrumbJavaScriptCrashStoreLimits(
     val maximumRecords: Int = 50,

@@ -294,29 +294,36 @@ object Crumb {
         activeConfiguration.diagnostics.logs.enabled && effectiveSettings(activeConfiguration).evidence.contains(CrumbEvidenceCategory.LOGS)
     }
 
-    /** Synchronously accepts the React Native adapter's sanitized JS failure. */
-    @JvmStatic
-    fun recordJavaScriptCrash(context: Context, recordJson: String) {
-        val settings = synchronized(lock) {
-            val activeConfiguration = configuration ?: return
-            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return
-            reportSettings()
-        }
-        val snapshot = runCatching { CrumbJavaScriptFailureContext.capture(context.applicationContext, settings) }.getOrNull()
-        CrumbJavaScriptCrashStore(
-            context.applicationContext.noBackupFilesDir.resolve("crumb/javascript-crashes"),
-        ).record(recordJson, snapshot, settings.diagnostics.logs.enabled && CrumbEvidenceCategory.LOGS in settings.evidence, settings.release)
+    /**
+     * Builds and commits a recovered report in one step, for the React Native
+     * JavaScript crash handoff in `crumb-react-native`.
+     *
+     * It exists so the envelope builder stays internal to this module: the
+     * handoff supplies a build input and never touches serialization. Returns
+     * false when the SDK is not started or the commit fails.
+     */
+    @CrumbInternalApi
+    @JvmSynthetic
+    fun enqueueRecoveredReport(context: Context, input: CrumbReportBuildInput): Boolean {
+        val settings = runCatching { reportSettings() }.getOrNull() ?: return false
+        return runCatching {
+            CrumbReportQueue.from(context).enqueue(
+                CrumbReportEnvelopeBuilder.build(settings, input),
+                emptyList(),
+            )
+        }.isSuccess
     }
 
-    /** Moves pending JS failures into the normal durable report queue. */
-    @JvmStatic
-    fun recoverJavaScriptCrashes(context: Context): Boolean {
-        val settings = synchronized(lock) {
-            val activeConfiguration = configuration ?: return false
-            if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return false
-            reportSettings()
-        }
-        return CrumbJavaScriptCrashRecovery.recover(context.applicationContext, settings)
+    /**
+     * Report settings for the JavaScript crash handoff, or null when the SDK is
+     * not started or JavaScript crash capture is off.
+     */
+    @CrumbInternalApi
+    @JvmSynthetic
+    fun javaScriptCrashSettings(): CrumbReportSettings? = synchronized(lock) {
+        val activeConfiguration = configuration ?: return@synchronized null
+        if (!activeConfiguration.diagnostics.javascriptCrashCaptureEnabled) return@synchronized null
+        reportSettings()
     }
 
     /** Internal bridge for the native UI module; not part of the intended public SDK interface. */
@@ -462,8 +469,9 @@ object Crumb {
     @JvmSynthetic
     fun newReportId(): String = CrumbReportEnvelopeBuilder.makeReportId()
 
+    @CrumbInternalApi
     @JvmSynthetic
-    internal fun resetForTesting() = synchronized(lock) {
+    fun resetForTesting() = synchronized(lock) {
         configuration = null
         screenContext = null
         workspacePolicy = null

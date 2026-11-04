@@ -33,6 +33,9 @@ layout.buildDirectory = providers.gradleProperty("crumbConsumerBuildDir").map { 
 dependencies {
     // Core must arrive transitively through the published UI POM.
     implementation "com.crumbsdk:crumb-ui:${sdkVersion}"
+    // React Native support is published separately; resolving it here keeps its
+    // Kotlin metadata and stdlib floor under the same rehearsal.
+    implementation "com.crumbsdk:crumb-react-native:${sdkVersion}"
 }
 
 tasks.register("writeCrumbResolutionEvidence") {

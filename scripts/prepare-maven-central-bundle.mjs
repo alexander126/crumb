@@ -37,6 +37,7 @@ execFileSync(
     "--no-daemon",
     ":crumb-core:publishReleasePublicationToStagingRepository",
     ":crumb-ui:publishReleasePublicationToStagingRepository",
+    ":crumb-react-native:publishReleasePublicationToStagingRepository",
     `-PcrumbRepository=${stagingRepository}`,
   ],
   { cwd: root, stdio: "inherit" },
@@ -59,7 +60,7 @@ function checksum(path, algorithm) {
   return createHash(algorithm).update(readFileSync(path)).digest("hex");
 }
 
-const artifacts = ["crumb-core", "crumb-ui"];
+const artifacts = ["crumb-core", "crumb-ui", "crumb-react-native"];
 const requiredSuffixes = [".aar", ".pom", ".module", "-sources.jar", "-javadoc.jar"];
 
 for (const artifact of artifacts) {

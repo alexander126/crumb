@@ -1,6 +1,7 @@
 package dev.crumb.core
 
-internal object CrumbFailureText {
+@CrumbInternalApi
+object CrumbFailureText {
     private const val credentialKeys =
         """(?:proxy[-_]?authorization|authorization|(?:set[-_]?)?cookie|password|passwd|secret|(?:access|refresh|id|auth|session)[_-]?token|token|client[_-]?secret|(?:x[_-]?)?api[_-]?key)"""
     private const val credentialPrefix =

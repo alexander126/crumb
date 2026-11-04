@@ -16,7 +16,8 @@ envelopes:
 
 - Swift Package products: `CrumbCore` and `CrumbUI`;
 - CocoaPods: `CrumbSDKCore`, `CrumbSDKUI`, and the `CrumbSDK` convenience pod;
-- Maven: `com.crumbsdk:crumb-core` and `com.crumbsdk:crumb-ui`.
+- Maven: `com.crumbsdk:crumb-core`, `com.crumbsdk:crumb-ui`, and
+  `com.crumbsdk:crumb-react-native`.
 
 The CocoaPods distribution names are registry-safe package identities. Their
 Swift module names remain `CrumbCore` and `CrumbUI`, so installation through
@@ -25,8 +26,15 @@ owned through `crumbsdk.com`; Android source packages remain under `dev.crumb`
 to preserve the native API.
 
 The Android UI artifact exposes Core as an API dependency, so an application
-that installs `crumb-ui` receives `crumb-core` transitively. Both AARs include
+that installs `crumb-ui` receives `crumb-core` transitively. Every AAR includes
 source JARs and consumer shrinking rules.
+
+`crumb-react-native` carries the React Native JavaScript crash handoff: its
+store, that store's recovery into the normal report queue, and the entry point
+`@crumbsdk/react-native` calls. It is published separately so a native-only
+Android application does not ship roughly 25 KiB of release AAR it never calls.
+The React Native package depends on it; native integrations do not and should
+not add it. Like `crumb-ui`, it exposes Core as an API dependency.
 
 ## Rehearsal gate
 

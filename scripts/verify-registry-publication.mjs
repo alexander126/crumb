@@ -48,7 +48,7 @@ if (verifyCocoaPods) {
 }
 
 if (verifyMaven) {
-  for (const artifact of ["crumb-core", "crumb-ui"]) {
+  for (const artifact of ["crumb-core", "crumb-ui", "crumb-react-native"]) {
     for (const suffix of [".pom", ".aar", "-sources.jar", "-javadoc.jar"]) {
       await waitFor(`Maven Central ${artifact}-${version}${suffix}`, () =>
         mavenArtifactExists(artifact, suffix),

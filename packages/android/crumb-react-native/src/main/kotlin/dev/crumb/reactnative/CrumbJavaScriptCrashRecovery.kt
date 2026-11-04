@@ -1,4 +1,29 @@
-package dev.crumb.core
+package dev.crumb.reactnative
+
+import dev.crumb.core.CrumbArtifactManifest
+import dev.crumb.core.CrumbDiagnosticsSnapshot
+import dev.crumb.core.CrumbEvidenceCategory
+import dev.crumb.core.CrumbFailureStacks
+import dev.crumb.core.CrumbFailureText
+import dev.crumb.core.Crumb
+import dev.crumb.core.CrumbInvocation
+import dev.crumb.core.CrumbReportQueue
+import dev.crumb.core.CrumbJavaScriptBreadcrumb
+import dev.crumb.core.CrumbJavaScriptCrash
+import dev.crumb.core.CrumbJavaScriptCrashRelease
+import dev.crumb.core.CrumbLogCaptureStatus
+import dev.crumb.core.CrumbLogDiagnostic
+import dev.crumb.core.CrumbNetworkDiagnostic
+import dev.crumb.core.CrumbRelease
+import dev.crumb.core.CrumbRenderingEvidence
+import dev.crumb.core.CrumbReportBuildInput
+import dev.crumb.core.CrumbReportRuntime
+import dev.crumb.core.CrumbReportSettings
+import dev.crumb.core.CrumbScreenContext
+import dev.crumb.core.CrumbScreenshotCaptureState
+import dev.crumb.core.CrumbScreenshotMaskingState
+import dev.crumb.core.CrumbStackTraceCaptureStatus
+import dev.crumb.core.CrumbStackTraceDiagnostic
 
 import android.content.Context
 import android.os.Build
@@ -22,12 +47,11 @@ internal object CrumbJavaScriptCrashRecovery {
                 recovered = store.remove(crash.recordId) || recovered
                 return@forEach
             }
-            val input = recoveryInput(crash, settings)
-            runCatching {
-                val envelope = CrumbReportEnvelopeBuilder.build(settings, input)
-                CrumbReportQueue.from(context).enqueue(envelope, emptyList())
+            // Core builds and commits in one step, so the envelope builder
+            // stays internal to crumb-core. A failure leaves the handoff for a
+            // later launch, exactly as before.
+            if (Crumb.enqueueRecoveredReport(context, recoveryInput(crash, settings))) {
                 store.remove(crash.recordId)
-            }.onSuccess {
                 recovered = true
             }
         }

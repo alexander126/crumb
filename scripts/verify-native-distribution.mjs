@@ -43,6 +43,7 @@ function verifyPackageMetadata() {
     "CrumbSDKUI.podspec",
     "packages/android/crumb-core/build.gradle",
     "packages/android/crumb-ui/build.gradle",
+    "packages/android/crumb-react-native/build.gradle",
   ];
   const placeholders = ["example.invalid", "SDK Team", "sdk@example.invalid"];
   const license = readFileSync(join(root, "LICENSE"), "utf8");
@@ -67,8 +68,10 @@ function verifyAndroidArtifacts() {
   const versionPath = join("com", "crumbsdk");
   const coreBase = join(mavenRepository, versionPath, "crumb-core", version);
   const uiBase = join(mavenRepository, versionPath, "crumb-ui", version);
+  const reactNativeBase = join(mavenRepository, versionPath, "crumb-react-native", version);
   const coreAar = join(coreBase, `crumb-core-${version}.aar`);
   const uiAar = join(uiBase, `crumb-ui-${version}.aar`);
+  const reactNativeAar = join(reactNativeBase, `crumb-react-native-${version}.aar`);
 
   const corePom = requireText(
     join(coreBase, `crumb-core-${version}.pom`),
@@ -76,7 +79,16 @@ function verifyAndroidArtifacts() {
     "Core POM",
   );
   const uiPom = requireText(join(uiBase, `crumb-ui-${version}.pom`), "<artifactId>crumb-core</artifactId>", "UI POM");
-  for (const [pom, label] of [[corePom, "Core POM"], [uiPom, "UI POM"]]) {
+  const reactNativePom = requireText(
+    join(reactNativeBase, `crumb-react-native-${version}.pom`),
+    "<artifactId>crumb-core</artifactId>",
+    "React Native POM",
+  );
+  for (const [pom, label] of [
+    [corePom, "Core POM"],
+    [uiPom, "UI POM"],
+    [reactNativePom, "React Native POM"],
+  ]) {
     if (
       !pom.includes("The Apache License, Version 2.0") ||
       !pom.includes("https://www.apache.org/licenses/LICENSE-2.0.txt")
@@ -87,12 +99,23 @@ function verifyAndroidArtifacts() {
   if (!uiPom.includes("<scope>compile</scope>")) {
     throw new Error("UI POM must expose Crumb Core as a compile dependency");
   }
+  if (!reactNativePom.includes("<scope>compile</scope>")) {
+    throw new Error("React Native POM must expose Crumb Core as a compile dependency");
+  }
 
   for (const [artifact, label] of [
     [join(coreBase, `crumb-core-${version}-sources.jar`), "Core sources JAR"],
     [join(coreBase, `crumb-core-${version}-javadoc.jar`), "Core Javadoc JAR"],
     [join(uiBase, `crumb-ui-${version}-sources.jar`), "UI sources JAR"],
     [join(uiBase, `crumb-ui-${version}-javadoc.jar`), "UI Javadoc JAR"],
+    [
+      join(reactNativeBase, `crumb-react-native-${version}-sources.jar`),
+      "React Native sources JAR",
+    ],
+    [
+      join(reactNativeBase, `crumb-react-native-${version}-javadoc.jar`),
+      "React Native Javadoc JAR",
+    ],
   ]) {
     readFileSync(artifact);
     console.log(`Verified ${label}.`);
@@ -101,6 +124,7 @@ function verifyAndroidArtifacts() {
   for (const [aar, label, base, artifact] of [
     [coreAar, "Core AAR", coreBase, "crumb-core"],
     [uiAar, "UI AAR", uiBase, "crumb-ui"],
+    [reactNativeAar, "React Native AAR", reactNativeBase, "crumb-react-native"],
   ]) {
     const rules = execFileSync("unzip", ["-p", aar, "proguard.txt"], { encoding: "utf8" });
     if (!rules.includes("LineNumberTable")) {
@@ -175,6 +199,7 @@ try {
     `-PcrumbRepository=${mavenRepository}`,
     ":crumb-core:publishReleasePublicationToStagingRepository",
     ":crumb-ui:publishReleasePublicationToStagingRepository",
+    ":crumb-react-native:publishReleasePublicationToStagingRepository",
   ]);
   verifyAndroidArtifacts();
 

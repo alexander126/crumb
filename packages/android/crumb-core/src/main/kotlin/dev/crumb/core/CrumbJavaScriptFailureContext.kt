@@ -1,5 +1,6 @@
 package dev.crumb.core
 
+
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -11,7 +12,8 @@ import org.json.JSONObject
 import java.io.File
 
 /** Local failure-time metadata; the public envelope still uses its existing diagnostics fields. */
-internal class CrumbJavaScriptFailureContext(
+@CrumbInternalApi
+class CrumbJavaScriptFailureContext(
     val capturedAtMillis: Long,
     val processName: String,
     val processId: Int,
