@@ -4,7 +4,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Strictly bounded, opt-in static route metadata. Only known keys survive validation. */
-internal object CrumbScreenContext {
+@CrumbInternalApi
+object CrumbScreenContext {
     fun validate(json: String?): String? = runCatching {
         require(json != null && json.toByteArray().size <= 2048)
         val value = JSONObject(json)

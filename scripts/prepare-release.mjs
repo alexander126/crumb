@@ -49,6 +49,7 @@ run(join(root, "packages/android/gradlew"), [
   `-PcrumbRepository=${mavenRoot}`,
   ":crumb-core:publishReleasePublicationToStagingRepository",
   ":crumb-ui:publishReleasePublicationToStagingRepository",
+  ":crumb-react-native:publishReleasePublicationToStagingRepository",
 ]);
 
 for (const path of [

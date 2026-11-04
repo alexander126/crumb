@@ -8,7 +8,8 @@ not allow replacing an existing version.
 ## Public identities
 
 - CocoaPods: `CrumbSDKCore`, `CrumbSDKUI`, and `CrumbSDK`
-- Maven Central: `com.crumbsdk:crumb-core` and `com.crumbsdk:crumb-ui`
+- Maven Central: `com.crumbsdk:crumb-core`, `com.crumbsdk:crumb-ui`, and
+  `com.crumbsdk:crumb-react-native`
 
 The CocoaPods package names intentionally differ from the installed Swift
 modules, which remain `CrumbCore` and `CrumbUI`. The Maven group differs from

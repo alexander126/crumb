@@ -56,7 +56,11 @@ export function verifyResolvedKotlinConsumer(evidence, repository, sdkVersion, c
     assert.equal(stdlib[0].version, compilerVersion, "Preserve normal consumer standard library resolution");
     assert.equal(hash(stdlib[0].file), stdlib[0].sha256);
     const sdk = classpath.filter(({ group }) => group === "com.crumbsdk");
-    assert.deepEqual(sdk.map(({ name }) => name).sort(), ["crumb-core", "crumb-ui"], "UI must expose Core transitively");
+    assert.deepEqual(
+      sdk.map(({ name }) => name).sort(),
+      ["crumb-core", "crumb-react-native", "crumb-ui"],
+      "UI and React Native support must expose Core transitively",
+    );
     for (const artifact of sdk) {
       assert.equal(artifact.moduleComponent, true, "Use Maven modules, never project source substitution");
       assert.equal(artifact.version, sdkVersion);

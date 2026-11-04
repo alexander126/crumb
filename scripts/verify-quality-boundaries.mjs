@@ -32,6 +32,11 @@ requireMatch(
   /minSdk\s+26/,
   "Android core minimum must remain API 26.",
 );
+requireMatch(
+  "packages/android/crumb-react-native/build.gradle",
+  /minSdk\s+26/,
+  "Android React Native support minimum must remain API 26.",
+);
 
 const catalogs = [
   "packages/ios/Sources/CrumbUI/Resources/en.lproj/Localizable.strings",
@@ -61,6 +66,12 @@ for (const source of nativeSources) {
 const aarBudgets = new Map([
   ["packages/android/crumb-core/build/outputs/aar/crumb-core-release.aar", 256 * 1024],
   ["packages/android/crumb-ui/build/outputs/aar/crumb-ui-release.aar", 256 * 1024],
+  // React Native support carries the JavaScript crash handoff that native-only
+  // consumers never receive. Its own budget keeps that separation honest.
+  [
+    "packages/android/crumb-react-native/build/outputs/aar/crumb-react-native-release.aar",
+    64 * 1024,
+  ],
 ]);
 for (const [artifact, budget] of aarBudgets) {
   const absolute = join(root, artifact);

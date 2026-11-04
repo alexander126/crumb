@@ -34,6 +34,7 @@ kotlin {
         apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
         // Preserve the existing default-method ABI while lowering metadata compatibility.
         freeCompilerArgs.add("-Xjvm-default=all-compatibility")
+        freeCompilerArgs.add("-opt-in=dev.crumb.core.CrumbInternalApi")
     }
 }
 

@@ -166,12 +166,15 @@ object CrumbReporter {
         if (installedApplication == null) install(application)
     }
 
-    /** Native adapter bridge. Call on a worker thread; delivery remains foreground-only. */
+    /**
+     * Native adapter bridge: a report was committed outside the reporter UI, so
+     * delivery should wake. Safe from any thread; delivery stays
+     * foreground-only. The React Native JavaScript crash handoff now lives in
+     * crumb-react-native and calls this after a successful recovery.
+     */
     @JvmSynthetic
-    fun recoverJavaScriptCrashes(context: Context): Boolean {
-        val recovered = Crumb.recoverJavaScriptCrashes(context)
-        if (recovered) mainHandler.post { CrumbUploadCoordinator.reportDidQueue() }
-        return recovered
+    fun reportDidQueue() {
+        mainHandler.post { CrumbUploadCoordinator.reportDidQueue() }
     }
 
     private fun startDiagnostics(session: ReporterSession, context: android.content.Context) {

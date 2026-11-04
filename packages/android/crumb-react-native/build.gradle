@@ -1,0 +1,112 @@
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "maven-publish"
+apply plugin: "signing"
+
+android {
+    namespace "dev.crumb.reactnative"
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 26
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        languageVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
+        apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
+        // Preserve the existing default-method ABI while lowering metadata compatibility.
+        freeCompilerArgs.add("-Xjvm-default=all-compatibility")
+        freeCompilerArgs.add("-opt-in=dev.crumb.core.CrumbInternalApi")
+    }
+}
+
+dependencies {
+    api "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
+    api project(":crumb-core")
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.json:json:20240303"
+}
+
+def centralJavadocJar = tasks.register("centralJavadocJar", Jar) {
+    archiveClassifier = "javadoc"
+    from(rootProject.file("../../README.md")) {
+        into "docs"
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = "crumb-react-native"
+                artifact centralJavadocJar
+
+                pom {
+                    name = "Crumb React Native support"
+                    description = "React Native JavaScript crash handoff and recovery for Crumb. Required only by @crumbsdk/react-native."
+                    url = "https://github.com/alexander126/crumb"
+
+                    licenses {
+                        license {
+                            name = "The Apache License, Version 2.0"
+                            url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                            distribution = "repo"
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = "alexander126"
+                            name = "Crumb contributors"
+                            organization = "Crumb"
+                            organizationUrl = "https://crumbsdk.com"
+                            url = "https://github.com/alexander126"
+                        }
+                    }
+
+                    scm {
+                        connection = "scm:git:https://github.com/alexander126/crumb.git"
+                        developerConnection = "scm:git:ssh://git@github.com/alexander126/crumb.git"
+                        url = "https://github.com/alexander126/crumb"
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                name = "staging"
+                url = uri(rootProject.findProperty("crumbRepository") ?: rootProject.layout.buildDirectory.dir("staged-maven"))
+            }
+        }
+    }
+
+    signing {
+        def privateKey = providers.gradleProperty("signingInMemoryKey").orNull
+        def privateKeyPassword = providers.gradleProperty("signingInMemoryKeyPassword").orNull
+        if (privateKey) {
+            useInMemoryPgpKeys(privateKey, privateKeyPassword)
+        }
+        required { privateKey != null }
+        sign publishing.publications.release
+    }
+}

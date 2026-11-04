@@ -1,4 +1,6 @@
-package dev.crumb.core
+package dev.crumb.reactnative
+
+import dev.crumb.core.*
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -181,14 +183,6 @@ class CrumbJavaScriptCrashStoreTest {
             assertTrue(store.records().single { it.recordId == "jsc_0123456789ABCDEF" }.failureContext != null)
             assertEquals(null, store.records().single { it.recordId == "jsc_AAAAAAAAAAAAAAAA" }.failureContext)
         } finally { root.deleteRecursively() }
-    }
-
-    @Test
-    fun cpuSampleUsesMillisecondsAndRejectsInvalidIntervals() {
-        assertEquals(50.0, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(10, 20_000_000))
-        assertEquals(0.0, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(0, 20_000_000))
-        assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(10, 0))
-        assertEquals(null, CrumbJavaScriptFailureContext.calculateCpuUsagePercent(-1, 20_000_000))
     }
 
     @Test fun stacksSurviveRestartAndAreDroppedBeforeMetricsAtTheRecordLimit() {

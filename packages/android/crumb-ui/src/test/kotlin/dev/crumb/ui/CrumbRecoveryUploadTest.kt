@@ -9,6 +9,7 @@ import dev.crumb.core.CrumbRelease
 import dev.crumb.core.CrumbReportQueue
 import dev.crumb.core.CrumbSerializedReportEnvelope
 import dev.crumb.core.CrumbUploadOptions
+import dev.crumb.reactnative.CrumbJavaScriptCrashes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
@@ -146,11 +147,13 @@ class CrumbRecoveryUploadTest {
     }
 
     private fun recover(activity: Activity): Boolean = CompletableFuture.supplyAsync {
-        CrumbReporter.recoverJavaScriptCrashes(activity)
+        CrumbJavaScriptCrashes.recover(activity).also { recovered ->
+            if (recovered) CrumbReporter.reportDidQueue()
+        }
     }.get(3, TimeUnit.SECONDS)
 
     private fun recordCrash(activity: Activity) {
-        Crumb.recordJavaScriptCrash(activity, """{
+        CrumbJavaScriptCrashes.record(activity, """{
           "schema_version":"1.0", "record_id":"jsc_RecoveryAAAAAAAAAAAAAAAAAAAAAAAA",
           "fingerprint":"0123456789abcdef", "source":"javascript", "kind":"exception",
           "type":"Error", "message":"Synthetic recovery failure", "stack":"at fixture (bundle.js:1:1)",
