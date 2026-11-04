@@ -52,6 +52,16 @@ struct CrumbEvidenceCountsTests {
         #expect(CrumbEvidenceCounts.itemsValue(3) == "3 items")
     }
 
+    /// The defect this fixes: a failed thread enumeration returned an empty
+    /// array, which became "Threads: 0" - impossible for a running process, and
+    /// reported as if it had been measured.
+    @Test
+    func aThreadCountOfZeroIsReportedAsUnavailable() {
+        #expect(CrumbEvidenceCounts.threadCountDescription(0) == "Unavailable")
+        #expect(CrumbEvidenceCounts.threadCountDescription(1) == "1")
+        #expect(CrumbEvidenceCounts.threadCountDescription(12) == "12")
+    }
+
     @Test
     func unavailableEvidenceIsCountedNotAssumed() {
         let everything = CrumbEvidenceCounts.unavailableItemCount(

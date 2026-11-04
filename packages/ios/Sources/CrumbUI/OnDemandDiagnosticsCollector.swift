@@ -13,11 +13,15 @@ enum OnDemandDiagnosticsCollector {
         screenContext: CrumbScreenContext? = nil
     ) -> CrumbDiagnosticsSnapshot {
         let capturesPerformance = evidence.contains(.performance)
+        // nil means the enumeration itself failed; [] means it was not asked
+        // for. Neither is a measurement of zero threads, which a running
+        // process cannot have.
         let threads = capturesPerformance ? threadDiagnostics() : []
-        let cpuUsagePercent: Double? = if !capturesPerformance || threads.isEmpty {
+        let measuredThreads = threads ?? []
+        let cpuUsagePercent: Double? = if !capturesPerformance || measuredThreads.isEmpty {
             nil
         } else {
-            threads.compactMap(\.cpuUsagePercent).reduce(0, +)
+            measuredThreads.compactMap(\.cpuUsagePercent).reduce(0, +)
         }
         let memory = capturesPerformance ? memoryDiagnostics() : nil
         let network = evidence.contains(.network)
@@ -74,9 +78,9 @@ enum OnDemandDiagnosticsCollector {
             residentMemoryBytes: memory?.resident,
             physicalFootprintBytes: memory?.footprint,
             thermalState: capturesPerformance ? thermalState() : "unavailable_by_policy",
-            threadCount: threads.count,
+            threadCount: measuredThreads.count,
             busiestThreads: Array(
-                threads
+                measuredThreads
                     .sorted { ($0.cpuUsagePercent ?? 0) > ($1.cpuUsagePercent ?? 0) }
                     .prefix(12)
             ),
@@ -103,12 +107,14 @@ enum OnDemandDiagnosticsCollector {
         return (UInt64(info.resident_size), UInt64(info.phys_footprint))
     }
 
-    private static func threadDiagnostics() -> [CrumbThreadDiagnostic] {
+    /// Returns nil when the thread enumeration fails, so a failure is never
+    /// reported as a measured zero.
+    private static func threadDiagnostics() -> [CrumbThreadDiagnostic]? {
         var threadList: thread_act_array_t?
         var threadCount: mach_msg_type_number_t = 0
         guard task_threads(mach_task_self_, &threadList, &threadCount) == KERN_SUCCESS,
               let threadList else {
-            return []
+            return nil
         }
         defer {
             let byteCount = vm_size_t(Int(threadCount) * MemoryLayout<thread_t>.stride)
