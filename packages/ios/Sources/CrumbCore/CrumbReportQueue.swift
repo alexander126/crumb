@@ -145,9 +145,12 @@ package actor CrumbReportQueue {
             return existing.summary
         }
 
-        let existingRecords = try readAllRecords()
-        guard existingRecords.count < limits.maximumReports,
-              existingRecords.reduce(0, { $0 + $1.totalByteSize }) + totalByteSize
+        // Quotas are measured against what is retained, not against what the
+        // retained metadata claims: an entry whose metadata cannot be read must
+        // still occupy its slot and its bytes.
+        let occupancy = try retainedOccupancy()
+        guard occupancy.reportCount < limits.maximumReports,
+              try checkedSum(occupancy.payloadByteSize, totalByteSize)
                 <= limits.maximumTotalBytes else {
             throw CrumbReportQueueError.queueFull
         }
@@ -378,47 +381,161 @@ package actor CrumbReportQueue {
         }
     }
 
-    private func readAllRecords() throws -> [StoredRecord] {
+    /// Every committed report directory, in listing order. Staging and tombstone
+    /// entries are excluded by name, as they are everywhere else.
+    private func committedDirectories() throws -> [URL] {
         do {
-            let directories = try fileManager.contentsOfDirectory(
+            let entries = try fileManager.contentsOfDirectory(
                 at: rootURL,
                 includingPropertiesForKeys: [.isDirectoryKey],
                 options: [.skipsHiddenFiles]
             )
-            return try directories.compactMap { url in
-                let values = try url.resourceValues(forKeys: [.isDirectoryKey])
-                guard values.isDirectory == true else { return nil }
-                return try readRecord(inside: url)
+            return try entries.filter { url in
+                try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true
             }
-        } catch let error as CrumbReportQueueError {
-            throw error
         } catch {
-            throw CrumbReportQueueError.corruptQueue
+            // Listing the queue failed. That is a storage problem to retry, not
+            // evidence about any individual report.
+            throw CrumbReportQueueError.storageFailure
         }
     }
 
-    private func readRecord(inside directory: URL) throws -> StoredRecord {
-        do {
-            let data = try Data(contentsOf: directory.appendingPathComponent("record.json"))
-            let record = try decoder.decode(StoredRecord.self, from: data)
-            guard (1...2).contains(record.schemaVersion),
-                  record.reportID == directory.lastPathComponent,
-                  record.totalByteSize >= 0,
-                  record.envelopeByteSize >= 0,
-                  record.attemptCount >= 0,
-                  record.artifacts.allSatisfy({
-                      validArtifactID($0.id)
-                          && $0.fileName == fileName(for: $0.id)
-                          && $0.byteSize >= 0
-                  }) else {
-                throw CrumbReportQueueError.corruptQueue
+    /// Valid records only. An entry whose metadata is confirmed invalid is
+    /// isolated: it is skipped here, nothing about it is mutated, its directory
+    /// and report ID stay reserved, and its healthy siblings still list,
+    /// recover and upload.
+    private func readAllRecords() throws -> [StoredRecord] {
+        try committedDirectories().compactMap { url in
+            switch try classifyRecord(inside: url) {
+            case .valid(let record): record
+            case .isolated: nil
             }
-            return record
-        } catch let error as CrumbReportQueueError {
-            throw error
+        }
+    }
+
+    /// Strict read for callers that name one report: direct load and same-ID
+    /// admission must still refuse invalid metadata rather than skip it.
+    private func readRecord(inside directory: URL) throws -> StoredRecord {
+        switch try classifyRecord(inside: directory) {
+        case .valid(let record): return record
+        case .isolated: throw CrumbReportQueueError.corruptQueue
+        }
+    }
+
+    private enum RecordClassification {
+        case valid(StoredRecord)
+        case isolated
+    }
+
+    /// Separates three different things that used to be one `corruptQueue`:
+    ///
+    /// - an I/O failure reading the metadata stays a storage failure, so a
+    ///   protected or transiently unreadable file is retried rather than
+    ///   quarantined;
+    /// - an unsupported schema version fails the whole operation, before any
+    ///   version-specific field is decoded, so a future format is never treated
+    ///   as ordinary corruption or adopted;
+    /// - bytes that were read successfully and then rejected by supported-format
+    ///   decoding or shape validation, and a committed directory with
+    ///   positively no metadata, are isolated.
+    private func classifyRecord(inside directory: URL) throws -> RecordClassification {
+        let recordURL = directory.appendingPathComponent("record.json")
+        let data: Data
+        do {
+            data = try Data(contentsOf: recordURL)
         } catch {
+            guard !fileManager.fileExists(atPath: recordURL.path),
+                  fileManager.fileExists(atPath: directory.path) else {
+                throw CrumbReportQueueError.storageFailure
+            }
+            // Confirmed absent metadata in a directory that is still there.
+            return .isolated
+        }
+
+        guard let version = try? decoder.decode(SchemaVersionProbe.self, from: data) else {
+            return .isolated
+        }
+        guard (1...2).contains(version.schemaVersion) else {
             throw CrumbReportQueueError.corruptQueue
         }
+        guard let record = try? decoder.decode(StoredRecord.self, from: data),
+              record.reportID == directory.lastPathComponent,
+              record.totalByteSize >= 0,
+              record.envelopeByteSize >= 0,
+              record.attemptCount >= 0,
+              record.artifacts.allSatisfy({
+                  validArtifactID($0.id)
+                      && $0.fileName == fileName(for: $0.id)
+                      && $0.byteSize >= 0
+              }) else {
+            return .isolated
+        }
+        return .valid(record)
+    }
+
+    /// What the queue is actually holding, independent of what any metadata
+    /// promises. Admission uses this so an entry with unreadable metadata still
+    /// consumes a report slot and its real bytes still count.
+    private func retainedOccupancy() throws -> (reportCount: Int, payloadByteSize: Int) {
+        var payloadByteSize = 0
+        let directories = try committedDirectories()
+        for directory in directories {
+            payloadByteSize = try checkedSum(payloadByteSize, retainedPayloadBytes(in: directory))
+        }
+        return (directories.count, payloadByteSize)
+    }
+
+    /// Envelope plus every retained artifact file, including blobs no manifest
+    /// references. Metadata is deliberately excluded from payload budgets.
+    /// Anything unexpected — a symbolic link, a non-regular file, a failed stat,
+    /// an entry that disappears mid-scan — fails admission closed.
+    private func retainedPayloadBytes(in directory: URL) throws -> Int {
+        var total = try fileByteSize(at: directory.appendingPathComponent("envelope.json"))
+        let artifactsURL = directory.appendingPathComponent("artifacts", isDirectory: true)
+        guard fileManager.fileExists(atPath: artifactsURL.path) else { return total }
+        let artifacts: [URL]
+        do {
+            artifacts = try fileManager.contentsOfDirectory(
+                at: artifactsURL,
+                includingPropertiesForKeys: nil,
+                options: []
+            )
+        } catch {
+            throw CrumbReportQueueError.storageFailure
+        }
+        for artifact in artifacts {
+            total = try checkedSum(total, try fileByteSize(at: artifact))
+        }
+        return total
+    }
+
+    /// Zero for a file that is confirmed absent; a storage failure for anything
+    /// the queue cannot positively account for.
+    private func fileByteSize(at url: URL) throws -> Int {
+        let values = try? url.resourceValues(forKeys: [
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+            .fileSizeKey
+        ])
+        guard let values else {
+            guard !fileManager.fileExists(atPath: url.path) else {
+                throw CrumbReportQueueError.storageFailure
+            }
+            return 0
+        }
+        guard values.isSymbolicLink != true,
+              values.isRegularFile == true,
+              let size = values.fileSize,
+              size >= 0 else {
+            throw CrumbReportQueueError.storageFailure
+        }
+        return size
+    }
+
+    private func checkedSum(_ lhs: Int, _ rhs: Int) throws -> Int {
+        let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+        guard !overflow else { throw CrumbReportQueueError.storageFailure }
+        return sum
     }
 
     private func writeRecord(_ record: StoredRecord, inside directory: URL) throws {
@@ -571,6 +688,12 @@ package actor CrumbReportQueue {
                 uploadID: uploadID
             )
         }
+    }
+
+    /// Reads only the version, so an unsupported format is rejected before any
+    /// version-specific field is decoded.
+    private struct SchemaVersionProbe: Decodable {
+        let schemaVersion: Int
     }
 
     private struct StoredRecord: Codable, Equatable, Sendable {

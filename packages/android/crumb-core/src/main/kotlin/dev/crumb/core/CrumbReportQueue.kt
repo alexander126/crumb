@@ -3,9 +3,12 @@ package dev.crumb.core
 import android.content.Context
 import java.io.File
 import java.io.FileInputStream
+import java.io.IOException
 import java.io.FileOutputStream
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Base64
@@ -104,10 +107,13 @@ class CrumbReportQueue internal constructor(
             return existing.summary
         }
 
-        val existingRecords = readAllRecords()
+        // Quotas are measured against what is retained, not against what the
+        // retained metadata claims: an entry whose metadata cannot be read must
+        // still occupy its slot and its bytes.
+        val (reportCount, payloadByteSize) = retainedOccupancy()
         if (
-            existingRecords.size >= limits.maximumReports ||
-            existingRecords.sumOf(StoredRecord::totalByteSize) + totalByteSize > limits.maximumTotalBytes
+            reportCount >= limits.maximumReports ||
+            checkedPlus(payloadByteSize, totalByteSize) > limits.maximumTotalBytes
         ) {
             throw CrumbReportQueueException.QueueFull()
         }
@@ -335,40 +341,143 @@ class CrumbReportQueue internal constructor(
         file.delete()
     }
 
-    private fun readAllRecords(): List<StoredRecord> {
-        try {
-            val records = ArrayList<StoredRecord>()
-            for (directory in root.listFiles().orEmpty()) {
-                if (directory.isDirectory && !directory.name.startsWith(TEMPORARY_PREFIX) &&
-                    !directory.name.startsWith(DELETE_PREFIX)
-                ) {
-                    records.add(readRecord(directory))
-                }
+    /**
+     * Every committed report directory. Staging and tombstone entries are
+     * excluded by name; a symbolic link is not a committed report and fails
+     * closed rather than being followed.
+     */
+    private fun committedDirectories(): List<File> {
+        val entries = root.listFiles() ?: throw CrumbReportQueueException.StorageFailure()
+        return entries.filter { entry ->
+            if (entry.name.startsWith(TEMPORARY_PREFIX) || entry.name.startsWith(DELETE_PREFIX)) {
+                false
+            } else {
+                attributes(entry).isDirectory
             }
-            return records
-        } catch (error: CrumbReportQueueException) {
-            throw error
-        } catch (_: Exception) {
-            throw CrumbReportQueueException.CorruptQueue()
         }
     }
 
-    private fun readRecord(directory: File): StoredRecord {
+    /**
+     * Valid records only. An entry whose metadata is confirmed invalid is
+     * isolated: skipped here, never mutated, its directory and report ID still
+     * reserved, and its healthy siblings still list, recover and upload.
+     */
+    private fun readAllRecords(): List<StoredRecord> {
+        val records = ArrayList<StoredRecord>()
+        for (directory in committedDirectories()) {
+            readRecordOrNull(directory)?.let(records::add)
+        }
+        return records
+    }
+
+    /**
+     * Strict read for callers that name one report: direct load and same-ID
+     * admission must refuse invalid metadata rather than skip it.
+     */
+    private fun readRecord(directory: File): StoredRecord =
+        readRecordOrNull(directory) ?: throw CrumbReportQueueException.CorruptQueue()
+
+    /**
+     * What the queue is holding, independent of what any metadata promises, so
+     * an entry with unreadable metadata still consumes its slot and its real
+     * bytes still count.
+     */
+    private fun retainedOccupancy(): Pair<Int, Long> {
+        val directories = committedDirectories()
+        var payloadBytes = 0L
+        for (directory in directories) {
+            payloadBytes = checkedPlus(payloadBytes, retainedPayloadBytes(directory))
+        }
+        return directories.size to payloadBytes
+    }
+
+    /**
+     * Envelope plus every retained artifact file, including blobs no manifest
+     * references. Metadata is excluded from payload budgets. A symbolic link, a
+     * non-regular file, a failed stat or an entry that disappears mid-scan fails
+     * admission closed.
+     */
+    private fun retainedPayloadBytes(directory: File): Long {
+        var total = fileByteSize(File(directory, ENVELOPE_FILE))
+        val artifacts = File(directory, ARTIFACT_DIRECTORY)
+        if (!artifacts.exists()) return total
+        val entries = artifacts.listFiles() ?: throw CrumbReportQueueException.StorageFailure()
+        for (entry in entries) total = checkedPlus(total, fileByteSize(entry))
+        return total
+    }
+
+    /** Zero for a confirmed-absent file; a storage failure for anything opaque. */
+    private fun fileByteSize(file: File): Long {
+        if (!file.exists()) return 0L
+        val attributes = attributes(file)
+        if (!attributes.isRegularFile || attributes.size() < 0) {
+            throw CrumbReportQueueException.StorageFailure()
+        }
+        return attributes.size()
+    }
+
+    private fun attributes(file: File): BasicFileAttributes = try {
+        Files.readAttributes(file.toPath(), BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
+            .also { if (it.isSymbolicLink) throw CrumbReportQueueException.StorageFailure() }
+    } catch (error: CrumbReportQueueException) {
+        throw error
+    } catch (_: Exception) {
+        throw CrumbReportQueueException.StorageFailure()
+    }
+
+    private fun checkedPlus(lhs: Long, rhs: Long): Long = try {
+        Math.addExact(lhs, rhs)
+    } catch (_: ArithmeticException) {
+        throw CrumbReportQueueException.StorageFailure()
+    }
+
+    /**
+     * Separates three things that used to be one CorruptQueue:
+     *
+     * - an I/O failure reading the metadata stays a storage failure, so a
+     *   protected or transiently unreadable file is retried, never quarantined;
+     * - an unsupported schema version fails the whole operation, read before any
+     *   version-specific field, so a future format is never treated as ordinary
+     *   corruption or adopted;
+     * - bytes read successfully and then rejected by supported-format decoding
+     *   or shape validation, and a committed directory with positively no
+     *   metadata, are isolated by returning null.
+     */
+    private fun readRecordOrNull(directory: File): StoredRecord? {
+        for (file in directory.listFiles().orEmpty()) {
+            if (file.name.startsWith(RECORD_TEMPORARY_PREFIX)) file.delete()
+        }
+        val recordFile = File(directory, RECORD_FILE)
+        val properties = try {
+            Properties().apply { FileInputStream(recordFile).use(::load) }
+        } catch (error: IOException) {
+            // Confirmed absent metadata in a directory that is still there is
+            // isolatable. Anything else - unreadable, protected, a directory
+            // where the file belongs - is a storage failure to retry.
+            if (!recordFile.exists() && directory.isDirectory) return null
+            throw CrumbReportQueueException.StorageFailure()
+        } catch (_: Exception) {
+            return null
+        }
+        val declaredVersion = properties.getProperty("schema_version")?.trim()?.toIntOrNull()
+            ?: return null
+        if (declaredVersion !in 1..2) throw CrumbReportQueueException.CorruptQueue()
+        return decodeRecord(directory, properties, declaredVersion)
+    }
+
+    private fun decodeRecord(
+        directory: File,
+        properties: Properties,
+        schemaVersion: Int,
+    ): StoredRecord? {
         try {
-            for (file in directory.listFiles().orEmpty()) {
-                if (file.name.startsWith(RECORD_TEMPORARY_PREFIX)) file.delete()
-            }
-            val properties = Properties().apply {
-                FileInputStream(File(directory, RECORD_FILE)).use(::load)
-            }
-            val schemaVersion = properties.requiredInt("schema_version")
             val artifactCount = properties.requiredInt("artifact_count")
             val artifacts = ArrayList<CrumbArtifactManifest>()
             for (index in 0 until artifactCount) {
                 val prefix = "artifact.$index."
                 val id = properties.required(prefix + "id")
                 if (!validArtifactId(id) || properties.required(prefix + "file_name") != fileName(id)) {
-                    throw CrumbReportQueueException.CorruptQueue()
+                    return null
                 }
                 artifacts.add(CrumbArtifactManifest(
                     id = id,
@@ -396,20 +505,24 @@ class CrumbReportQueue internal constructor(
                 } else null,
             )
             if (
-                schemaVersion !in 1..2 ||
                 record.reportId != directory.name || record.attemptCount < 0 ||
                 record.totalByteSize < 0 || record.envelopeByteSize < 0 ||
                 artifacts.any {
                     it.byteSize < 0
                 }
             ) {
-                throw CrumbReportQueueException.CorruptQueue()
+                return null
             }
             return record
+        } catch (_: CrumbReportQueueException.CorruptQueue) {
+            // A missing or malformed field: bytes were read and the supported
+            // format rejected them, so the entry isolates.
+            return null
         } catch (error: CrumbReportQueueException) {
+            // A storage failure is about the device, not this record.
             throw error
         } catch (_: Exception) {
-            throw CrumbReportQueueException.CorruptQueue()
+            return null
         }
     }
 

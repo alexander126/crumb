@@ -48,9 +48,16 @@ struct CrumbTerminalUploadRetryTests {
         #expect(await transport.initializations(oldest.0.reportID) == 1)
         #expect(try await queue.load(reportID: oldest.0.reportID) == failed)
 
-        // Failed enumeration must not discard the remembered terminal classification.
-        try Data("{}".utf8).write(to: recordURL)
+        // Failed enumeration must not discard the remembered terminal
+        // classification. The failure has to be genuine I/O: malformed metadata
+        // is now isolated per item rather than failing the scan, and a
+        // permission-based injection would not hold when tests run as root.
+        // A directory where the metadata file belongs makes the read fail for
+        // every uid.
+        try FileManager.default.removeItem(at: recordURL)
+        try FileManager.default.createDirectory(at: recordURL, withIntermediateDirectories: false)
         #expect(await worker.runPass().shouldRetry)
+        try FileManager.default.removeItem(at: recordURL)
         try record.write(to: recordURL)
         #expect(!(await worker.runPass()).shouldRetry)
         #expect(await transport.initializations(oldest.0.reportID) == 1)
