@@ -79,6 +79,8 @@ object CrumbReporter {
     @JvmOverloads
     fun install(application: Application, activity: Activity? = null): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) return false
+        // The report queue is single-process; so is the reporter that writes to it.
+        if (!CrumbProcessState.isMainProcess(application)) return false
         val settings = runCatching { Crumb.reportSettings() }.getOrNull() ?: return false
         RenderingMonitor.install(application, activity)
         if (installedApplication === application) {

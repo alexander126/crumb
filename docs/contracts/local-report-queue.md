@@ -23,6 +23,28 @@ context. The handoff has independent count, record, and byte limits and is
 never used to capture native memory, Redux state, request bodies, or response
 bodies.
 
+### Single-process boundary
+
+The queue is single-process. Its mutual exclusion is in-process only — a Kotlin
+`@Synchronized` object on Android, actor isolation on iOS — and neither is a
+cross-process lock. Two processes using one queue would interleave record state
+writes and each admit reports against the same count and byte quotas. Commit and
+removal would stay atomic and payload reads would still be verified, so no report
+would be corrupted, but accounting and upload state would drift invisibly.
+
+Rather than allow that, Android refuses to use the queue outside the
+application's main process: `CrumbReportQueue.from` throws
+`CrumbReportQueueException.UnsupportedProcess`, and `CrumbReporter.install`
+returns `false`. Both compare the current process name with the package name, so
+a private secondary process (`android:process=":suffix"`) and a global one
+(`android:process=".suffix"`) are both refused. A process that cannot be named
+is treated as the main one, so an unidentifiable runtime never breaks a working
+single-process host.
+
+iOS needs no equivalent check: the queue lives in the application's own
+container, which an app extension does not share, so each process already has a
+separate queue.
+
 ## Ownership and delivery scope
 
 Each committed report records an opaque SHA-256 ownership fingerprint in queue

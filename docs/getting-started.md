@@ -24,6 +24,10 @@ Add `com.crumbsdk:crumb-ui:0.0.1-rc.6` from Maven Central. Requires Android API
 Follow the [Android quickstart](../website/content/docs/quickstarts/android.mdx)
 for Gradle, Application and manifest setup through your first dashboard report.
 
+Start Crumb in your application's main process. The local report queue is
+single-process, so the SDK refuses to run in a secondary process declared with
+`android:process` — `CrumbReporter.install` returns `false` there.
+
 ## React Native
 
 Install `@crumbsdk/react-native@0.0.1-rc.6` with
