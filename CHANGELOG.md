@@ -25,11 +25,11 @@ Semantic Versioning while the public API is released.
   functions directly should add `com.crumbsdk:crumb-react-native` and use the
   new entry point.
 
-  `@crumbsdk/react-native` still calls the previous functions, because its
-  Android module compiles against the *published* native artifacts rather than
-  this repository's sources. Its switch to the new entry point is a separate
-  change that has to land with the native version that publishes it; until
-  then the shipped adapter keeps working against `0.0.1-rc.6`.
+  `@crumbsdk/react-native` calls the new entry point and depends on the new
+  artifact. The repository's example resolves the native projects directly
+  through Gradle composite substitution, so this is verified locally and in CI;
+  a published install resolves `com.crumbsdk:crumb-react-native` from Maven
+  Central, which the next release must publish alongside Core and UI.
 
 ## [0.0.1-rc.6] - Candidate
 

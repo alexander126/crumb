@@ -38,9 +38,16 @@ Run the workflow manually with:
 
 The workflow checks out the tag rather than the branch tip. CocoaPods publishes
 Core, UI, and the umbrella pod in dependency order and waits for each new spec
-to become available. Maven Central receives one signed bundle containing both
-Android artifacts, sources, documentation, POM metadata, Gradle
+to become available. Maven Central receives one signed bundle containing all
+three Android artifacts, sources, documentation, POM metadata, Gradle
 module metadata, signatures, and required checksums.
+
+`com.crumbsdk:crumb-react-native` is new since `0.0.1-rc.6` and
+`@crumbsdk/react-native` depends on it, so the first release that publishes it
+must publish it alongside Core and UI. A published React Native install cannot
+resolve its JavaScript crash handoff without it; the repository's own example
+resolves the native projects directly, so this is the one gap a local build
+does not surface.
 
 After publication, the workflow waits for registry propagation. It reads the
 canonical CocoaPods metadata and builds a clean Android consumer using Maven

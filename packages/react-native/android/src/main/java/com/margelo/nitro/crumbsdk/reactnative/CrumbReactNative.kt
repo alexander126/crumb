@@ -27,6 +27,7 @@ import dev.crumb.core.CrumbUploadOptions
 import dev.crumb.core.CrumbApplicationMetadata
 import dev.crumb.core.CrumbCustomContextOptions
 import dev.crumb.core.CrumbWorkspacePolicyOptions
+import dev.crumb.reactnative.CrumbJavaScriptCrashes
 import dev.crumb.ui.CrumbReporter
 import org.json.JSONObject
 
@@ -161,7 +162,7 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
 
     override fun recordJavaScriptCrash(recordJson: String) {
         val context = NitroModules.applicationContext ?: return
-        Crumb.recordJavaScriptCrash(context, recordJson)
+        CrumbJavaScriptCrashes.record(context, recordJson)
     }
 
     override fun recoverJavaScriptCrashes(): Promise<Boolean> {
@@ -172,7 +173,12 @@ class CrumbReactNative : HybridCrumbReactNativeSpec() {
             return promise
         }
         Thread({
-            runCatching { CrumbReporter.recoverJavaScriptCrashes(context) }
+            runCatching {
+                CrumbJavaScriptCrashes.recover(context).also { recovered ->
+                    // Wake delivery for reports committed outside the reporter UI.
+                    if (recovered) CrumbReporter.reportDidQueue()
+                }
+            }
                 .onSuccess(promise::resolve)
                 .onFailure { promise.resolve(false) }
         }, "Crumb JavaScript crash recovery").start()
