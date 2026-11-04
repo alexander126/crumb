@@ -27,20 +27,32 @@ class CrumbInstallWithActivityTest {
     @Test
     fun installingWithAnAlreadyResumedActivityStartsDelivery() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-        Crumb.start(
-            CrumbConfiguration(
-                projectKey = "synthetic_install_write_key",
-                environment = "test",
-                release = CrumbRelease(appVersion = "1.0.0", nativeBuild = "1"),
-                invocation = setOf(CrumbInvocation.PROGRAMMATIC),
-                capture = CrumbCaptureOptions(screenshot = false),
-                evidence = setOf(CrumbEvidenceCategory.LOGS),
-            ),
-        )
+        startCrumb()
 
         val installed = CrumbReporter.install(activity.application, activity)
 
         assertTrue(installed)
         assertTrue(CrumbUploadCoordinator.isDeliveryActive)
+    }
+
+    /**
+     * Robolectric reuses one sandbox across test classes and `Crumb`'s reset is
+     * internal to crumb-core, so another class may already have started it with
+     * a different configuration. This test asserts delivery state, which does
+     * not depend on which configuration won.
+     */
+    private fun startCrumb() {
+        runCatching {
+            Crumb.start(
+                CrumbConfiguration(
+                    projectKey = "synthetic_install_write_key",
+                    environment = "test",
+                    release = CrumbRelease(appVersion = "1.0.0", nativeBuild = "1"),
+                    invocation = setOf(CrumbInvocation.PROGRAMMATIC),
+                    capture = CrumbCaptureOptions(screenshot = false),
+                    evidence = setOf(CrumbEvidenceCategory.LOGS),
+                ),
+            )
+        }
     }
 }
