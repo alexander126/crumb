@@ -74,6 +74,25 @@ iOS integrations should use SPM. CocoaPods publication is a legacy compatibility
 channel, not a prerequisite for future SPM or npm releases. Select `maven`, not
 `both`, when publishing native registries after the freeze.
 
+### PLCrashReporter deployment floor
+
+`CrumbSDKCore` depends on the trunk pod `PLCrashReporter`, which declares an iOS
+minimum of 12.0. Xcode 26 and later reject any target below 15.0, and CocoaPods
+applies a pod's own declared minimum even when the Podfile asks for a higher
+platform, so a CocoaPods consumer on those toolchains cannot build.
+
+`distribution/cocoapods/PLCrashReporter.podspec` wraps the same pinned release
+archive with Crumb's supported minimum and keeps the upstream pod name, so it
+replaces rather than duplicates. Consumers select it with one Podfile line,
+documented in the iOS quickstart. Nothing new is published to trunk, so this
+needs no publication and is unaffected by the freeze.
+
+The pinned version and SHA-256 appear in three places: that wrapper, the React
+Native wrapper that reads the npm-bundled framework, and
+`packages/react-native/scripts/prepare-ios.mjs`. `npm run distribution:verify`
+fails if they drift. Update all three together when bumping PLCrashReporter, and
+note that 1.12.2 still declares 12.0, so the wrapper stays necessary.
+
 The React Native npm release bundles Crumb's canonical iOS sources, local
 podspecs and PLCrashReporter 1.12.0's official XCFramework, license and privacy
 manifest. `yarn prepare:ios` checks the native version and dependency pins and
