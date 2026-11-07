@@ -115,4 +115,6 @@ dependencies {
   implementation "com.facebook.react:react-android"
   implementation project(":react-native-nitro-modules")
   implementation "com.crumbsdk:crumb-ui:${crumbNativeVersion}"
+  // Carries the JavaScript crash handoff, which crumb-core no longer ships.
+  implementation "com.crumbsdk:crumb-react-native:${crumbNativeVersion}"
 }

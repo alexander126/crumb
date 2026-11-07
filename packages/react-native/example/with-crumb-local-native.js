@@ -15,6 +15,7 @@ includeBuild('../../../android') {
   dependencySubstitution {
     substitute module('com.crumbsdk:crumb-core') using project(':crumb-core')
     substitute module('com.crumbsdk:crumb-ui') using project(':crumb-ui')
+    substitute module('com.crumbsdk:crumb-react-native') using project(':crumb-react-native')
   }
 }
 `;
