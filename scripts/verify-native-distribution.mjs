@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { CRASH_REPORTER_PODSPEC, lintPodspecWithPrivacy, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
+import { CRASH_REPORTER_PODSPEC, lintPodspecWithPrivacy, verifySwiftIOSConsumer, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
 import { verifyKotlinClassMetadata, verifyPublishedKotlinDependencies, verifyResolvedKotlinConsumer, verifyUploadTransportCompatibility } from "./android-kotlin-compatibility.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -183,6 +183,7 @@ function verifyAndroidConsumers() {
 
 function verifySwiftConsumer() {
   verifySwiftPrivacyConsumers(root, rehearsalRoot, remoteRevision);
+  verifySwiftIOSConsumer(root, rehearsalRoot, remoteRevision);
 }
 
 // The crash reporter binary is pinned in three places: Crumb's CocoaPods wrapper,

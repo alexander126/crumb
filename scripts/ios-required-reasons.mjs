@@ -161,6 +161,56 @@ export function stageCrashReporterForLint(root) {
   }
 }
 
+// SPM is the recommended native iOS installation path, but verifySwiftPrivacyConsumers
+// builds its consumer for macOS. Build one for an iOS Simulator destination too, so the
+// recommended path has iOS coverage and the PLCrashReporter SPM dependency is resolved
+// and compiled for iOS. Privacy manifests are not re-verified here: the podspec lints
+// already inspect iOS privacy bundles inside a built application.
+export function verifySwiftIOSConsumer(root, temporary, remoteRevision = null) {
+  const consumer = join(temporary, "swift-ios");
+  const sources = join(consumer, "Sources/CrumbIOSConsumer");
+  mkdirSync(sources, { recursive: true });
+  const dependency = remoteRevision
+    ? `.package(url: "https://github.com/alexander126/crumb.git", revision: "${remoteRevision}")`
+    : `.package(name: "crumb", path: ${JSON.stringify(root)})`;
+  writeFileSync(join(consumer, "Package.swift"), `// swift-tools-version: 6.0
+import PackageDescription
+let package = Package(
+    name: "CrumbIOSConsumer",
+    platforms: [.iOS(.v15)],
+    products: [.library(name: "CrumbIOSConsumer", targets: ["CrumbIOSConsumer"])],
+    dependencies: [${dependency}],
+    targets: [
+        .target(name: "CrumbIOSConsumer", dependencies: [
+            .product(name: "CrumbCore", package: "crumb"),
+            .product(name: "CrumbUI", package: "crumb")
+        ])
+    ]
+)
+`);
+  const version = readFileSync(join(root, "VERSION"), "utf8").trim();
+  writeFileSync(join(sources, "CrumbIOSConsumer.swift"), `import CrumbCore
+import CrumbUI
+
+public enum CrumbIOSConsumer {
+    public static func start() throws {
+        try Crumb.start(CrumbConfiguration(projectKey: "distribution_rehearsal", environment: "test", release: CrumbRelease(appVersion: "1.0", nativeBuild: "1")))
+        precondition(CrumbSDKVersion.current == "${version}")
+    }
+}
+`);
+  const log = execFileSync("xcodebuild", [
+    "-scheme", "CrumbIOSConsumer",
+    "-destination", "generic/platform=iOS Simulator",
+    "-derivedDataPath", join(consumer, "DerivedData"),
+    "build",
+  ], { cwd: consumer, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  assert.match(log, /\*\* BUILD SUCCEEDED \*\*/, "SwiftPM iOS consumer did not report a successful build");
+  const target = log.match(/-target\s+\S*?-apple-ios(\d+\.\d+)-simulator/);
+  assert.ok(target, "SwiftPM iOS consumer was not compiled for an iOS Simulator target");
+  console.log(`Built CrumbCore+CrumbUI SwiftPM consumer for iOS Simulator at deployment target ${target[1]}`);
+}
+
 export function lintPodspecWithPrivacy(root, temporary, path, ancillaryGlob = null) {
   const validation = join(temporary, path.replace(".podspec", ""));
   const args = ["lib", "lint", path, "--platforms=ios", "--swift-version=6.0", "--use-static-frameworks", "--fail-fast", "--no-clean", `--validation-dir=${validation}`];
@@ -182,7 +232,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const temporary = mkdtempSync(join(tmpdir(), "crumb-ios-privacy-"));
   console.log(`iOS privacy distribution products: ${temporary}`);
   try {
-    if (!process.argv.includes("--pods-only")) verifySwiftPrivacyConsumers(root, temporary);
+    if (!process.argv.includes("--pods-only")) {
+      verifySwiftPrivacyConsumers(root, temporary);
+      verifySwiftIOSConsumer(root, temporary);
+    }
     if (!process.argv.includes("--swift-only")) {
       lintPodspecWithPrivacy(root, temporary, "CrumbSDKCore.podspec");
       lintPodspecWithPrivacy(root, temporary, "CrumbSDKUI.podspec", "CrumbSDKCore.podspec");
