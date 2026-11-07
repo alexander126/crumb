@@ -5,11 +5,12 @@ import {
   writeFileSync,
   mkdirSync,
 } from "node:fs";
+import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { lintPodspecWithPrivacy, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
+import { CRASH_REPORTER_PODSPEC, lintPodspecWithPrivacy, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
 import { verifyKotlinClassMetadata, verifyPublishedKotlinDependencies, verifyResolvedKotlinConsumer, verifyUploadTransportCompatibility } from "./android-kotlin-compatibility.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -184,6 +185,36 @@ function verifySwiftConsumer() {
   verifySwiftPrivacyConsumers(root, rehearsalRoot, remoteRevision);
 }
 
+// The crash reporter binary is pinned in three places: Crumb's CocoaPods wrapper,
+// the React Native wrapper that reads the npm-bundled copy, and the packaging
+// script that downloads and checksums it. A drift between them would ship one
+// consumer a different binary than the one its checksum promises.
+function verifyCrashReporterPin() {
+  const sources = {
+    [CRASH_REPORTER_PODSPEC]: readFileSync(join(root, CRASH_REPORTER_PODSPEC), "utf8"),
+    "packages/react-native/scripts/PLCrashReporter.podspec": readFileSync(
+      join(root, "packages/react-native/scripts/PLCrashReporter.podspec"),
+      "utf8",
+    ),
+    "packages/react-native/scripts/prepare-ios.mjs": readFileSync(
+      join(root, "packages/react-native/scripts/prepare-ios.mjs"),
+      "utf8",
+    ),
+  };
+  const pins = Object.entries(sources).map(([label, text]) => {
+    const url = text.match(/https:\/\/github\.com\/microsoft\/plcrashreporter\/releases\/download\/[^'"\s]+\.zip/);
+    const sha256 = text.match(/sha256['"]?\s*[:=]>?\s*['"]([0-9a-f]{64})['"]/);
+    assert.ok(url, `${label} does not pin a PLCrashReporter release archive URL`);
+    assert.ok(sha256, `${label} does not pin a PLCrashReporter SHA-256`);
+    return { label, url: url[0], sha256: sha256[1] };
+  });
+  for (const pin of pins.slice(1)) {
+    assert.equal(pin.url, pins[0].url, `${pin.label} pins a different PLCrashReporter archive than ${pins[0].label}`);
+    assert.equal(pin.sha256, pins[0].sha256, `${pin.label} pins a different PLCrashReporter SHA-256 than ${pins[0].label}`);
+  }
+  console.log(`Verified PLCrashReporter pin across ${pins.length} sources: ${pins[0].sha256}`);
+}
+
 function lintPodspec(path, ancillaryGlob = null) {
   lintPodspecWithPrivacy(root, rehearsalRoot, path, ancillaryGlob);
 }
@@ -205,6 +236,7 @@ try {
 
   verifyAndroidConsumers();
 
+  verifyCrashReporterPin();
   lintPodspec("CrumbSDKCore.podspec");
   lintPodspec("CrumbSDKUI.podspec", "CrumbSDKCore.podspec");
   lintPodspec("CrumbSDK.podspec", "CrumbSDK{Core,UI}.podspec");

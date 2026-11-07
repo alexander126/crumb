@@ -15,3 +15,7 @@ npm-debug.log*
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 examples/ios/Dogfood.xcconfig
+
+# Staged by scripts/ios-required-reasons.mjs for podspec linting; never committed.
+distribution/cocoapods/CrashReporter.xcframework/
+distribution/cocoapods/CrashReporter.xcframework.pin

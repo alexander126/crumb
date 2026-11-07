@@ -106,10 +106,66 @@ print(CrumbSDKVersion.current)
   if (failures.length) throw new AggregateError(failures, "Built SwiftPM consumers are missing SDK-owned required-reason coverage");
 }
 
+// Every Crumb podspec depends on PLCrashReporter. The upstream trunk pod declares
+// an iOS minimum that Xcode 26 and later reject, so lint against Crumb's wrapper —
+// the same podspec the installation documentation tells consumers to select.
+export const CRASH_REPORTER_PODSPEC = "distribution/cocoapods/PLCrashReporter.podspec";
+
+// `pod lib lint --include-podspecs` treats an included podspec as a local pod: it
+// resolves vendored_frameworks from the podspec's own directory and never fetches
+// the podspec's `source`. A real consumer selecting the wrapper from a Podfile does
+// download it. So the lint needs the pinned framework staged beside the wrapper,
+// reusing the React Native package's already-extracted copy when it is present and
+// otherwise fetching the same archive the wrapper pins.
+export function stageCrashReporterForLint(root) {
+  const destination = join(root, dirname(CRASH_REPORTER_PODSPEC), "CrashReporter.xcframework");
+  const podspec = readFileSync(join(root, CRASH_REPORTER_PODSPEC), "utf8");
+  const url = podspec.match(/https:\/\/github\.com\/microsoft\/plcrashreporter\/releases\/download\/\S+?\.zip/)?.[0];
+  const sha256 = podspec.match(/sha256['"]?\s*[:=]>?\s*['"]([0-9a-f]{64})['"]/)?.[1];
+  assert.ok(url && sha256, `${CRASH_REPORTER_PODSPEC} must pin an archive URL and SHA-256`);
+
+  // Record which pin the staged copy came from, so bumping the pinned archive
+  // restages instead of silently linting against the previous framework.
+  const stamp = `${destination}.pin`;
+  if (existsSync(destination)) {
+    if (existsSync(stamp) && readFileSync(stamp, "utf8").trim() === sha256) return;
+    rmSync(destination, { recursive: true, force: true });
+  }
+
+  const bundled = join(root, "packages/react-native/native/ios/PLCrashReporter/CrashReporter.xcframework");
+  if (existsSync(bundled)) {
+    run("cp", ["-R", bundled, destination], root);
+    writeFileSync(stamp, `${sha256}\n`);
+    console.log(`Staged CrashReporter.xcframework for lint from the React Native package copy`);
+    return;
+  }
+
+  const staging = mkdtempSync(join(tmpdir(), "crumb-crashreporter-"));
+  try {
+    const archive = join(staging, "CrashReporter.xcframework.zip");
+    run("curl", ["--fail", "--location", "--silent", "--show-error", "--output", archive, url], root);
+    const digest = execFileSync("shasum", ["-a", "256", archive], { encoding: "utf8" }).split(/\s+/)[0];
+    assert.equal(digest, sha256, `Downloaded PLCrashReporter archive does not match the pinned SHA-256`);
+    run("unzip", ["-q", archive, "-d", staging], root);
+    // The archive nests its payload under a single directory, which is why the
+    // upstream podspec sets `:flatten`. Resolve the framework at either level
+    // rather than assuming the nesting directory's name.
+    const roots = [staging, ...readdirSync(staging, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => join(staging, entry.name))];
+    const extracted = roots.map((directory) => join(directory, "CrashReporter.xcframework")).find((candidate) => existsSync(candidate));
+    assert.ok(extracted, "Pinned PLCrashReporter archive did not contain CrashReporter.xcframework");
+    run("cp", ["-R", extracted, destination], root);
+    writeFileSync(stamp, `${sha256}\n`);
+    console.log(`Staged CrashReporter.xcframework for lint from ${url}`);
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+}
+
 export function lintPodspecWithPrivacy(root, temporary, path, ancillaryGlob = null) {
   const validation = join(temporary, path.replace(".podspec", ""));
   const args = ["lib", "lint", path, "--platforms=ios", "--swift-version=6.0", "--use-static-frameworks", "--fail-fast", "--no-clean", `--validation-dir=${validation}`];
-  if (ancillaryGlob) args.push(`--include-podspecs=${ancillaryGlob}`);
+  stageCrashReporterForLint(root);
+  args.push(`--include-podspecs=${ancillaryGlob ? `{${ancillaryGlob},${CRASH_REPORTER_PODSPEC}}` : CRASH_REPORTER_PODSPEC}`);
   run("pod", args, root);
   const settings = JSON.parse(execFileSync("xcodebuild", ["-workspace", join(validation, "App.xcworkspace"), "-scheme", "App", "-configuration", "Release", "-sdk", "iphonesimulator", "-destination", "generic/platform=iOS Simulator", "-showBuildSettings", "-json"], { cwd: validation, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }));
   const app = settings.find((target) => target.target === "App")?.buildSettings;

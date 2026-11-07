@@ -5,6 +5,29 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Fixed
+
+- iOS: a CocoaPods installation could not be built with Xcode 26 or later. The
+  upstream `PLCrashReporter` pod declares an iOS minimum of 12.0 and those
+  toolchains reject any target below 15.0, so `pod install` succeeded and the
+  build then failed on the generated `PLCrashReporter` targets. CocoaPods applies
+  a pod's own declared minimum even when the Podfile asks for a higher platform,
+  so the floor had to be corrected on the dependency itself.
+
+  `distribution/cocoapods/PLCrashReporter.podspec` wraps the same official
+  release archive, pinned by the same SHA-256, with Crumb's supported iOS
+  minimum declared instead. It keeps the pod name `PLCrashReporter`, so it
+  replaces the upstream pod rather than linking a second copy of
+  `CrashReporter.xcframework`, and no new public package identity is published.
+
+  **A CocoaPods consumer on Xcode 26 or later must add one Podfile line** to
+  select it; the [iOS quickstart](website/content/docs/quickstarts/ios.mdx) gives
+  the exact form. Swift Package Manager installations are unaffected and need no
+  equivalent line, because SPM applies the consuming target's deployment target
+  rather than the dependency's. The React Native package was already unaffected:
+  it ships its own wrapper declaring the same 15.0 minimum. Upgrading the pin
+  would not have helped, as PLCrashReporter 1.12.2 also declares 12.0.
+
 ### Changed
 
 - Android: the React Native JavaScript crash handoff moved out of `crumb-core`

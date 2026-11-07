@@ -13,6 +13,13 @@ exact version `0.0.1-rc.6`, linking both CrumbCore and CrumbUI. Requires iOS 15
 or newer. New native releases use SPM; the older rc.3 CocoaPods installation is
 a separate legacy path, not an rc.6 pod release.
 
+A CocoaPods installation on Xcode 26 or later must also select Crumb's
+`PLCrashReporter` wrapper podspec from its Podfile. The upstream pod declares an
+iOS minimum of 12.0, which those toolchains reject, and CocoaPods applies a
+pod's own declared minimum even when the Podfile asks for a higher platform. The
+[iOS quickstart](../website/content/docs/quickstarts/ios.mdx) gives the exact
+line. SPM installations are unaffected.
+
 Follow the [iOS quickstart](../website/content/docs/quickstarts/ios.mdx) for
 installation, startup, invocation, masking, verification and troubleshooting.
 
