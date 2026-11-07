@@ -47,12 +47,15 @@ npm run distribution:verify
 It performs the following work in temporary directories:
 
 1. checks that generated native version constants match `VERSION`;
-2. publishes both Android modules to a temporary Maven repository;
+2. publishes all three Android modules to a temporary Maven repository;
 3. checks their coordinates, source JARs, POM dependency scope, and packaged
    consumer rules;
 4. builds a separate Android application using only the staged Maven artifact;
 5. builds and import-validates all three podspecs without pushing to CocoaPods;
-6. builds a separate Swift executable against both package products.
+6. builds a separate Swift executable for macOS against both package products;
+7. builds a separate Swift library for an iOS Simulator destination against both
+   package products, which is the installation path recommended for new native
+   iOS integrations.
 
 After a commit is pushed, validate the actual remote Swift Package at that
 immutable commit without creating a tag:
