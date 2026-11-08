@@ -1,9 +1,10 @@
 # Crumb's wrapper for the upstream PLCrashReporter 1.12.0 release binary, raising
 # only its declared iOS minimum to Crumb's supported floor.
 #
-# Upstream declares ios.deployment_target 12.0. Xcode 26 and later reject any
-# target below 15.0, so a CocoaPods consumer of CrumbSDKCore cannot build the
-# generated PLCrashReporter targets. CocoaPods applies a pod's own declared
+# Upstream declares ios.deployment_target 12.0. Xcode 27 rejects any target
+# below 15.0 (Xcode 26.6 still accepts 12.0), so a CocoaPods consumer of
+# CrumbSDKCore building with Xcode 27 cannot build the generated
+# PLCrashReporter targets. CocoaPods applies a pod's own declared
 # minimum even when the Podfile asks for a higher platform, so the floor has to
 # be corrected on the dependency itself.
 #
