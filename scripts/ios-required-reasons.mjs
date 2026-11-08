@@ -107,7 +107,7 @@ print(CrumbSDKVersion.current)
 }
 
 // Every Crumb podspec depends on PLCrashReporter. The upstream trunk pod declares
-// an iOS minimum that Xcode 26 and later reject, so lint against Crumb's wrapper —
+// an iOS minimum that Xcode 27 rejects, so lint against Crumb's wrapper —
 // the same podspec the installation documentation tells consumers to select.
 export const CRASH_REPORTER_PODSPEC = "distribution/cocoapods/PLCrashReporter.podspec";
 

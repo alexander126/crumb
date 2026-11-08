@@ -76,6 +76,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # `pod trunk push` validates each pod against trunk's PLCrashReporter, which
+      # declares iOS 12.0 and cannot be replaced by Crumb's wrapper here. Xcode 27
+      # rejects that minimum; Xcode 26.6 accepts it. Select it explicitly instead of
+      # the image default. See docs/distribution/registries.md.
+      - name: Select an Xcode that accepts PLCrashReporter's declared minimum
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.6.app
+          xcodebuild -version
       - name: Publish CocoaPods in dependency order
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}

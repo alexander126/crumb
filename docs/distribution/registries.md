@@ -76,16 +76,27 @@ channel, not a prerequisite for future SPM or npm releases. Select `maven`, not
 
 ### PLCrashReporter deployment floor
 
-`CrumbSDKCore` depends on the trunk pod `PLCrashReporter`, which declares an iOS
-minimum of 12.0. Xcode 26 and later reject any target below 15.0, and CocoaPods
-applies a pod's own declared minimum even when the Podfile asks for a higher
-platform, so a CocoaPods consumer on those toolchains cannot build.
+From rc.4, `CrumbSDKCore` depends on the trunk pod `PLCrashReporter`, which
+declares an iOS minimum of 12.0. Xcode 27 rejects any target below 15.0; Xcode
+26.6 still accepts it. CocoaPods applies a pod's own declared minimum even when
+the Podfile asks for a higher platform, so a CocoaPods consumer building with
+Xcode 27 cannot build. Trunk holds only rc.3, which has no PLCrashReporter
+dependency, so no published pod is affected until a later candidate reaches
+trunk.
 
 `distribution/cocoapods/PLCrashReporter.podspec` wraps the same pinned release
 archive with Crumb's supported minimum and keeps the upstream pod name, so it
-replaces rather than duplicates. Consumers select it with one Podfile line,
-documented in the iOS quickstart. Nothing new is published to trunk, so this
-needs no publication and is unaffected by the freeze.
+replaces rather than duplicates. A consumer building with Xcode 27 selects it
+with one Podfile line, given in the release notes of each candidate published
+to trunk and, once one is, in the iOS quickstart. The wrapper itself is never
+published to trunk.
+
+`pod trunk push` validates each Crumb pod against trunk's own `PLCrashReporter`
+and cannot use the wrapper, so it passes only on an Xcode that still accepts
+iOS 12.0. The **Publish native registries** CocoaPods job therefore selects
+Xcode 26.6 explicitly rather than taking the runner image's default, which is
+expected to move to Xcode 27. Validation precedes upload, so if that Xcode is
+ever unavailable the job fails before publishing anything.
 
 The pinned version and SHA-256 appear in three places: that wrapper, the React
 Native wrapper that reads the npm-bundled framework, and
