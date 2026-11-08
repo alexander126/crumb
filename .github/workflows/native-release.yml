@@ -30,6 +30,10 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - run: npm ci
       - run: npm run release:tag-check -- "${GITHUB_REF_NAME}"
+      - name: Download pinned PLCrashReporter with the workflow token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/fetch-crash-reporter.mjs
       - run: npm run release:check
       - run: npm run release:prepare && npm run release:verify
       - name: Publish immutable GitHub release assets

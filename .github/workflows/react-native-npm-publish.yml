@@ -90,6 +90,10 @@ jobs:
             exit 1
           fi
       - run: yarn quality
+      - name: Download pinned PLCrashReporter with the workflow token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node ../../scripts/fetch-crash-reporter.mjs
       - run: yarn pack:check
       - name: Publish with npm trusted publishing
         env:

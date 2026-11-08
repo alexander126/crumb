@@ -33,6 +33,10 @@ jobs:
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - run: npm ci
+      - name: Download pinned PLCrashReporter with the workflow token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/fetch-crash-reporter.mjs
       - name: Check release inputs and native distribution
         run: npm run release:check
       - name: Build and verify release artifacts
