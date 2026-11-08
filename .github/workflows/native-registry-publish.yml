@@ -94,7 +94,10 @@ jobs:
   maven:
     if: inputs.registry == 'both' || inputs.registry == 'maven'
     needs: validate
-    runs-on: ubuntu-latest
+    # The Android unit tests run on macOS everywhere else. On a Linux JVM,
+    # /proc/self/cmdline names the java executable, so the report queue's
+    # main-process boundary refuses it; Android devices report the app process.
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
