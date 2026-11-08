@@ -117,12 +117,22 @@ export const CRASH_REPORTER_PODSPEC = "distribution/cocoapods/PLCrashReporter.po
 // download it. So the lint needs the pinned framework staged beside the wrapper,
 // reusing the React Native package's already-extracted copy when it is present and
 // otherwise fetching the same archive the wrapper pins.
-export function stageCrashReporterForLint(root) {
-  const destination = join(root, dirname(CRASH_REPORTER_PODSPEC), "CrashReporter.xcframework");
+// The wrapper podspec is the one place scripts read the PLCrashReporter pin from;
+// verify-native-distribution checks that every other copy of the pin agrees with it.
+export function readCrashReporterPin(root) {
   const podspec = readFileSync(join(root, CRASH_REPORTER_PODSPEC), "utf8");
   const url = podspec.match(/https:\/\/github\.com\/microsoft\/plcrashreporter\/releases\/download\/\S+?\.zip/)?.[0];
   const sha256 = podspec.match(/sha256['"]?\s*[:=]>?\s*['"]([0-9a-f]{64})['"]/)?.[1];
   assert.ok(url && sha256, `${CRASH_REPORTER_PODSPEC} must pin an archive URL and SHA-256`);
+  return { url, sha256 };
+}
+
+// An archive fetched ahead of time (scripts/fetch-crash-reporter.mjs in CI) is named
+// by CRUMB_PLCRASH_ARCHIVE, the same input prepare-ios.mjs already accepts. It is
+// still checked against the pin before anything is extracted.
+export function stageCrashReporterForLint(root) {
+  const destination = join(root, dirname(CRASH_REPORTER_PODSPEC), "CrashReporter.xcframework");
+  const { url, sha256 } = readCrashReporterPin(root);
 
   // Record which pin the staged copy came from, so bumping the pinned archive
   // restages instead of silently linting against the previous framework.
@@ -142,10 +152,13 @@ export function stageCrashReporterForLint(root) {
 
   const staging = mkdtempSync(join(tmpdir(), "crumb-crashreporter-"));
   try {
-    const archive = join(staging, "CrashReporter.xcframework.zip");
-    run("curl", ["--fail", "--location", "--silent", "--show-error", "--output", archive, url], root);
+    const provided = process.env.CRUMB_PLCRASH_ARCHIVE;
+    const archive = provided || join(staging, "CrashReporter.xcframework.zip");
+    if (!provided) {
+      run("curl", ["--fail", "--location", "--silent", "--show-error", "--retry", "3", "--retry-all-errors", "--connect-timeout", "30", "--output", archive, url], root);
+    }
     const digest = execFileSync("shasum", ["-a", "256", archive], { encoding: "utf8" }).split(/\s+/)[0];
-    assert.equal(digest, sha256, `Downloaded PLCrashReporter archive does not match the pinned SHA-256`);
+    assert.equal(digest, sha256, `PLCrashReporter archive ${provided ? "named by CRUMB_PLCRASH_ARCHIVE " : ""}does not match the pinned SHA-256`);
     run("unzip", ["-q", archive, "-d", staging], root);
     // The archive nests its payload under a single directory, which is why the
     // upstream podspec sets `:flatten`. Resolve the framework at either level
@@ -155,7 +168,7 @@ export function stageCrashReporterForLint(root) {
     assert.ok(extracted, "Pinned PLCrashReporter archive did not contain CrashReporter.xcframework");
     run("cp", ["-R", extracted, destination], root);
     writeFileSync(stamp, `${sha256}\n`);
-    console.log(`Staged CrashReporter.xcframework for lint from ${url}`);
+    console.log(`Staged CrashReporter.xcframework for lint from ${provided ? "CRUMB_PLCRASH_ARCHIVE" : url}`);
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }

@@ -8,6 +8,7 @@ on:
       - "CrumbSDK*.podspec"
       - "Package.swift"
       - "scripts/ios-required-reasons.mjs"
+      - "scripts/fetch-crash-reporter.mjs"
       - "VERSION"
       - ".github/workflows/react-native-ci.yml"
       - ".github/workflows/react-native-npm-publish.yml"
@@ -19,6 +20,7 @@ on:
       - "CrumbSDK*.podspec"
       - "Package.swift"
       - "scripts/ios-required-reasons.mjs"
+      - "scripts/fetch-crash-reporter.mjs"
       - "VERSION"
       - ".github/workflows/react-native-ci.yml"
       - ".github/workflows/react-native-npm-publish.yml"
@@ -46,6 +48,10 @@ jobs:
       - run: yarn install --immutable
       - run: yarn quality
       - run: yarn test:packaging
+      - name: Download pinned PLCrashReporter with the workflow token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node ../../scripts/fetch-crash-reporter.mjs
       - run: yarn pack:check
 
   android-example:
@@ -91,5 +97,9 @@ jobs:
       - run: yarn install --immutable
       - run: yarn nitrogen
       - run: yarn prepare
+      - name: Download pinned PLCrashReporter with the workflow token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node ../../scripts/fetch-crash-reporter.mjs
       - run: yarn pack:check:ios
       - run: yarn pack:check:expo
