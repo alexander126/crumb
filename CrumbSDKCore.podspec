@@ -18,6 +18,10 @@ Pod::Spec.new do |spec|
 
   spec.ios.deployment_target = "15.0"
   spec.swift_version = "6.0"
+  # Always build and link this pod statically. CrumbSDKCore depends on
+  # PLCrashReporter's statically linked binary, which CocoaPods refuses to
+  # place beneath a dynamic framework, so `use_frameworks!` would otherwise fail.
+  spec.static_framework = true
   spec.module_name = "CrumbCore"
   spec.source_files = "packages/ios/Sources/CrumbCore/**/*.swift"
   spec.resource_bundles = {

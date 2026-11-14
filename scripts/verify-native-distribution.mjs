@@ -216,8 +216,8 @@ function verifyCrashReporterPin() {
   console.log(`Verified PLCrashReporter pin across ${pins.length} sources: ${pins[0].sha256}`);
 }
 
-function lintPodspec(path, ancillaryGlob = null) {
-  lintPodspecWithPrivacy(root, rehearsalRoot, path, ancillaryGlob);
+function lintPodspec(path, ancillaryGlob = null, linkages = ["dynamic"]) {
+  lintPodspecWithPrivacy(root, rehearsalRoot, path, ancillaryGlob, linkages);
 }
 
 try {
@@ -240,7 +240,7 @@ try {
   verifyCrashReporterPin();
   lintPodspec("CrumbSDKCore.podspec");
   lintPodspec("CrumbSDKUI.podspec", "CrumbSDKCore.podspec");
-  lintPodspec("CrumbSDK.podspec", "CrumbSDK{Core,UI}.podspec");
+  lintPodspec("CrumbSDK.podspec", "CrumbSDK{Core,UI}.podspec", ["dynamic", "static"]);
 
   verifySwiftConsumer();
   console.log(`Native distribution rehearsal passed for Crumb ${version}${remoteRevision ? ` at ${remoteRevision}` : " using the local package"}.`);
