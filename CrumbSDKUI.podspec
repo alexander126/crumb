@@ -18,6 +18,9 @@ Pod::Spec.new do |spec|
 
   spec.ios.deployment_target = "15.0"
   spec.swift_version = "6.0"
+  # Match CrumbSDKCore, which must be static. A dynamic CrumbUI would embed a
+  # second copy of the statically linked core.
+  spec.static_framework = true
   spec.module_name = "CrumbUI"
   spec.source_files = "packages/ios/Sources/CrumbUI/**/*.swift"
   spec.resource_bundles = {

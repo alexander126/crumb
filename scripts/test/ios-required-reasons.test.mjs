@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { verifyOwnedPrivacyBundles, verifyReasonDeclarations } from "../ios-required-reasons.mjs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { PODSPEC_LINT_LINKAGES, lintPodspecWithPrivacy, verifyOwnedPrivacyBundles, verifyReasonDeclarations } from "../ios-required-reasons.mjs";
 
 const category = (type, reason) => ({ NSPrivacyAccessedAPIType: type, NSPrivacyAccessedAPITypeReasons: [reason] });
 const boot = category("NSPrivacyAccessedAPICategorySystemBootTime", "35F9.1");
@@ -42,4 +43,16 @@ test("a dependency manifest or loose byproduct cannot substitute for embedded ow
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
+});
+
+test("the source pods are static frameworks and the lint cannot skip the linkage trunk validates", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  // CrumbSDKCore depends on PLCrashReporter's statically linked binary. Without
+  // static_framework, a dynamic-framework build fails, which is how pod trunk
+  // push and a `use_frameworks!` application build the pods.
+  for (const podspec of ["CrumbSDKCore.podspec", "CrumbSDKUI.podspec"]) {
+    assert.match(readFileSync(join(root, podspec), "utf8"), /^\s*spec\.static_framework = true$/m, `${podspec} must declare static_framework`);
+  }
+  assert.deepEqual(PODSPEC_LINT_LINKAGES.dynamic, [], "The dynamic lint must use CocoaPods' default linkage, as pod trunk push does");
+  assert.throws(() => lintPodspecWithPrivacy(root, tmpdir(), "CrumbSDKCore.podspec", null, ["static"]), /dynamic-framework linkage/);
 });

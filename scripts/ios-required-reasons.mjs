@@ -224,20 +224,30 @@ public enum CrumbIOSConsumer {
   console.log(`Built CrumbCore+CrumbUI SwiftPM consumer for iOS Simulator at deployment target ${target[1]}`);
 }
 
-export function lintPodspecWithPrivacy(root, temporary, path, ancillaryGlob = null) {
-  const validation = join(temporary, path.replace(".podspec", ""));
-  const args = ["lib", "lint", path, "--platforms=ios", "--swift-version=6.0", "--use-static-frameworks", "--fail-fast", "--no-clean", `--validation-dir=${validation}`];
+// `pod trunk push` validates a pod built as a dynamic framework, the CocoaPods
+// default for Swift pods, so that linkage is always linted: a pod that only
+// passes with --use-static-frameworks cannot be published. Pass "static" as well
+// to cover an application that sets `use_frameworks! :linkage => :static`.
+export const PODSPEC_LINT_LINKAGES = { dynamic: [], static: ["--use-static-frameworks"] };
+
+export function lintPodspecWithPrivacy(root, temporary, path, ancillaryGlob = null, linkages = ["dynamic"]) {
+  assert.ok(linkages.includes("dynamic"), "Lint the dynamic-framework linkage that pod trunk push validates");
   stageCrashReporterForLint(root);
-  args.push(`--include-podspecs=${ancillaryGlob ? `{${ancillaryGlob},${CRASH_REPORTER_PODSPEC}}` : CRASH_REPORTER_PODSPEC}`);
-  run("pod", args, root);
-  const settings = JSON.parse(execFileSync("xcodebuild", ["-workspace", join(validation, "App.xcworkspace"), "-scheme", "App", "-configuration", "Release", "-sdk", "iphonesimulator", "-destination", "generic/platform=iOS Simulator", "-showBuildSettings", "-json"], { cwd: validation, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }));
-  const app = settings.find((target) => target.target === "App")?.buildSettings;
-  assert.equal(app?.FULL_PRODUCT_NAME, "App.app", "Inspect the built CocoaPods application, not loose resource byproducts");
-  const product = join(app.TARGET_BUILD_DIR, app.FULL_PRODUCT_NAME);
-  assert.ok(existsSync(product), `CocoaPods consumer application was not built: ${product}`);
-  const modules = path === "CrumbSDKCore.podspec" ? ["CrumbCore"] : ["CrumbCore", "CrumbUI"];
-  if (modules.length === 1) assert.ok(!existsSync(join(product, "CrumbUI.bundle")), "The Core-only consumer must not embed UI resources");
-  console.log(`Verified CocoaPods application manifests: ${verifyOwnedPrivacyBundles(product, modules, "cocoapods").join(", ")}`);
+  for (const linkage of linkages) {
+    assert.ok(Object.hasOwn(PODSPEC_LINT_LINKAGES, linkage), `Unknown podspec lint linkage: ${linkage}`);
+    const validation = join(temporary, `${path.replace(".podspec", "")}-${linkage}`);
+    const args = ["lib", "lint", path, "--platforms=ios", "--swift-version=6.0", ...PODSPEC_LINT_LINKAGES[linkage], "--fail-fast", "--no-clean", `--validation-dir=${validation}`];
+    args.push(`--include-podspecs=${ancillaryGlob ? `{${ancillaryGlob},${CRASH_REPORTER_PODSPEC}}` : CRASH_REPORTER_PODSPEC}`);
+    run("pod", args, root);
+    const settings = JSON.parse(execFileSync("xcodebuild", ["-workspace", join(validation, "App.xcworkspace"), "-scheme", "App", "-configuration", "Release", "-sdk", "iphonesimulator", "-destination", "generic/platform=iOS Simulator", "-showBuildSettings", "-json"], { cwd: validation, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }));
+    const app = settings.find((target) => target.target === "App")?.buildSettings;
+    assert.equal(app?.FULL_PRODUCT_NAME, "App.app", "Inspect the built CocoaPods application, not loose resource byproducts");
+    const product = join(app.TARGET_BUILD_DIR, app.FULL_PRODUCT_NAME);
+    assert.ok(existsSync(product), `CocoaPods consumer application was not built: ${product}`);
+    const modules = path === "CrumbSDKCore.podspec" ? ["CrumbCore"] : ["CrumbCore", "CrumbUI"];
+    if (modules.length === 1) assert.ok(!existsSync(join(product, "CrumbUI.bundle")), "The Core-only consumer must not embed UI resources");
+    console.log(`Verified CocoaPods application manifests (${linkage} frameworks): ${verifyOwnedPrivacyBundles(product, modules, "cocoapods").join(", ")}`);
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -252,7 +262,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (!process.argv.includes("--swift-only")) {
       lintPodspecWithPrivacy(root, temporary, "CrumbSDKCore.podspec");
       lintPodspecWithPrivacy(root, temporary, "CrumbSDKUI.podspec", "CrumbSDKCore.podspec");
-      lintPodspecWithPrivacy(root, temporary, "CrumbSDK.podspec", "CrumbSDK{Core,UI}.podspec");
+      lintPodspecWithPrivacy(root, temporary, "CrumbSDK.podspec", "CrumbSDK{Core,UI}.podspec", ["dynamic", "static"]);
     }
   } finally {
     if (!process.argv.includes("--keep-products")) rmSync(temporary, { recursive: true, force: true });
