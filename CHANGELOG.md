@@ -5,6 +5,15 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Fixed
+
+- iOS: the `CrumbSDKCore` and `CrumbSDKUI` pods are now static frameworks. Built
+  as dynamic frameworks, which is how CocoaPods trunk validates a pod and how an
+  application using `use_frameworks!` builds it, `CrumbSDKCore` placed
+  PLCrashReporter's statically linked binary beneath a dynamic framework and
+  CocoaPods refused the installation. This blocked the rc.7 trunk publication.
+  The release checks now lint the pods with that linkage as well.
+
 ## [0.0.1-rc.7] - Candidate
 
 See the [rc.7 release and migration notes](docs/releases/0.0.1-rc.7.md).
