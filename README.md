@@ -4,20 +4,22 @@ Crumb is a native-first mobile issue-reporting SDK. Its first production slice
 turns an explicit user report into a privacy-safe diagnostic packet that an
 engineer can inspect without asking the reporter to recreate basic context.
 
-> **Published preview: 0.0.1-rc.6.** Includes guided React Native/Expo setup and
-> automatic release source maps, with the bundled iOS dependency-wrapper correction.
-> See [release notes and migration](docs/releases/0.0.1-rc.6.md).
+> **Published preview: 0.0.1-rc.7.** Redacts more before a report is stored,
+> delivers each report only to the project it was created for, and makes the
+> Maven artifacts Kotlin 2.0 compatible. Reports queued before upgrading are not
+> uploaded automatically; read the [release notes and migration](docs/releases/0.0.1-rc.7.md)
+> before upgrading.
 > This is a prerelease, not stable 0.0.1.
 
 ## Install Crumb
 
-The current public preview is `0.0.1-rc.6`.
+The current public preview is `0.0.1-rc.7`.
 
 | Application | Install | Full quickstart |
 | --- | --- | --- |
-| React Native & Expo | `@crumbsdk/react-native@0.0.1-rc.6` + Nitro `0.37.1` | [React Native, including Expo](website/content/docs/quickstarts/react-native.mdx) |
-| Native iOS | SPM at exact tag `0.0.1-rc.6` | [iOS](website/content/docs/quickstarts/ios.mdx) |
-| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.6` from Maven Central | [Android](website/content/docs/quickstarts/android.mdx) |
+| React Native & Expo | `@crumbsdk/react-native@0.0.1-rc.7` + Nitro `0.37.1` | [React Native, including Expo](website/content/docs/quickstarts/react-native.mdx) |
+| Native iOS | SPM at exact tag `0.0.1-rc.7` | [iOS](website/content/docs/quickstarts/ios.mdx) |
+| Native Android | `com.crumbsdk:crumb-ui:0.0.1-rc.7` from Maven Central | [Android](website/content/docs/quickstarts/android.mdx) |
 
 Each guide covers installation, configuration, invocation, verification and
 troubleshooting. Expo Go is unsupported because Crumb includes native code.
@@ -27,7 +29,7 @@ for exact package identities and the versioned legacy CocoaPods path.
 
 ## Current status
 
-The quickstarts target published rc.6. Optional crash capture, rendering and
+The quickstarts target published rc.7. Optional crash capture, rendering and
 source-map features require explicit configuration; publication does not establish
 compatibility with every host application.
 

@@ -4,12 +4,13 @@ The official Nitro Module adapter for Crumb. It is intentionally thin: the
 published Swift and Kotlin SDKs continue to own reporter presentation,
 screenshot masking, diagnostics, durable storage, and upload.
 
-## rc.6 setup
+## rc.7 setup
 
-`0.0.1-rc.6` includes guided setup, automatic release source maps and the bundled
-iOS dependency-wrapper correction.
+`0.0.1-rc.7` redacts more before a report is stored, delivers each report only
+to the project it was created for, and fixes Android release builds minified
+with R8. Reports queued before upgrading are not uploaded automatically.
 See the [setup guide](../../docs/react-native-setup.md) and
-[release notes](../../docs/releases/0.0.1-rc.6.md). This is a prerelease, not stable
+[release notes](../../docs/releases/0.0.1-rc.7.md). This is a prerelease, not stable
 0.0.1. The source-map uploader installs automatically; its compatible exact rc.4
 dependency is intentional and stays outside the app runtime.
 
@@ -24,12 +25,12 @@ Crumb contains native code and therefore does not run in Expo Go.
 
 ## Install the exact package
 
-After rc.6 publication, install the exact SDK and its compatible Nitro runtime
+Install the exact SDK and its compatible Nitro runtime
 using your app’s package manager. Preserve the native setup below when upgrading
 from rc.3:
 
 ```sh
-npm install @crumbsdk/react-native@0.0.1-rc.6 react-native-nitro-modules@0.37.1
+npm install @crumbsdk/react-native@0.0.1-rc.7 react-native-nitro-modules@0.37.1
 ```
 
 From the app directory, `npx --no-install crumb setup` previews guided native
