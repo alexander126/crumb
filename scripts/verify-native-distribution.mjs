@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { CRASH_REPORTER_PODSPEC, lintPodspecWithPrivacy, verifySwiftIOSConsumer, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
+import { CRASH_REPORTER_PODSPEC, lintPodspecWithPrivacy, readCrashReporterPin, verifyNativeManifestsOmitCrashReporter, verifySwiftIOSConsumer, verifySwiftPrivacyConsumers } from "./ios-required-reasons.mjs";
 import { verifyKotlinClassMetadata, verifyPublishedKotlinDependencies, verifyResolvedKotlinConsumer, verifyUploadTransportCompatibility } from "./android-kotlin-compatibility.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -186,17 +186,15 @@ function verifySwiftConsumer() {
   verifySwiftIOSConsumer(root, rehearsalRoot, remoteRevision);
 }
 
-// The crash reporter binary is pinned in three places: Crumb's CocoaPods wrapper,
-// the React Native wrapper that reads the npm-bundled copy, and the packaging
-// script that downloads and checksums it. A drift between them would ship one
-// consumer a different binary than the one its checksum promises.
+// Only the React Native adapter links the crash reporter. Its binary is pinned in
+// the wrapper podspec that reads the npm-bundled copy and in the packaging script
+// that downloads and checksums it; the adapter podspec and the adapter's native
+// test package name the same version. A drift between them would ship or test a
+// different binary than the one the checksum promises.
 function verifyCrashReporterPin() {
+  verifyNativeManifestsOmitCrashReporter(root);
   const sources = {
     [CRASH_REPORTER_PODSPEC]: readFileSync(join(root, CRASH_REPORTER_PODSPEC), "utf8"),
-    "packages/react-native/scripts/PLCrashReporter.podspec": readFileSync(
-      join(root, "packages/react-native/scripts/PLCrashReporter.podspec"),
-      "utf8",
-    ),
     "packages/react-native/scripts/prepare-ios.mjs": readFileSync(
       join(root, "packages/react-native/scripts/prepare-ios.mjs"),
       "utf8",
@@ -213,7 +211,18 @@ function verifyCrashReporterPin() {
     assert.equal(pin.url, pins[0].url, `${pin.label} pins a different PLCrashReporter archive than ${pins[0].label}`);
     assert.equal(pin.sha256, pins[0].sha256, `${pin.label} pins a different PLCrashReporter SHA-256 than ${pins[0].label}`);
   }
-  console.log(`Verified PLCrashReporter pin across ${pins.length} sources: ${pins[0].sha256}`);
+  const { version: pinned } = readCrashReporterPin(root);
+  requireText(
+    join(root, "packages/react-native/CrumbReactNative.podspec"),
+    `spec.dependency "PLCrashReporter", "${pinned}"`,
+    "The React Native adapter podspec",
+  );
+  requireText(
+    join(root, "packages/react-native/ios-tests/Package.swift"),
+    `plcrashreporter.git", exact: "${pinned}"`,
+    "The React Native adapter's native test package",
+  );
+  console.log(`Verified PLCrashReporter ${pinned} pin across ${pins.length + 2} sources: ${pins[0].sha256}`);
 }
 
 function lintPodspec(path, ancillaryGlob = null, linkages = ["dynamic"]) {

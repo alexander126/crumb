@@ -21,6 +21,10 @@ Pod::Spec.new do |spec|
 
   spec.ios.deployment_target = "15.1"
   spec.swift_version = "6.0"
+  # The adapter links PLCrashReporter's statically linked binary, which CocoaPods
+  # refuses to place beneath a dynamic framework, so `use_frameworks!` must not
+  # make this pod dynamic. It has no effect on a static-library application.
+  spec.static_framework = true
   spec.module_name = "CrumbReactNative"
   spec.source_files = [
     "ios/**/*.{swift,m,mm}",
@@ -28,6 +32,9 @@ Pod::Spec.new do |spec|
   ]
   spec.dependency "CrumbSDKCore", native_version
   spec.dependency "CrumbSDKUI", native_version
+  # Thread stacks for an opted-in JavaScript failure, in ios/CrumbNativeStackCapture.swift.
+  # crumb_native_pods! resolves this to the copy bundled in the npm package.
+  spec.dependency "PLCrashReporter", "1.12.0"
   spec.dependency "React-jsi"
   spec.dependency "React-callinvoker"
 

@@ -18,9 +18,10 @@ Pod::Spec.new do |spec|
 
   spec.ios.deployment_target = "15.0"
   spec.swift_version = "6.0"
-  # Always build and link this pod statically. CrumbSDKCore depends on
-  # PLCrashReporter's statically linked binary, which CocoaPods refuses to
-  # place beneath a dynamic framework, so `use_frameworks!` would otherwise fail.
+  # Always build and link this pod statically, whatever the application's
+  # `use_frameworks!` setting. Static linkage is the only one Crumb verifies: its
+  # resource and privacy-manifest bundles are checked at the application root,
+  # and the React Native adapter links its own static dependency beside it.
   spec.static_framework = true
   spec.module_name = "CrumbCore"
   spec.source_files = "packages/ios/Sources/CrumbCore/**/*.swift"
@@ -28,7 +29,6 @@ Pod::Spec.new do |spec|
     "CrumbCore" => "packages/ios/Sources/CrumbCore/Resources/**/*"
   }
   spec.frameworks = ["CryptoKit"]
-  spec.dependency "PLCrashReporter", "1.12.0"
   spec.pod_target_xcconfig = {
     "OTHER_SWIFT_FLAGS" => "$(inherited) -package-name Crumb"
   }

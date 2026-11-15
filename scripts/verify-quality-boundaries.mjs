@@ -46,7 +46,9 @@ for (const catalog of catalogs) {
   if (!existsSync(join(root, catalog))) failures.push(`Missing localization catalog: ${catalog}`);
 }
 
-const nativeSources = ["packages/ios/Sources", "packages/android"].flatMap((directory) =>
+// The React Native adapter's iOS sources are included because they hold Crumb's only
+// use of PLCrashReporter, which must stay a live thread snapshot and never a crash hook.
+const nativeSources = ["packages/ios/Sources", "packages/android", "packages/react-native/ios"].flatMap((directory) =>
   walk(directory).filter((path) => [".swift", ".kt", ".java"].includes(extname(path))),
 );
 const forbiddenCrashHooks = [
@@ -60,6 +62,15 @@ for (const source of nativeSources) {
   const contents = read(source);
   for (const hook of forbiddenCrashHooks) {
     if (contents.includes(hook)) failures.push(`${source} must not install or initialize ${hook}.`);
+  }
+  // Swift imports PLCrashReporter's enable methods as enable() and enableAndReturnError().
+  if (/\bimport CrashReporter\b/.test(contents)) {
+    if (!source.startsWith("packages/react-native/ios/")) {
+      failures.push(`${source} must not import PLCrashReporter; only the React Native adapter links it.`);
+    }
+    if (/\.enable(?:AndReturnError)?\s*\(/.test(contents) || !contents.includes("shouldRegisterUncaughtExceptionHandler: false")) {
+      failures.push(`${source} must use PLCrashReporter only for live reports, with no crash handler enabled.`);
+    }
   }
 }
 

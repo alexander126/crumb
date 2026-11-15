@@ -115,7 +115,8 @@ CrumbCore and CrumbUI ship their own `PrivacyInfo.xcprivacy` resources through
 SwiftPM, CocoaPods, and the React Native package's bundled native pods.
 Both declare System Boot Time reason `35F9.1` for elapsed in-app measurements.
 CrumbUI also declares User Defaults reason `CA92.1` for its app-private workspace
-policy cache. PLCrashReporter's separate manifest remains part of that dependency.
+policy cache. Only the React Native package links PLCrashReporter, whose separate
+manifest remains part of that dependency; native iOS installations do not include it.
 
 These manifests contain required-reason declarations only. They do not assert
 that no data is collected or establish complete collection disclosures or App

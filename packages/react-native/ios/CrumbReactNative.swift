@@ -29,6 +29,11 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
             maximumBytes: logOptions.maximumBytes ?? 65_536
         )
 
+        // Native applications never register a stack source; this adapter owns it.
+        if payload.diagnostics?.javascriptCrashCapture?.enabled == true {
+            CrumbNativeStackCapture.install()
+        }
+
         try Crumb.start(
             CrumbConfiguration(
                 projectKey: payload.projectKey,

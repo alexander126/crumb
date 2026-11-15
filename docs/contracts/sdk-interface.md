@@ -132,6 +132,14 @@ Storage, capture, sanitization, transport, and clocks remain internal seams.
 They are not exposed through the external interface merely to support tests.
 Production and in-memory adapters may satisfy those seams inside each native SDK.
 
+One capture seam crosses a module boundary on iOS. The native thread stacks of an
+opted-in JavaScript failure are captured by the React Native adapter, because
+the dependency that captures them belongs to the adapter and not to a native
+application. The adapter supplies them through the
+`Crumb.setJavaScriptCrashStackProvider` adapter bridge. It is not an application
+interface: CrumbCore invokes the provider only inside that handoff, only while
+thread-stack evidence is permitted, and still owns sanitization and every limit.
+
 ## Opt-in React Native screen context
 
 `setScreen(name, { route }?)` replaces the current static screen label;

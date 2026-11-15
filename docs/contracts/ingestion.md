@@ -153,13 +153,18 @@ counted as evidence. Capture and recovery obey the thread-stack privacy policy;
 record pressure drops stacks before existing metrics and then drops optional
 metrics before the core JavaScript failure. No health probe is performed.
 
-The iOS implementation uses PLCrashReporter 1.12.0 live reports, without enabling
-its crash handler or asynchronous local symbolication. Its bounded temporary
-report (at most 1 MiB) is removed by the live-report API. Only sanitized stack
-frames are retained by Crumb. Available symbols are resolved after other threads
-resume. Image basename, UUID and offset are retained when present; source files
-and line numbers require separate native symbolication and are not claimed.
-The dependency is pinned to the same published version for SwiftPM and CocoaPods.
+On iOS the React Native adapter captures these frames with PLCrashReporter 1.12.0
+live reports, without enabling its crash handler or asynchronous local
+symbolication. Its bounded temporary report (at most 1 MiB) is removed by the
+live-report API. Available symbols are resolved after other threads resume.
+Image basename, UUID and offset are retained when present; source files and line
+numbers require separate native symbolication and are not claimed.
+
+CrumbCore links no stack-capture dependency. The adapter hands it the raw
+snapshot, and CrumbCore sanitizes the frames and applies the caps above before
+anything is stored, so the limits do not depend on the adapter. A native iOS
+application registers no stack source and never links PLCrashReporter through
+Crumb; only the React Native package pins it.
 
 `diagnostics.rendering` contains only numeric aggregates plus a source enum:
 `ios_display_link` or `android_frame_metrics`. Required fields are `sample_count`
