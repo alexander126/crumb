@@ -38,18 +38,21 @@ try {
   assert.ok(archive);
   const consumer = join(temporary, 'consumer');
   mkdirSync(consumer);
-  const example = JSON.parse(
-    readFileSync(join(root, 'example/package.json'), 'utf8')
-  );
-  const dependencies = Object.fromEntries(
-    [
-      'expo',
-      'expo-build-properties',
-      'react',
-      'react-native',
-      'react-native-nitro-modules',
-    ].map((name) => [name, example.dependencies[name]])
-  );
+  // These consumers hold the adapter's iOS 15.1 floor, so their versions are
+  // pinned here and not read from the source-linked demo. The demo follows a
+  // newer Expo SDK, and Expo SDK 57 already requires iOS 16.4. React, React
+  // Native and Nitro are the versions the adapter itself is built against.
+  const adapter = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  const dependencies = {
+    expo: '55.0.31',
+    'expo-build-properties': '55.0.18',
+    ...Object.fromEntries(
+      ['react', 'react-native', 'react-native-nitro-modules'].map((name) => [
+        name,
+        adapter.devDependencies[name],
+      ])
+    ),
+  };
   dependencies['@crumbsdk/react-native'] = `file:${join(temporary, archive)}`;
   writeFileSync(
     join(consumer, 'package.json'),

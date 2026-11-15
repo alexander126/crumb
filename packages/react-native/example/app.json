@@ -10,7 +10,6 @@
       "expo-router",
       "@crumbsdk/react-native",
       "./with-crumb-local-native",
-      "./with-ios-27-compat",
       [
         "expo-build-properties",
         {
@@ -18,7 +17,8 @@
             "minSdkVersion": 26
           },
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4",
+            "enableSceneSupport": true
           }
         }
       ]

@@ -4,6 +4,14 @@ This Expo demo links the React Native adapter and both native SDKs from this
 checkout. It includes reporting, logs, a deliberate fatal JavaScript error and
 an unhandled rejection. Expo Go cannot load its native code.
 
+The demo runs on Expo SDK 57 with React Native 0.86.3, targets iOS 16.4 or
+newer, and enables Expo's scene life cycle support
+(`ios.enableSceneSupport` in `expo-build-properties`). UIKit requires that life
+cycle of any app built with the iOS 27 SDK, so this is what lets the demo
+build with Xcode 27 and launch on iOS 27. These are the demo's own versions.
+The adapter still supports React Native 0.79 or newer and iOS 15.1 or newer,
+and the packed-consumer checks keep building it at that floor.
+
 The checked-in `crumb.config.json` uses the synthetic origin `https://example.invalid`.
 The release commands below validate maps locally without uploading. For a real
 integration, replace that origin with the one from your dashboard, set the
@@ -30,17 +38,7 @@ outside the public repository.
 
 Generate the native projects with `corepack yarn example expo prebuild --clean`.
 This replaces generated native files, so keep any native customization in the
-Expo configuration/plugin.
-
-Expo SDK 55 predates Xcode 27 and iOS 27, so the example carries two
-workarounds that are not part of the SDK and that your app does not need on an
-Expo SDK that supports iOS 27. `with-ios-27-compat.js` makes prebuild generate
-a scene delegate, which iOS 27 requires at launch, and raises pod resource
-bundles that still declare a deployment target below iOS 15.0. A Yarn patch in
-`../.yarn/patches` lets Expo Router 55.0.18 compile for iOS 15.1 against the
-iOS 27 SDK. Remove both when the example moves to a newer Expo SDK.
-
-The existing `build:ios` and `build:android` scripts
+Expo configuration/plugin. The existing `build:ios` and `build:android` scripts
 build debug apps. For crash/source-map acceptance, use release builds instead:
 
 ```sh
