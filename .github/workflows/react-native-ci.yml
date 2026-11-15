@@ -90,6 +90,8 @@ jobs:
         working-directory: packages/react-native
     steps:
       - uses: actions/checkout@v6
+      - name: Record the Xcode version these builds use
+        run: xcodebuild -version
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -105,7 +107,6 @@ jobs:
       - run: yarn pack:check:expo
       # The packed consumers above stay on the adapter's iOS 15.1 floor and do
       # not include Expo Router, so the source-linked demo needs its own build.
-      - run: xcodebuild -version
       - run: yarn prepare:ios
       - run: yarn example expo prebuild --platform ios --clean
       - run: yarn example build:ios
