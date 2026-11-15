@@ -5,6 +5,13 @@ This Expo development-build app installs the public
 the package-local example, which links the SDK source during library
 development.
 
+The example runs on Expo SDK 58 with React Native 0.88.1 and targets iOS 16.4
+or newer and Android API 26 or newer. iOS 16.4 is the minimum Expo SDK 58
+allows. Its app template adopts the UIKit scene life cycle, which iOS 27
+requires of any app built with Xcode 27. These are the example's own versions:
+`@crumbsdk/react-native` supports React Native 0.79 or newer and iOS 15.1 or
+newer.
+
 ## Configure
 
 ```sh
@@ -52,7 +59,9 @@ single copy in the host application.
 
 ## Dependency audit note
 
-As of Expo SDK 55, npm reports a moderate `uuid` advisory through Expo CLI's
-native project-generation dependency chain. npm's automated remediation would
-downgrade Expo to SDK 46, so the example intentionally stays on the current
-SDK and relies on Expo to update that transitive build-time dependency.
+As of Expo 58.0.25, npm reports a moderate `minimatch` advisory through
+`@expo/fingerprint`, which Expo uses at build time to hash the native project.
+npm counts it three times, once each for `minimatch`, `@expo/fingerprint` and
+`expo`. Its automated remediation would downgrade Expo to SDK 52, so the
+example intentionally stays on the current SDK and relies on Expo to update
+that transitive build-time dependency.
