@@ -1,15 +1,16 @@
 // Downloads the pinned PLCrashReporter archive for CI with an authenticated request.
 //
 // Unauthenticated downloads from GitHub Releases are the first to be throttled or
-// timed out when GitHub is degraded, and every iOS packaging and lint job needs this
-// archive. `gh release download` signs the request with the workflow's read-only
-// token instead. The pin is read from the wrapper podspec, which the release gate
-// already checks against every other copy, so this script adds no new copy of it.
+// timed out when GitHub is degraded, and every React Native iOS packaging job needs
+// this archive. `gh release download` signs the request with the workflow's read-only
+// token instead. The pin is read from the React Native wrapper podspec, which the
+// release gate already checks against every other copy, so this script adds no new
+// copy of it. Native iOS jobs do not need it: only the adapter links PLCrashReporter.
 //
-// The archive is verified against the pinned SHA-256 here, and again by each
-// consumer (prepare-ios.mjs and the podspec lint staging) through the existing
-// CRUMB_PLCRASH_ARCHIVE input. Under GitHub Actions that variable is exported to the
-// later steps of the job. Local development does not need this script.
+// The archive is verified against the pinned SHA-256 here, and again by
+// prepare-ios.mjs through the existing CRUMB_PLCRASH_ARCHIVE input. Under GitHub
+// Actions that variable is exported to the later steps of the job. Local development
+// does not need this script.
 //
 // Usage: node scripts/fetch-crash-reporter.mjs [destination-directory]
 import { execFileSync } from "node:child_process";

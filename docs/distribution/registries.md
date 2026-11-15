@@ -74,35 +74,30 @@ iOS integrations should use SPM. CocoaPods publication is a legacy compatibility
 channel, not a prerequisite for future SPM or npm releases. Select `maven`, not
 `both`, when publishing native registries after the freeze.
 
-### PLCrashReporter deployment floor
+### PLCrashReporter and the native pods
 
-From rc.4, `CrumbSDKCore` depends on the trunk pod `PLCrashReporter`, which
-declares an iOS minimum of 12.0. Xcode 27 rejects any target below 15.0; Xcode
-26.6 still accepts it. CocoaPods applies a pod's own declared minimum even when
-the Podfile asks for a higher platform, so a CocoaPods consumer building with
-Xcode 27 cannot build. Trunk holds only rc.3, which has no PLCrashReporter
-dependency, so no published pod is affected until a later candidate reaches
-trunk.
+The native pods and the Swift package have no third-party dependency. From rc.4
+to rc.7 `CrumbSDKCore` depended on the trunk pod `PLCrashReporter`, although
+only the React Native JavaScript failure handoff used it. That pod declares an
+iOS minimum of 12.0, which Xcode 27 rejects, and CocoaPods applies a pod's own
+declared minimum even when the Podfile asks for a higher platform. A native
+CocoaPods consumer on Xcode 27 therefore needed a wrapper podspec, and
+`pod trunk push`, which validates against trunk's own copy, needed an older
+Xcode. None of those candidates reached trunk, which holds only rc.3.
 
-`distribution/cocoapods/PLCrashReporter.podspec` wraps the same pinned release
-archive with Crumb's supported minimum and keeps the upstream pod name, so it
-replaces rather than duplicates. A consumer building with Xcode 27 selects it
-with one Podfile line, given in the release notes of each candidate published
-to trunk and, once one is, in the iOS quickstart. The wrapper itself is never
-published to trunk.
+The thread-stack capture now lives in the React Native adapter, which is the
+only component that links PLCrashReporter. `npm run distribution:verify` and the
+podspec lint fail if `Package.swift` or a native podspec names it again, and the
+lint supplies no third-party podspec, so it resolves exactly what trunk would.
+The **Publish native registries** CocoaPods job uses the runner image's Xcode.
 
-`pod trunk push` validates each Crumb pod against trunk's own `PLCrashReporter`
-and cannot use the wrapper, so it passes only on an Xcode that still accepts
-iOS 12.0. The **Publish native registries** CocoaPods job therefore selects
-Xcode 26.6 explicitly rather than taking the runner image's default, which is
-expected to move to Xcode 27. Validation precedes upload, so if that Xcode is
-ever unavailable the job fails before publishing anything.
-
-The pinned version and SHA-256 appear in three places: that wrapper, the React
-Native wrapper that reads the npm-bundled framework, and
-`packages/react-native/scripts/prepare-ios.mjs`. `npm run distribution:verify`
-fails if they drift. Update all three together when bumping PLCrashReporter, and
-note that 1.12.2 still declares 12.0, so the wrapper stays necessary.
+The pinned version and SHA-256 live in the React Native wrapper that reads the
+npm-bundled framework, `packages/react-native/scripts/PLCrashReporter.podspec`,
+and in `packages/react-native/scripts/prepare-ios.mjs`. The adapter podspec and
+`packages/react-native/ios-tests/Package.swift` name the same version.
+`npm run distribution:verify` fails if they drift. Update all four together when
+bumping PLCrashReporter. The wrapper stays necessary inside the npm package
+because 1.12.2 still declares iOS 12.0.
 
 The React Native npm release bundles Crumb's canonical iOS sources, local
 podspecs and PLCrashReporter 1.12.0's official XCFramework, license and privacy
@@ -121,7 +116,7 @@ source-checkout pod overrides. Keep `crumbNativeVersion`, root `VERSION`,
 Swift source version and packaged sources aligned when preparing a release.
 
 When updating PLCrashReporter, review its source, release provenance, license,
-privacy manifest and compatibility first. Update the SPM/native podspec pins,
-packaging URL/SHA-256 and bundled podspec together, then rerun both SPM and packed
-consumer checks. Do not silently fall back to downloading a missing dependency
+privacy manifest and compatibility first. Update the adapter podspec and test
+package pins, packaging URL/SHA-256 and bundled podspec together, then rerun
+`npm run test:ios` and the packed consumer checks. Do not silently fall back to downloading a missing dependency
 on a customer's machine.

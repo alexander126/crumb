@@ -106,79 +106,37 @@ print(CrumbSDKVersion.current)
   if (failures.length) throw new AggregateError(failures, "Built SwiftPM consumers are missing SDK-owned required-reason coverage");
 }
 
-// Every Crumb podspec depends on PLCrashReporter. The upstream trunk pod declares
-// an iOS minimum that Xcode 27 rejects, so lint against Crumb's wrapper —
-// the same podspec the installation documentation tells consumers to select.
-export const CRASH_REPORTER_PODSPEC = "distribution/cocoapods/PLCrashReporter.podspec";
+// The native pods and the Swift package declare no PLCrashReporter dependency: only
+// the React Native adapter links it, for the thread stacks of an opted-in JavaScript
+// failure. Its wrapper podspec is therefore the one place scripts read the pin
+// from; verify-native-distribution checks that every other copy agrees with it.
+export const CRASH_REPORTER_PODSPEC = "packages/react-native/scripts/PLCrashReporter.podspec";
 
-// `pod lib lint --include-podspecs` treats an included podspec as a local pod: it
-// resolves vendored_frameworks from the podspec's own directory and never fetches
-// the podspec's `source`. A real consumer selecting the wrapper from a Podfile does
-// download it. So the lint needs the pinned framework staged beside the wrapper,
-// reusing the React Native package's already-extracted copy when it is present and
-// otherwise fetching the same archive the wrapper pins.
-// The wrapper podspec is the one place scripts read the PLCrashReporter pin from;
-// verify-native-distribution checks that every other copy of the pin agrees with it.
 export function readCrashReporterPin(root) {
   const podspec = readFileSync(join(root, CRASH_REPORTER_PODSPEC), "utf8");
   const url = podspec.match(/https:\/\/github\.com\/microsoft\/plcrashreporter\/releases\/download\/\S+?\.zip/)?.[0];
   const sha256 = podspec.match(/sha256['"]?\s*[:=]>?\s*['"]([0-9a-f]{64})['"]/)?.[1];
-  assert.ok(url && sha256, `${CRASH_REPORTER_PODSPEC} must pin an archive URL and SHA-256`);
-  return { url, sha256 };
+  const version = podspec.match(/spec\.version\s*=\s*['"]([^'"]+)['"]/)?.[1];
+  assert.ok(url && sha256 && version, `${CRASH_REPORTER_PODSPEC} must pin a version, an archive URL and a SHA-256`);
+  return { url, sha256, version };
 }
 
-// An archive fetched ahead of time (scripts/fetch-crash-reporter.mjs in CI) is named
-// by CRUMB_PLCRASH_ARCHIVE, the same input prepare-ios.mjs already accepts. It is
-// still checked against the pin before anything is extracted.
-export function stageCrashReporterForLint(root) {
-  const destination = join(root, dirname(CRASH_REPORTER_PODSPEC), "CrashReporter.xcframework");
-  const { url, sha256 } = readCrashReporterPin(root);
+// A native iOS application must never resolve PLCrashReporter through Crumb. This is
+// what lets `pod trunk push` validate the pods on a current Xcode and keeps the
+// upstream pod's iOS 12.0 minimum out of every native consumer's build.
+export const NATIVE_IOS_MANIFESTS = ["Package.swift", "CrumbSDKCore.podspec", "CrumbSDKUI.podspec", "CrumbSDK.podspec"];
 
-  // Record which pin the staged copy came from, so bumping the pinned archive
-  // restages instead of silently linting against the previous framework.
-  const stamp = `${destination}.pin`;
-  if (existsSync(destination)) {
-    if (existsSync(stamp) && readFileSync(stamp, "utf8").trim() === sha256) return;
-    rmSync(destination, { recursive: true, force: true });
+export function verifyNativeManifestsOmitCrashReporter(root) {
+  for (const manifest of NATIVE_IOS_MANIFESTS) {
+    assert.doesNotMatch(readFileSync(join(root, manifest), "utf8"), /crash[\s_-]*reporter/i, `${manifest} must not depend on or mention PLCrashReporter`);
   }
-
-  const bundled = join(root, "packages/react-native/native/ios/PLCrashReporter/CrashReporter.xcframework");
-  if (existsSync(bundled)) {
-    run("cp", ["-R", bundled, destination], root);
-    writeFileSync(stamp, `${sha256}\n`);
-    console.log(`Staged CrashReporter.xcframework for lint from the React Native package copy`);
-    return;
-  }
-
-  const staging = mkdtempSync(join(tmpdir(), "crumb-crashreporter-"));
-  try {
-    const provided = process.env.CRUMB_PLCRASH_ARCHIVE;
-    const archive = provided || join(staging, "CrashReporter.xcframework.zip");
-    if (!provided) {
-      run("curl", ["--fail", "--location", "--silent", "--show-error", "--retry", "3", "--retry-all-errors", "--connect-timeout", "30", "--output", archive, url], root);
-    }
-    const digest = execFileSync("shasum", ["-a", "256", archive], { encoding: "utf8" }).split(/\s+/)[0];
-    assert.equal(digest, sha256, `PLCrashReporter archive ${provided ? "named by CRUMB_PLCRASH_ARCHIVE " : ""}does not match the pinned SHA-256`);
-    run("unzip", ["-q", archive, "-d", staging], root);
-    // The archive nests its payload under a single directory, which is why the
-    // upstream podspec sets `:flatten`. Resolve the framework at either level
-    // rather than assuming the nesting directory's name.
-    const roots = [staging, ...readdirSync(staging, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => join(staging, entry.name))];
-    const extracted = roots.map((directory) => join(directory, "CrashReporter.xcframework")).find((candidate) => existsSync(candidate));
-    assert.ok(extracted, "Pinned PLCrashReporter archive did not contain CrashReporter.xcframework");
-    run("cp", ["-R", extracted, destination], root);
-    writeFileSync(stamp, `${sha256}\n`);
-    console.log(`Staged CrashReporter.xcframework for lint from ${provided ? "CRUMB_PLCRASH_ARCHIVE" : url}`);
-  } finally {
-    rmSync(staging, { recursive: true, force: true });
-  }
+  assert.ok(!existsSync(join(root, "Package.resolved")), "The Swift package has no dependencies, so it must not commit a Package.resolved");
 }
 
 // SPM is the recommended native iOS installation path, but verifySwiftPrivacyConsumers
 // builds its consumer for macOS. Build one for an iOS Simulator destination too, so the
-// recommended path has iOS coverage and the PLCrashReporter SPM dependency is resolved
-// and compiled for iOS. Privacy manifests are not re-verified here: the podspec lints
-// already inspect iOS privacy bundles inside a built application.
+// recommended path has iOS coverage. Privacy manifests are not re-verified here: the
+// podspec lints already inspect iOS privacy bundles inside a built application.
 export function verifySwiftIOSConsumer(root, temporary, remoteRevision = null) {
   const consumer = join(temporary, "swift-ios");
   const sources = join(consumer, "Sources/CrumbIOSConsumer");
@@ -232,12 +190,14 @@ export const PODSPEC_LINT_LINKAGES = { dynamic: [], static: ["--use-static-frame
 
 export function lintPodspecWithPrivacy(root, temporary, path, ancillaryGlob = null, linkages = ["dynamic"]) {
   assert.ok(linkages.includes("dynamic"), "Lint the dynamic-framework linkage that pod trunk push validates");
-  stageCrashReporterForLint(root);
+  verifyNativeManifestsOmitCrashReporter(root);
   for (const linkage of linkages) {
     assert.ok(Object.hasOwn(PODSPEC_LINT_LINKAGES, linkage), `Unknown podspec lint linkage: ${linkage}`);
     const validation = join(temporary, `${path.replace(".podspec", "")}-${linkage}`);
     const args = ["lib", "lint", path, "--platforms=ios", "--swift-version=6.0", ...PODSPEC_LINT_LINKAGES[linkage], "--fail-fast", "--no-clean", `--validation-dir=${validation}`];
-    args.push(`--include-podspecs=${ancillaryGlob ? `{${ancillaryGlob},${CRASH_REPORTER_PODSPEC}}` : CRASH_REPORTER_PODSPEC}`);
+    // Only Crumb's own sibling pods are supplied locally. Every other dependency would
+    // have to come from trunk, exactly as it does when the pod is pushed.
+    if (ancillaryGlob) args.push(`--include-podspecs=${ancillaryGlob}`);
     run("pod", args, root);
     const settings = JSON.parse(execFileSync("xcodebuild", ["-workspace", join(validation, "App.xcworkspace"), "-scheme", "App", "-configuration", "Release", "-sdk", "iphonesimulator", "-destination", "generic/platform=iOS Simulator", "-showBuildSettings", "-json"], { cwd: validation, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }));
     const app = settings.find((target) => target.target === "App")?.buildSettings;

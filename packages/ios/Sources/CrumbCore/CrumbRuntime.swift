@@ -31,6 +31,7 @@ final class CrumbRuntime: @unchecked Sendable {
     private var workspacePolicy: CrumbWorkspacePolicy?
     private var highestWorkspacePolicyVersionByScope: [String: Int] = [:]
     private var policyStatus: CrumbPolicyStatus = .notFetched
+    private var stackProvider: CrumbNativeStackProvider?
 
     private init() {}
 
@@ -47,6 +48,19 @@ final class CrumbRuntime: @unchecked Sendable {
             return
         }
         self.configuration = configuration
+    }
+
+    func setNativeStackProvider(_ provider: CrumbNativeStackProvider?) {
+        lock.lock()
+        defer { lock.unlock() }
+        stackProvider = provider
+    }
+
+    /// Returned, not invoked, under the lock: a provider suspends other threads.
+    func nativeStackProvider() -> CrumbNativeStackProvider? {
+        lock.lock()
+        defer { lock.unlock() }
+        return stackProvider
     }
 
     func setScreenContext(_ json: String) {
@@ -177,6 +191,7 @@ final class CrumbRuntime: @unchecked Sendable {
         workspacePolicy = nil
         highestWorkspacePolicyVersionByScope.removeAll()
         policyStatus = .notFetched
+        stackProvider = nil
     }
 
     private static func workspacePolicyScopeKey(for configuration: CrumbConfiguration) -> String {

@@ -5,6 +5,21 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Changed
+
+- iOS: `CrumbCore` and `CrumbSDKCore` no longer depend on PLCrashReporter. Its
+  only use was the native thread stacks recorded with an opted-in React Native
+  JavaScript failure, which a native application can never reach. That capture
+  now lives in the React Native adapter, which pins and bundles the dependency
+  as before, and CrumbCore still sanitizes and bounds every frame it is handed.
+  Swift Package Manager no longer resolves PLCrashReporter, a native CocoaPods
+  installation needs no wrapper podspec on Xcode 27, and the pods can be
+  validated for CocoaPods trunk on a current Xcode. `Package.resolved` is
+  removed because the package has no dependencies. The report envelope and the
+  JavaScript API are unchanged.
+- iOS: `Crumb.setJavaScriptCrashStackProvider` is a new adapter bridge that
+  supplies those stacks. Applications do not call it.
+
 ### Fixed
 
 - iOS: the `CrumbSDKCore` and `CrumbSDKUI` pods are now static frameworks. Built

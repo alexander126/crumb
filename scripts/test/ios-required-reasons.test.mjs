@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PODSPEC_LINT_LINKAGES, lintPodspecWithPrivacy, verifyOwnedPrivacyBundles, verifyReasonDeclarations } from "../ios-required-reasons.mjs";
+import { NATIVE_IOS_MANIFESTS, PODSPEC_LINT_LINKAGES, lintPodspecWithPrivacy, readCrashReporterPin, verifyNativeManifestsOmitCrashReporter, verifyOwnedPrivacyBundles, verifyReasonDeclarations } from "../ios-required-reasons.mjs";
 
 const category = (type, reason) => ({ NSPrivacyAccessedAPIType: type, NSPrivacyAccessedAPITypeReasons: [reason] });
 const boot = category("NSPrivacyAccessedAPICategorySystemBootTime", "35F9.1");
@@ -47,12 +47,34 @@ test("a dependency manifest or loose byproduct cannot substitute for embedded ow
 
 test("the source pods are static frameworks and the lint cannot skip the linkage trunk validates", () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-  // CrumbSDKCore depends on PLCrashReporter's statically linked binary. Without
-  // static_framework, a dynamic-framework build fails, which is how pod trunk
-  // push and a `use_frameworks!` application build the pods.
+  // Static linkage is the only one Crumb verifies, and the React Native adapter
+  // links a statically linked binary beside these pods. `use_frameworks!` and
+  // pod trunk push would otherwise build them as dynamic frameworks.
   for (const podspec of ["CrumbSDKCore.podspec", "CrumbSDKUI.podspec"]) {
     assert.match(readFileSync(join(root, podspec), "utf8"), /^\s*spec\.static_framework = true$/m, `${podspec} must declare static_framework`);
   }
   assert.deepEqual(PODSPEC_LINT_LINKAGES.dynamic, [], "The dynamic lint must use CocoaPods' default linkage, as pod trunk push does");
   assert.throws(() => lintPodspecWithPrivacy(root, tmpdir(), "CrumbSDKCore.podspec", null, ["static"]), /dynamic-framework linkage/);
+});
+
+test("native iOS manifests cannot regain the crash reporter the React Native adapter owns", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  verifyNativeManifestsOmitCrashReporter(root);
+  const { version } = readCrashReporterPin(root);
+  const adapter = readFileSync(join(root, "packages/react-native/CrumbReactNative.podspec"), "utf8");
+  assert.ok(adapter.includes(`spec.dependency "PLCrashReporter", "${version}"`), "The adapter podspec must declare the pinned PLCrashReporter");
+  assert.match(adapter, /^\s*spec\.static_framework = true$/m, "The adapter links a static binary, so it must be a static framework");
+
+  const temporary = mkdtempSync(join(tmpdir(), "crumb-native-manifests-"));
+  try {
+    for (const manifest of NATIVE_IOS_MANIFESTS) writeFileSync(join(temporary, manifest), readFileSync(join(root, manifest)));
+    verifyNativeManifestsOmitCrashReporter(temporary);
+    writeFileSync(join(temporary, "CrumbSDKCore.podspec"), `${readFileSync(join(root, "CrumbSDKCore.podspec"), "utf8")}\n# spec.dependency "PLCrashReporter"\n`);
+    assert.throws(() => verifyNativeManifestsOmitCrashReporter(temporary), /CrumbSDKCore\.podspec must not depend on/);
+    writeFileSync(join(temporary, "CrumbSDKCore.podspec"), readFileSync(join(root, "CrumbSDKCore.podspec")));
+    writeFileSync(join(temporary, "Package.resolved"), "{}");
+    assert.throws(() => verifyNativeManifestsOmitCrashReporter(temporary), /must not commit a Package\.resolved/);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 });

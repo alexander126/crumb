@@ -91,9 +91,6 @@ function measureContribution(path) {
         directObjectIndexes.add(Number(object[1]));
         crumbObjectIndexes.add(Number(object[1]));
       }
-      if (object && /(?:\/CrashReporter\.o$|\/CrashReporter\.build\/|\/libCrashReporter\.a\()/.test(object[2])) {
-        crumbObjectIndexes.add(Number(object[1]));
-      }
       continue;
     }
 

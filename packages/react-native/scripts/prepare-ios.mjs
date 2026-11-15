@@ -33,7 +33,11 @@ if (metadata.crumbNativeVersion !== version) {
     'React Native crumbNativeVersion must match the native VERSION before packaging.'
   );
 }
-for (const manifest of ['Package.swift', 'CrumbSDKCore.podspec']) {
+// Only this adapter links PLCrashReporter; the native pods and Swift package do not.
+for (const manifest of [
+  'packages/react-native/CrumbReactNative.podspec',
+  'packages/react-native/ios-tests/Package.swift',
+]) {
   if (
     !readFileSync(join(root, manifest), 'utf8').includes(
       `"${dependency.version}"`

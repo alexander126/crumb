@@ -27,6 +27,15 @@ public enum Crumb {
         _ = CrumbJavaScriptCrashStore.shared.record(recordJSON, failureContext: CrumbJavaScriptFailureContext.capture(settings: settings), includeBreadcrumbs: settings.diagnostics.logs.enabled && settings.evidence.contains(.logs), release: settings.release)
     }
 
+    /// Adapter bridge. Supplies the native thread stacks recorded with an opted-in
+    /// JavaScript failure; nil removes the provider. CrumbCore has no capture of its
+    /// own, so without a provider those stacks are reported as unavailable. The
+    /// provider runs only inside `recordJavaScriptCrash`, and only while the
+    /// effective policy permits thread-stack evidence.
+    public static func setJavaScriptCrashStackProvider(_ provider: CrumbNativeStackProvider?) {
+        CrumbRuntime.shared.setNativeStackProvider(provider)
+    }
+
     /// Moves pending JavaScript failures into the regular durable report queue.
     public static func recoverJavaScriptCrashes() async -> Bool {
         guard let settings = try? CrumbRuntime.shared.reportSettings(),
