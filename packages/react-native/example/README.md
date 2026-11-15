@@ -30,7 +30,17 @@ outside the public repository.
 
 Generate the native projects with `corepack yarn example expo prebuild --clean`.
 This replaces generated native files, so keep any native customization in the
-Expo configuration/plugin. The existing `build:ios` and `build:android` scripts
+Expo configuration/plugin.
+
+Expo SDK 55 predates Xcode 27 and iOS 27, so the example carries two
+workarounds that are not part of the SDK and that your app does not need on an
+Expo SDK that supports iOS 27. `with-ios-27-compat.js` makes prebuild generate
+a scene delegate, which iOS 27 requires at launch, and raises pod resource
+bundles that still declare a deployment target below iOS 15.0. A Yarn patch in
+`../.yarn/patches` lets Expo Router 55.0.18 compile for iOS 15.1 against the
+iOS 27 SDK. Remove both when the example moves to a newer Expo SDK.
+
+The existing `build:ios` and `build:android` scripts
 build debug apps. For crash/source-map acceptance, use release builds instead:
 
 ```sh

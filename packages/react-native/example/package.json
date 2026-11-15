@@ -21,7 +21,7 @@
     "expo-build-properties": "55.0.18",
     "expo-constants": "55.0.17",
     "expo-linking": "55.0.17",
-    "expo-router": "55.0.18",
+    "expo-router": "patch:expo-router@npm%3A55.0.18#~/.yarn/patches/expo-router-npm-55.0.18-46755c915b.patch",
     "expo-status-bar": "55.0.6",
     "react": "19.2.0",
     "react-dom": "19.2.0",
