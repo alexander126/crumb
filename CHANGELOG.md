@@ -5,6 +5,11 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+## [0.0.1-rc.8] - Candidate
+
+See the [rc.8 release notes](docs/releases/0.0.1-rc.8.md). Publication and final
+installation/dogfood checks remain separate release gates.
+
 ### Changed
 
 - iOS: `CrumbCore` and `CrumbSDKCore` no longer depend on PLCrashReporter. Its
