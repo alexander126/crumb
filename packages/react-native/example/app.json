@@ -10,6 +10,7 @@
       "expo-router",
       "@crumbsdk/react-native",
       "./with-crumb-local-native",
+      "./with-ios-27-compat",
       [
         "expo-build-properties",
         {

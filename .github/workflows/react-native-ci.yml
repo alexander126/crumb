@@ -103,3 +103,8 @@ jobs:
         run: node ../../scripts/fetch-crash-reporter.mjs
       - run: yarn pack:check:ios
       - run: yarn pack:check:expo
+      # The packed consumers above do not include Expo Router, so the
+      # source-linked example needs its own build.
+      - run: yarn prepare:ios
+      - run: yarn example expo prebuild --platform ios --clean
+      - run: yarn example build:ios
