@@ -83,7 +83,7 @@ iOS minimum of 12.0, which Xcode 27 rejects, and CocoaPods applies a pod's own
 declared minimum even when the Podfile asks for a higher platform. A native
 CocoaPods consumer on Xcode 27 therefore needed a wrapper podspec, and
 `pod trunk push`, which validates against trunk's own copy, needed an older
-Xcode. None of those candidates reached trunk, which holds only rc.3.
+Xcode. None of those candidates reached trunk, which held only rc.3 until rc.8.
 
 The thread-stack capture now lives in the React Native adapter, which is the
 only component that links PLCrashReporter. `npm run distribution:verify` and the
