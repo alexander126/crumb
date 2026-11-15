@@ -70,27 +70,28 @@ accepted because it can move during verification.
 
 ## Current public installation
 
-Release candidate `0.0.1-rc.7` is public through Swift Package Manager and Maven
-Central. Pin the exact prerelease while evaluating the SDK; stable `0.0.1` has
+Release candidate `0.0.1-rc.8` is public through Swift Package Manager,
+CocoaPods and Maven Central. Pin the exact prerelease while evaluating the SDK; stable `0.0.1` has
 not been published.
 
 ```swift
 .package(
     url: "https://github.com/alexander126/crumb.git",
-    exact: "0.0.1-rc.7"
+    exact: "0.0.1-rc.8"
 )
 ```
 
 Link both CrumbCore and CrumbUI. For Android:
 
 ```kotlin
-implementation("com.crumbsdk:crumb-ui:0.0.1-rc.7")
+implementation("com.crumbsdk:crumb-ui:0.0.1-rc.8")
 ```
 
-CocoaPods `pod "CrumbSDK", "0.0.1-rc.3"` is the separate legacy installation,
-not an rc.7 pod publication. New native iOS integrations should use SPM. React
-Native/Expo rc.7 bundles the iOS sources and uses its supplied Podfile helper or
-Expo config plugin; it does not require an rc.7 Crumb release on CocoaPods trunk.
+CocoaPods users install `pod "CrumbSDK", "0.0.1-rc.8"`. New native iOS
+integrations should still prefer SPM, because CocoaPods trunk stops accepting
+new versions on 2 December 2026. React Native/Expo rc.8 bundles the iOS sources
+and uses its supplied Podfile helper or Expo config plugin; it does not install
+Crumb from CocoaPods trunk.
 See the [current quickstarts](../../website/content/docs/index.mdx).
 
 The SDK source and artifacts are licensed under Apache-2.0; the hosted
