@@ -1,0 +1,100 @@
+---
+title: "Connect your coding agent"
+description: "Let a coding agent read a project's reports over MCP, with read-only access."
+---
+
+A coding agent can read your project's reports directly instead of working from a pasted summary. It sees what the person wrote, the screen, device and release, the sanitized diagnostics and the masked screenshot, and can go from a report to the code that needs changing.
+
+Agent access is a **preview** of the Crumb dashboard, separate from the SDK version in your app. If the Integrations page has no **Coding agents (MCP)** card, your Crumb service does not include it yet.
+
+## Before you start
+
+- A report in the project. Send a synthetic one from the [quickstart](/docs) if the project is empty.
+- A workspace owner or admin, who creates the token.
+- An agent that supports the Model Context Protocol (MCP) over HTTP with a bearer authorization header.
+
+## 1. Create a token
+
+1. Open the project in the dashboard and go to **Integrations**.
+2. In **Coding agents (MCP)**, name the token after where it will be used, for example `Laptop agent`, and choose **Create token**.
+3. Copy the connection settings straight away. The token is shown once; Crumb keeps only a fingerprint and cannot show it again.
+
+A project can have up to 10 active tokens. Create one per person or machine, so that you can revoke one without interrupting the others.
+
+## 2. Add Crumb to your agent
+
+The card gives you the settings with your server address and token already filled in. They have this shape:
+
+```json
+{
+  "mcpServers": {
+    "crumb": {
+      "type": "http",
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <your token>"
+      }
+    }
+  }
+}
+```
+
+Paste them into your agent's MCP settings. Use the server address from **Connection details** on the card, not the example above.
+
+If your agent adds servers from the command line, give it the same three values: the name, the server address and the authorization header. In Claude Code, for example:
+
+```sh
+claude mcp add --transport http crumb https://api.example.com/mcp \
+  --header "Authorization: Bearer <your token>"
+```
+
+The token is a secret. Keep it in your own agent settings or a secret store, not in a file committed to the repository, and never in the app.
+
+## 3. Ask about a report
+
+Restart the agent or reload its tools, then ask something that needs a report:
+
+```text
+List the newest Crumb reports for release 1.4.0 and summarize the bugs.
+```
+
+```text
+Read Crumb report rpt_… with its diagnostics and screenshot, then find the code involved.
+```
+
+## What the agent can read
+
+| Tool                     | What it returns                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `list_reports`           | Reports, newest first, up to 50 per page. Filter by category, platform or app release, or list archived reports instead. |
+| `get_report`             | One report: the description, category, release, device and OS, status, and which evidence is attached.                   |
+| `get_report_diagnostics` | Sanitized evidence for one report: screen, recent app logs, thread stacks, memory and CPU, network state and rendering.  |
+| `get_screenshot`         | The screenshot as an image, only when it was masked on the device.                                                       |
+
+Evidence that the device could not measure is reported as unavailable, not as zero. A report has the evidence your SDK configuration collected; see [logs and diagnostics](/docs/guides/diagnostics).
+
+## Access and privacy
+
+- **Read-only.** There is no tool that changes, closes, archives or deletes a report.
+- **One project.** A token reads the project it was created in and nothing else in the workspace.
+- **Tied to its creator.** A token has the access of the person who created it, and stops working if that person leaves the workspace.
+- **Contact details stay in Crumb.** Reporter contact details are never returned. A screenshot that was not masked on the device, or that is larger than 4 MiB, is not returned either.
+- **Recorded.** Creating a token, revoking one and every agent read appear in the audit log.
+- **Limited.** A token can make 120 requests a minute. Beyond that the agent is asked to slow down.
+
+## Report text is untrusted
+
+Descriptions, logs and screen names are written by people using your app or captured from their device. Someone can type an instruction into a report. Crumb tells the agent in every result to treat this content as data, but that is a reminder, not a guarantee.
+
+Review what the agent proposes before it runs commands or changes code because of something a report said, especially for an app with public testers.
+
+## Revoke a token
+
+In **Coding agents (MCP)**, choose **Revoke** next to the token. Agents using it lose access immediately. Revoke a token when a machine is retired, a person changes role, or the value may have been exposed, then create a replacement.
+
+## Troubleshooting
+
+- **The agent reports an authorization error.** The token was revoked, was copied incompletely, or its creator left the workspace. Create a new one.
+- **No tools appear.** Check that the address ends in `/mcp` and that the agent is using its HTTP transport. Crumb does not offer a local command or an event-stream transport.
+- **A report has no screenshot.** The report was sent without one, or the screenshot was not masked on the device. Open the report in the dashboard instead.
+- **A report is missing.** It belongs to another project, or it was archived. Ask the agent to list archived reports.
