@@ -94,6 +94,14 @@ For Android, use `--platform android` and `npx expo run:android`, or your existi
 EAS development-build workflow. Expo Go and restarting Metro cannot apply native
 plugin changes. Continue with app initialization only after native setup.
 
+## Optional issue-tracker step
+
+Interactive setup also asks whether new reports should create GitHub or Linear
+issues; pass `--issue-trackers` when running noninteractively. Answering yes
+only adds a next step pointing to your Crumb project's Integrations page, where
+the connection is made. Setup writes no tracker choice or credential into the
+app or `crumb.config.json`.
+
 ## Optional source-map build hooks
 
 For a reproducible noninteractive setup, copy the upload origin from your

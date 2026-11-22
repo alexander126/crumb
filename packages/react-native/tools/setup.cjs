@@ -8,7 +8,7 @@ const {
 
 const metroMarker = '// crumb-metro';
 
-function setupPlan(root, { sourceMaps, uploadUrl } = {}) {
+function setupPlan(root, { sourceMaps, uploadUrl, issueTrackers } = {}) {
   const pkg = JSON.parse(
     fs.readFileSync(path.join(root, 'package.json'), 'utf8')
   );
@@ -213,6 +213,12 @@ function setupPlan(root, { sourceMaps, uploadUrl } = {}) {
   instructions.push(
     'Initialize Crumb with the SDK configuration from your dashboard, then send a test report.'
   );
+  // Issue creation is a server-side project setting: setup only points to it
+  // and never writes a tracker choice or credential into the app.
+  if (issueTrackers)
+    instructions.push(
+      'Connect GitHub or Linear on your Crumb project’s Integrations page to create an issue for each new report. Tracker credentials stay in Crumb; never add them to this config or the app.'
+    );
   return { framework: expo ? 'Expo' : 'React Native', changes, instructions };
 }
 

@@ -49,6 +49,24 @@ test('Expo setup preserves plugins and Metro options, and applying twice changes
   assert.equal(setupPlan(root).changes.length, 0);
 });
 
+test('opting into issue trackers adds a dashboard step without writing anything locally', (t) => {
+  const root = app(t);
+  const base = setupPlan(root, { sourceMaps: false });
+  const plan = setupPlan(root, { sourceMaps: false, issueTrackers: true });
+  assert.ok(
+    plan.instructions.some((value) => value.includes('Integrations page'))
+  );
+  assert.equal(
+    base.instructions.some((value) => value.includes('Integrations page')),
+    false
+  );
+  assert.deepEqual(plan.changes, base.changes);
+  assert.equal(
+    plan.changes.some((change) => /github|linear/i.test(change.content)),
+    false
+  );
+});
+
 test('a concurrent user edit stops the entire setup transaction', (t) => {
   const root = app(t);
   const plan = setupPlan(root, { sourceMaps: false });
