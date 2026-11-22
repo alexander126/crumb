@@ -85,7 +85,8 @@ final class CrumbRuntime: @unchecked Sendable {
             privacy: configuration.privacy,
             reporter: CrumbReporterOptions(
                 theme: configuration.reporter.theme,
-                visibleFields: effective.reporterFields
+                visibleFields: effective.reporterFields,
+                reviewBeforeSending: configuration.reporter.reviewBeforeSending
             ),
             evidence: effective.evidence,
             application: configuration.application,

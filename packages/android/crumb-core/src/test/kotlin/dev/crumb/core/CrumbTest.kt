@@ -199,6 +199,7 @@ class CrumbTest {
             diagnostics = CrumbDiagnosticsOptions(healthCheckUrl = "https://api.example.invalid/health"),
             reporter = CrumbReporterOptions(
                 visibleFields = setOf(CrumbReporterField.CATEGORY, CrumbReporterField.DESCRIPTION),
+                reviewBeforeSending = true,
             ),
             evidence = CrumbEvidenceCategory.entries.toSet(),
             customContext = CrumbCustomContextOptions(
@@ -212,6 +213,8 @@ class CrumbTest {
         val beforeFetch = Crumb.reportSettings()
         assertTrue(beforeFetch.evidence.isEmpty())
         assertEquals(setOf(CrumbReporterField.DESCRIPTION), beforeFetch.reporter.visibleFields)
+        assertTrue(beforeFetch.reporter.reviewBeforeSending)
+        assertTrue(!CrumbReporterOptions().reviewBeforeSending)
         assertTrue(beforeFetch.customContext.isEmpty())
         assertEquals(CrumbPolicyStatus.NOT_FETCHED, beforeFetch.policyStatus)
 

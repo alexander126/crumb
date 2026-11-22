@@ -224,6 +224,17 @@ describe('Crumb React Native adapter', () => {
     ).rejects.toThrow('visibleFields');
     expect(mockNative.start).not.toHaveBeenCalled();
   });
+
+  it('rejects a non-boolean review step option', async () => {
+    await expect(
+      Crumb.start({
+        projectKey: 'crumb_sdk_test',
+        environment: 'test',
+        reporter: { reviewBeforeSending: 'yes' as unknown as boolean },
+      })
+    ).rejects.toThrow('reviewBeforeSending');
+    expect(mockNative.start).not.toHaveBeenCalled();
+  });
 });
 
 test('report invocation freezes the screen before native presentation can be delayed', async () => {

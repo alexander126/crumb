@@ -81,7 +81,8 @@ final class CrumbReactNative: HybridCrumbReactNativeSpec {
                     theme: payload.reporter?.theme?.native ?? .system,
                     visibleFields: Set(
                         (payload.reporter?.visibleFields ?? [.category, .description]).map(\.native)
-                    )
+                    ),
+                    reviewBeforeSending: payload.reporter?.reviewBeforeSending ?? false
                 ),
                 evidence: Set(
                     (payload.evidence ?? EvidencePayload.allCases).map(\.native)
@@ -229,6 +230,7 @@ private struct PrivacyPayload: Decodable {
 private struct ReporterPayload: Decodable {
     let theme: ThemePayload?
     let visibleFields: [ReporterFieldPayload]?
+    let reviewBeforeSending: Bool?
 }
 
 private enum ThemePayload: String, Decodable {

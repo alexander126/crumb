@@ -134,7 +134,8 @@
           "uniqueItems": true,
           "contains": { "const": "description" },
           "items": { "type": "string", "enum": ["category", "description"] }
-        }
+        },
+        "review_before_sending": { "type": "boolean" }
       }
     },
     "application": {

@@ -235,7 +235,11 @@ private fun JSONObject.reporterOptions(): CrumbReporterOptions {
             }
         }
     } ?: CrumbReporterOptions().visibleFields
-    return CrumbReporterOptions(theme = theme, visibleFields = fields)
+    return CrumbReporterOptions(
+        theme = theme,
+        visibleFields = fields,
+        reviewBeforeSending = reporter.optionalBoolean("reviewBeforeSending") ?: false,
+    )
 }
 
 private fun JSONObject.evidenceOptions(): Set<CrumbEvidenceCategory> {

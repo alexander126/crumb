@@ -561,14 +561,31 @@ object CrumbReporter {
                     .show()
             }
         })
-        content.addView(diagnosticsCard, matchWrap().withMargins(activity, bottom = 10))
+        val reviewsBeforeSending = session.settings.reporter.reviewBeforeSending
+        // The streamlined flow keeps collected context out of the user's way.
+        if (reviewsBeforeSending) {
+            content.addView(diagnosticsCard, matchWrap().withMargins(activity, bottom = 10))
+        }
 
         val review = Button(activity).apply {
-            CrumbDesign.stylePrimaryButton(activity, this, activity.getString(R.string.crumb_review_report))
+            CrumbDesign.stylePrimaryButton(
+                activity,
+                this,
+                activity.getString(
+                    when {
+                        reviewsBeforeSending -> R.string.crumb_review_report
+                        session.isSaving -> R.string.crumb_saving_locally
+                        else -> R.string.crumb_submit_report
+                    },
+                ),
+            )
             isEnabled = session.description.isNotBlank() && session.diagnostics != null &&
-                session.screenshotCaptureComplete
-            tag = "crumb.review-draft"
-            setOnClickListener { showSummary(activity, dialog, session) }
+                session.screenshotCaptureComplete && !session.isSaving
+            tag = if (reviewsBeforeSending) "crumb.review-draft" else "crumb.submit-report"
+            setOnClickListener {
+                if (reviewsBeforeSending) showSummary(activity, dialog, session)
+                else sendFromForm(activity, dialog, session, this)
+            }
         }
         description.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(value: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -599,6 +616,19 @@ object CrumbReporter {
                 session.screenshotCaptureComplete
         ) View.GONE else View.VISIBLE
         content.addView(actionHelper, matchWrap().withMargins(activity, top = 7))
+        if (!reviewsBeforeSending) {
+            // Without the review step this is the only place the privacy
+            // boundary is stated to the user.
+            content.addView(text(
+                activity,
+                activity.getString(R.string.crumb_android_privacy_note),
+                12.5f,
+                CrumbDesign.MUTED_TEXT,
+            ).apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+            }, matchWrap().withMargins(activity, top = 8))
+        }
 
         session.diagnosticsLabel = diagnosticsLabel
         session.diagnosticsDetailLabel = diagnosticsDetail
@@ -616,9 +646,33 @@ object CrumbReporter {
         }
     }
 
+    /** Saves the report to the durable queue straight from the form. */
+    private fun sendFromForm(
+        activity: Activity,
+        dialog: Dialog,
+        session: ReporterSession,
+        button: Button,
+    ) {
+        if (session.isSaving) return
+        session.envelope = prepareEnvelope(activity, dialog, session) ?: return
+        submitReport(activity, session, button)
+    }
+
     private fun showSummary(activity: Activity, dialog: Dialog, session: ReporterSession) {
-        val diagnostics = session.diagnostics ?: return
-        val envelope = runCatching { buildEnvelope(session, diagnostics) }.getOrElse {
+        session.envelope = prepareEnvelope(activity, dialog, session) ?: return
+        session.screen = ReporterScreen.DRAFT
+        clearBindings(session)
+        dialog.setContentView(buildSummary(activity, dialog, session))
+    }
+
+    /** Builds the envelope, or replaces the dialog with the failure screen. */
+    private fun prepareEnvelope(
+        activity: Activity,
+        dialog: Dialog,
+        session: ReporterSession,
+    ): CrumbSerializedReportEnvelope? {
+        val diagnostics = session.diagnostics ?: return null
+        return runCatching { buildEnvelope(session, diagnostics) }.getOrElse {
             val content = verticalLayout(activity).apply {
                 setPadding(dp(activity, 24), dp(activity, 24), dp(activity, 24), dp(activity, 32))
                 addView(text(activity, activity.getString(R.string.crumb_draft_failed_title), 28f, CrumbDesign.INK))
@@ -634,13 +688,8 @@ object CrumbReporter {
                 }, matchWrap())
             }
             dialog.setContentView(ScrollView(activity).apply { addView(content) })
-            return
+            null
         }
-
-        session.envelope = envelope
-        session.screen = ReporterScreen.DRAFT
-        clearBindings(session)
-        dialog.setContentView(buildSummary(activity, dialog, session))
     }
 
     private fun showReporter(activity: Activity, dialog: Dialog, session: ReporterSession) {
@@ -969,7 +1018,12 @@ object CrumbReporter {
                         finishSession(session)
                     },
                     onFailure = { error ->
-                        currentDialog.setContentView(buildSummary(host, currentDialog, session))
+                        if (session.screen == ReporterScreen.DRAFT) {
+                            currentDialog.setContentView(buildSummary(host, currentDialog, session))
+                        } else {
+                            clearBindings(session)
+                            currentDialog.setContentView(buildReporter(host, currentDialog, session))
+                        }
                         val message = if (error is CrumbReportQueueException.QueueFull) {
                             host.getString(R.string.crumb_queue_full)
                         } else {
@@ -1103,7 +1157,7 @@ object CrumbReporter {
         val hasDescription = session.description.isNotBlank()
         val isReady = hasDescription && session.diagnostics != null &&
             session.screenshotCaptureComplete
-        session.reviewButton?.isEnabled = isReady
+        session.reviewButton?.isEnabled = isReady && !session.isSaving
         session.actionHelperLabel?.text = when {
             !hasDescription -> activity.getString(R.string.crumb_add_description)
             session.diagnostics == null -> activity.getString(R.string.crumb_finishing_context)

@@ -158,13 +158,18 @@ public enum CrumbEvidenceCategory: String, CaseIterable, Hashable, Codable, Send
 public struct CrumbReporterOptions: Equatable, Sendable {
     public let theme: CrumbTheme
     public let visibleFields: Set<CrumbReporterField>
+    /// Adds a review step that lists the attached evidence before the report
+    /// is sent. Off by default: the form sends the report directly.
+    public let reviewBeforeSending: Bool
 
     public init(
         theme: CrumbTheme = .system,
-        visibleFields: Set<CrumbReporterField> = [.category, .description]
+        visibleFields: Set<CrumbReporterField> = [.category, .description],
+        reviewBeforeSending: Bool = false
     ) {
         self.theme = theme
         self.visibleFields = visibleFields
+        self.reviewBeforeSending = reviewBeforeSending
     }
 }
 

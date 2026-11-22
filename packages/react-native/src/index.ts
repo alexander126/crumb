@@ -143,6 +143,14 @@ function validateConfiguration(configuration: CrumbConfiguration): void {
     throw new TypeError('Crumb reporter.theme is unsupported.');
   }
   assertReporterFields(configuration.reporter?.visibleFields);
+  if (
+    configuration.reporter?.reviewBeforeSending !== undefined &&
+    typeof configuration.reporter.reviewBeforeSending !== 'boolean'
+  ) {
+    throw new TypeError(
+      'Crumb reporter.reviewBeforeSending must be a boolean.'
+    );
+  }
   assertEvidence(configuration.evidence);
   assertApplicationMetadata(configuration.application?.name);
   assertCustomContext(configuration.customContext);

@@ -289,7 +289,10 @@ struct CrumbCoreTests {
         let healthURL = try #require(URL(string: "https://api.example.invalid/health"))
         let configuration = makeConfiguration(
             diagnostics: CrumbDiagnosticsOptions(healthCheckURL: healthURL),
-            reporter: CrumbReporterOptions(visibleFields: [.category, .description]),
+            reporter: CrumbReporterOptions(
+                visibleFields: [.category, .description],
+                reviewBeforeSending: true
+            ),
             evidence: Set(CrumbEvidenceCategory.allCases),
             customContext: CrumbCustomContextOptions(
                 values: ["account_tier": "trial", "email": "user@example.invalid"],
@@ -302,6 +305,8 @@ struct CrumbCoreTests {
         let beforeFetch = try Crumb.reportSettings()
         #expect(beforeFetch.evidence.isEmpty)
         #expect(beforeFetch.reporter.visibleFields == [.description])
+        #expect(beforeFetch.reporter.reviewBeforeSending)
+        #expect(!CrumbReporterOptions().reviewBeforeSending)
         #expect(beforeFetch.customContext.isEmpty)
         #expect(beforeFetch.policyStatus == .notFetched)
 

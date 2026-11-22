@@ -117,6 +117,8 @@ await Crumb.start({
   reporter: {
     theme: 'system',
     visibleFields: ['category', 'description'],
+    // Optional: show the attached evidence for review before sending.
+    reviewBeforeSending: false,
   },
   evidence: ['screenshot', 'performance', 'network', 'logs', 'thread_stacks', 'health_check'],
   customContext: {

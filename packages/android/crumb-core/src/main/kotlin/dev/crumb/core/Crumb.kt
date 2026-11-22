@@ -87,6 +87,11 @@ data class CrumbReporterOptions(
         CrumbReporterField.CATEGORY,
         CrumbReporterField.DESCRIPTION,
     ),
+    /**
+     * Adds a review step that lists the attached evidence before the report
+     * is sent. Off by default: the form sends the report directly.
+     */
+    val reviewBeforeSending: Boolean = false,
 )
 
 data class CrumbApplicationMetadata(
