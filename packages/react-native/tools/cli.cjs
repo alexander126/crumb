@@ -17,6 +17,7 @@ async function main() {
       apply: { type: 'boolean' },
       'source-maps': { type: 'boolean' },
       'upload-url': { type: 'string' },
+      'issue-trackers': { type: 'boolean' },
       root: { type: 'string' },
       directory: { type: 'string' },
       input: { type: 'string' },
@@ -30,13 +31,14 @@ async function main() {
   const [command] = positionals;
   if (values.help || !command) {
     console.log(
-      'crumb setup [--source-maps --upload-url HTTPS_ORIGIN] [--apply]\ncrumb doctor\ncrumb retry --receipt FILE\ncrumb export --output DIRECTORY --targets FILE [--dry-run]\n\nSetup previews changes; --apply accepts them without prompting. Upload credentials belong only in CRUMB_SOURCE_MAP_TOKEN.'
+      'crumb setup [--source-maps --upload-url HTTPS_ORIGIN] [--issue-trackers] [--apply]\ncrumb doctor\ncrumb retry --receipt FILE\ncrumb export --output DIRECTORY --targets FILE [--dry-run]\n\nSetup previews changes; --apply accepts them without prompting. Upload credentials belong only in CRUMB_SOURCE_MAP_TOKEN.'
     );
     return;
   }
   if (command === 'setup') {
     let sourceMaps = values['source-maps'];
     let uploadUrl = values['upload-url'];
+    let issueTrackers = values['issue-trackers'];
     const prompt =
       process.stdin.isTTY && !values.apply
         ? createInterface({ input: process.stdin, output: process.stdout })
@@ -52,7 +54,13 @@ async function main() {
         uploadUrl = await prompt.question(
           'Upload origin from your Crumb integration page: '
         );
-      const plan = setupPlan(root, { sourceMaps, uploadUrl });
+      if (prompt && issueTrackers === undefined)
+        issueTrackers = /^y(es)?$/i.test(
+          await prompt.question(
+            'Create GitHub or Linear issues automatically from new reports? [y/N] '
+          )
+        );
+      const plan = setupPlan(root, { sourceMaps, uploadUrl, issueTrackers });
       console.log(`Crumb setup: ${plan.framework}`);
       for (const change of plan.changes)
         console.log(

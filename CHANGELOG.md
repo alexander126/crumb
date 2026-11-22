@@ -16,6 +16,10 @@ Semantic Versioning while the public API is released.
 
 - `reporter.reviewBeforeSending` (Swift, Kotlin, and React Native; default
   `false`) restores the review step before a report is sent.
+- React Native: `crumb setup` asks whether new reports should create GitHub or
+  Linear issues (`--issue-trackers` when non-interactive). Answering yes adds a
+  next step pointing to the project's Integrations page; setup writes no
+  tracker choice or credential locally.
 
 ## [0.0.1-rc.8] - Candidate
 
