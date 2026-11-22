@@ -73,6 +73,11 @@ export interface CrumbReporterOptions {
   theme?: CrumbTheme;
   /** The description field is always required by the report contract. */
   visibleFields?: readonly CrumbReporterField[];
+  /**
+   * Adds a review step that lists the attached evidence before the report is
+   * sent. Defaults to false: the form sends the report directly.
+   */
+  reviewBeforeSending?: boolean;
 }
 
 export interface CrumbApplicationMetadata {

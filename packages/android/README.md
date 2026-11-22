@@ -73,11 +73,12 @@ from Android's device connectivity observation and never gates local saving.
 Both invocation paths respect `CrumbConfiguration.invocation`. Opening the
 reporter renders the form first, then gathers the bounded diagnostic snapshot
 on a worker thread. The active draft survives rotation and backgrounding.
-Submitting the review screen atomically saves the report before Crumb confirms
-it is safe to close.
+Sending the report atomically saves it before Crumb confirms it is safe to
+close. Set `reporter = CrumbReporterOptions(reviewBeforeSending = true)` to add
+a review step that lists the attached evidence first.
 
 Screenshot previews use the final bounded, masked PNG and may be removed before
-review. `EditText` is masked automatically. Mark other sensitive Views with:
+sending. `EditText` is masked automatically. Mark other sensitive Views with:
 
 ```kotlin
 accountNumberView.maskInCrumbScreenshots()

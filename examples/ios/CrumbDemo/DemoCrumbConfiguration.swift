@@ -38,7 +38,10 @@ struct DemoCrumbConfiguration {
                     healthCheckURL: uploadEnabled ? ingestionURL?.appendingPathComponent("health") : nil,
                     renderingEnabled: true
                 ),
-                upload: CrumbUploadOptions(ingestionURL: uploadEnabled ? ingestionURL : nil)
+                upload: CrumbUploadOptions(ingestionURL: uploadEnabled ? ingestionURL : nil),
+                reporter: CrumbReporterOptions(
+                    reviewBeforeSending: environment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] == "1"
+                )
             ),
             modeDescription: uploadEnabled ? "Staging upload enabled" : "Local-only mode"
         )

@@ -30,6 +30,8 @@ const options = {
 } satisfies Partial<CrumbConfiguration>;
 ```
 
+By default the reporter sends a report straight from the form. Set `reviewBeforeSending: true` in the same `reporter` object to add a review step that lists the attached evidence before sending. This option is not in published rc.8.
+
 Swift uses `CrumbReporterOptions` and `.system`; Kotlin uses `CrumbReporterOptions` and `CrumbTheme.SYSTEM`. The [configuration contract](https://github.com/alexander126/crumb/blob/main/docs/contracts/sdk-configuration.md) maps names across platforms.
 
 ## Choose evidence

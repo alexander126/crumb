@@ -574,6 +574,10 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private var composerAnimator: UIViewPropertyAnimator?
     private var composerDragOrigin: CGFloat = 0
     private var isDraggingFromGrabber = false
+    private var isSending = false
+    private weak var privacyNote: UILabel?
+
+    private var reviewsBeforeSending: Bool { settings.reporter.reviewBeforeSending }
 
     var hasMeaningfulInput: Bool {
         (settings.reporter.visibleFields.contains(.category) && categoryControl.selectedSegmentIndex != 0)
@@ -730,14 +734,17 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         headerTitle.accessibilityIdentifier = "crumb.reporter-title"
         header.addArrangedSubview(headerTitle)
 
-        reviewHeaderButton.setTitle(crumbLocalized("Review"), for: .normal)
+        reviewHeaderButton.setTitle(
+            crumbLocalized(reviewsBeforeSending ? "Review" : "Send"),
+            for: .normal
+        )
         reviewHeaderButton.setTitleColor(CrumbDesign.Color.accentDark, for: .normal)
         reviewHeaderButton.setTitleColor(CrumbDesign.Color.disabled, for: .disabled)
         reviewHeaderButton.titleLabel?.font = .preferredFont(forTextStyle: .headline).withWeight(.semibold)
         reviewHeaderButton.titleLabel?.adjustsFontForContentSizeCategory = true
         reviewHeaderButton.contentHorizontalAlignment = .trailing
         reviewHeaderButton.isEnabled = false
-        reviewHeaderButton.addAction(UIAction { [weak self] _ in self?.reviewDraft() }, for: .touchUpInside)
+        reviewHeaderButton.addAction(UIAction { [weak self] _ in self?.continueDraft() }, for: .touchUpInside)
         reviewHeaderButton.widthAnchor.constraint(equalToConstant: 72).isActive = true
         header.addArrangedSubview(reviewHeaderButton)
         content.addArrangedSubview(header)
@@ -867,12 +874,29 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             content.addArrangedSubview(screenshotCard)
         }
 
-        submitButton.configuration = CrumbDesign.primaryButton(title: crumbLocalized("Review report"))
+        submitButton.configuration = CrumbDesign.primaryButton(
+            title: crumbLocalized(reviewsBeforeSending ? "Review report" : "Send report")
+        )
         submitButton.isEnabled = false
-        submitButton.accessibilityIdentifier = "crumb.review-draft"
-        submitButton.addAction(UIAction { [weak self] _ in self?.reviewDraft() }, for: .touchUpInside)
+        submitButton.accessibilityIdentifier = reviewsBeforeSending
+            ? "crumb.review-draft"
+            : "crumb.submit-report"
+        submitButton.addAction(UIAction { [weak self] _ in self?.continueDraft() }, for: .touchUpInside)
         submitButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
         content.addArrangedSubview(submitButton)
+
+        if !reviewsBeforeSending {
+            // Without the review step this is the only place the user is told
+            // what the report never contains.
+            let privacyNote = CrumbDesign.label(
+                crumbLocalized("No passwords, card numbers, keystrokes or location are ever included."),
+                style: .caption2,
+                color: CrumbDesign.Color.mutedText
+            )
+            privacyNote.textAlignment = .center
+            content.addArrangedSubview(privacyNote)
+            self.privacyNote = privacyNote
+        }
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(keyboardWillChangeFrame(_:)),
@@ -949,7 +973,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
     private func setExpandedControlsVisible(_ visible: Bool) {
         // Remove these pixels as soon as focus changes, but retain their layout
         // until keyboardWillChangeFrame coordinates the panel's size and position.
-        let controls: [UIView?] = [categoryControl, screenshotCard, submitButton]
+        let controls: [UIView?] = [categoryControl, screenshotCard, submitButton, privacyNote]
         UIView.performWithoutAnimation {
             for control in controls.compactMap({ $0 }) {
                 control.alpha = visible ? 1 : 0
@@ -963,6 +987,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         categoryControl.isHidden = editing || !settings.reporter.visibleFields.contains(.category)
         screenshotCard?.isHidden = editing || screenshotArtifact == nil
         submitButton.isHidden = editing
+        privacyNote?.isHidden = editing
         keyboardStatusRow.isHidden = !editing
         updateSubmitButton()
         updateComposerHeight()
@@ -1152,7 +1177,7 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         let hasDescription = !descriptionView.text
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .isEmpty
-        let isReady = hasDescription && diagnostics != nil
+        let isReady = hasDescription && diagnostics != nil && !isSending
         submitButton.isEnabled = isReady
         reviewHeaderButton.isEnabled = isReady
     }
@@ -1165,8 +1190,19 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         screenshotCard.removeFromSuperview()
     }
 
-    private func reviewDraft() {
-        guard let diagnostics else { return }
+    private struct Draft {
+        let category: String
+        let description: String
+        let diagnostics: CrumbDiagnosticsSnapshot
+        let envelope: CrumbSerializedReportEnvelope
+    }
+
+    private func continueDraft() {
+        if reviewsBeforeSending { reviewDraft() } else { sendDraft() }
+    }
+
+    private func buildDraft() -> Draft? {
+        guard let diagnostics else { return nil }
         let categoryIndex = max(0, min(categoryControl.selectedSegmentIndex, 2))
         let category = ["Bug", "Feedback", "Other"][categoryIndex]
         let description = descriptionView.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1192,9 +1228,13 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             workspacePolicyVersion: settings.workspacePolicyVersion
         )
 
-        let envelope: CrumbSerializedReportEnvelope
         do {
-            envelope = try Crumb.buildReport(input)
+            return Draft(
+                category: category,
+                description: description,
+                diagnostics: diagnostics,
+                envelope: try Crumb.buildReport(input)
+            )
         } catch {
             let alert = UIAlertController(
                 title: crumbLocalized("Couldn’t create draft"),
@@ -1203,16 +1243,19 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
             )
             alert.addAction(UIAlertAction(title: crumbLocalized("OK"), style: .default))
             present(alert, animated: true)
-            return
+            return nil
         }
+    }
 
+    private func reviewDraft() {
+        guard let draft = buildDraft() else { return }
         let summary = DraftSummaryViewController(
-            category: category,
-            description: description,
+            category: draft.category,
+            description: draft.description,
             screenshotArtifact: screenshotArtifact,
             screenshotWasMasked: screenshotArtifact != nil && screenshotMasking == .applied,
-            diagnostics: diagnostics,
-            envelope: envelope,
+            diagnostics: draft.diagnostics,
+            envelope: draft.envelope,
             onRemoveScreenshot: { [weak self] in self?.removeScreenshot() },
             onDone: { [weak self] in self?.finish() }
         )
@@ -1222,8 +1265,63 @@ private final class ReporterViewController: UIViewController, UITextViewDelegate
         navigationController?.pushViewController(summary, animated: true)
     }
 
+    /// Saves the report to the durable queue straight from the form.
+    private func sendDraft() {
+        guard !isSending, let draft = buildDraft() else { return }
+        descriptionView.resignFirstResponder()
+        setSending(true)
+        UIAccessibility.post(
+            notification: .announcement,
+            argument: crumbLocalized("Saving report locally")
+        )
+
+        let envelope = draft.envelope
+        let artifacts = screenshotArtifact.map {
+            [CrumbQueueArtifact(manifest: $0.manifest, data: $0.encodedData)]
+        } ?? []
+        Task { [weak self] in
+            do {
+                _ = try await CrumbReportQueue.shared.enqueue(
+                    envelope: envelope,
+                    artifacts: artifacts
+                )
+                guard let self else { return }
+                CrumbReporterLifecycle.shared.reportDidQueue()
+                UIAccessibility.post(
+                    notification: .announcement,
+                    argument: crumbLocalized("Report saved")
+                )
+                self.finish()
+            } catch {
+                guard let self else { return }
+                self.setSending(false, failed: true)
+                let message = error as? CrumbReportQueueError == .queueFull
+                    ? crumbLocalized("The on-device queue is full. No existing report was deleted.")
+                    : crumbLocalized("The report was not saved. Nothing was sent; please try again.")
+                let alert = UIAlertController(
+                    title: crumbLocalized("Couldn’t save report"),
+                    message: message,
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: crumbLocalized("OK"), style: .default))
+                self.present(alert, animated: true)
+            }
+        }
+    }
+
+    private func setSending(_ sending: Bool, failed: Bool = false) {
+        isSending = sending
+        let title = sending ? "Saving locally…" : (failed ? "Try again" : "Send report")
+        submitButton.configuration = CrumbDesign.primaryButton(title: crumbLocalized(title))
+        descriptionView.isEditable = !sending
+        categoryControl.isUserInteractionEnabled = !sending
+        screenshotCard?.isUserInteractionEnabled = !sending
+        backdropControl.isEnabled = !sending
+        updateSubmitButton()
+    }
+
     func requestCancel() {
-        guard presentedViewController == nil else { return }
+        guard presentedViewController == nil, !isSending else { return }
         guard hasMeaningfulInput else {
             cancelImmediately()
             return

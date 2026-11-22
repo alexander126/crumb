@@ -13,6 +13,7 @@ an extra required argument to native initializers or the React Native API.
 | Invocation | `invocation` | `invocation` | `invocation` |
 | Reporter theme | `reporter.theme` (`.system`, `.light`, `.dark`) | `reporter.theme` (`SYSTEM`, `LIGHT`, `DARK`) | `reporter.theme` (`system`, `light`, `dark`) |
 | Reporter fields | `reporter.visibleFields` | `reporter.visibleFields` | `reporter.visibleFields` |
+| Review step | `reporter.reviewBeforeSending` (default `false`) | `reporter.reviewBeforeSending` (default `false`) | `reporter.reviewBeforeSending` (default `false`) |
 | Optional evidence | `evidence` | `evidence` | `evidence` |
 | App/release identity | `application`, `release` | `application`, `release` | `application`, `release` |
 | Custom context | `customContext` | `customContext` | `customContext` |
@@ -23,6 +24,11 @@ The required report text is the description. The optional category field can
 be hidden, but no configuration can remove the description or replace the
 built-in reporter's layout, copy, or Crumb branding. App and release metadata
 are bounded identity fields; they do not introduce user identity tracking.
+
+By default the reporter sends a report straight from the form. Setting
+`reporter.reviewBeforeSending` adds a review step that lists the attached
+evidence, with its technical detail, before the report is sent. The option only
+changes what the user is shown; it never changes what is collected.
 
 The default configuration preserves existing integrations: system appearance,
 category and description fields, locally enabled screenshot/performance/network/

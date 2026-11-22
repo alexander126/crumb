@@ -37,7 +37,8 @@
   },
   "reporter": {
     "theme": "system",
-    "visible_fields": ["category", "description"]
+    "visible_fields": ["category", "description"],
+    "review_before_sending": false
   },
   "evidence": [
     "screenshot",

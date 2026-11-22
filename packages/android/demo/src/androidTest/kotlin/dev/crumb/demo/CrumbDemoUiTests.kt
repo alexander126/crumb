@@ -132,24 +132,16 @@ class CrumbDemoUiTests {
         onView(tagged("demo.report-problem")).perform(scrollTo(), click())
 
         waitFor(withContentDescription("Masked screenshot preview"))
-        waitFor(
-            allOf(
-                tagged("crumb.diagnostics-summary"),
-                withContentDescription(containsString("Context ready")),
-            ),
-        )
 
         onView(tagged("crumb.description")).perform(
             replaceText("The payment button stopped responding"),
         )
         closeSoftKeyboard()
-        waitFor(allOf(tagged("crumb.review-draft"), isEnabled()))
-        onView(tagged("crumb.review-draft")).perform(scrollTo(), click())
-
-        waitFor(withText("Review"))
-        onView(withText(containsString("Nothing has been sent yet"))).check(doesNotExist())
-        onView(withText("The payment button stopped responding")).check(matches(isDisplayed()))
-        onView(withText(containsString("WHAT’S ATTACHED"))).check(matches(isDisplayed()))
+        // Default flow: the form sends the report without a review step or
+        // a technical context row.
+        waitFor(allOf(tagged("crumb.submit-report"), isEnabled()))
+        onView(tagged("crumb.review-draft")).check(doesNotExist())
+        onView(tagged("crumb.diagnostics-summary")).check(doesNotExist())
 
         onView(tagged("crumb.submit-report")).perform(scrollTo(), click())
         waitFor(tagged("demo.report-problem"))
@@ -223,11 +215,7 @@ class CrumbDemoUiTests {
             waitForQualityEvent(events, CrumbQualityEventKind.SCREENSHOT_READY, 21)
             onView(tagged("crumb.description")).perform(replaceText("Memory retention pass"))
             closeSoftKeyboard()
-            waitFor(allOf(tagged("crumb.review-draft"), isEnabled()))
-            onView(tagged("crumb.review-draft")).perform(scrollTo(), click())
-            waitFor(withText("Review"))
-            pressBack()
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            waitFor(allOf(tagged("crumb.submit-report"), isEnabled()))
             if (isViewDisplayed(tagged("crumb.description"))) {
                 onView(withContentDescription("Close report")).perform(directClick())
                 onView(withText("Discard report")).perform(directClick())
@@ -406,12 +394,8 @@ class CrumbAccessibilityUiTest {
         waitFor(withContentDescription("Masked screenshot preview"))
         onView(tagged("crumb.description")).perform(replaceText("Accessible report"))
         closeSoftKeyboard()
-        waitFor(allOf(tagged("crumb.review-draft"), isEnabled()))
-        onView(tagged("crumb.review-draft")).perform(scrollTo(), click())
-        waitFor(withText("Review"))
+        waitFor(allOf(tagged("crumb.submit-report"), isEnabled()))
         onView(tagged("crumb.submit-report")).perform(scrollTo()).check(matches(isDisplayed()))
-        pressBack()
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         if (isViewDisplayed(tagged("crumb.description"))) {
             onView(withContentDescription("Close report")).perform(directClick())
             onView(withText("Discard report")).perform(directClick())

@@ -125,6 +125,7 @@ final class CrumbDemoUITests: XCTestCase {
     @MainActor
     func testDescriptionKeepsItsGeometryThroughTypingAndRefocus() {
         let app = XCUIApplication()
+        app.launchEnvironment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] = "1"
         app.launch()
         app.buttons["demo.report-problem"].tap()
         let description = app.textViews["crumb.description"]
@@ -187,6 +188,7 @@ final class CrumbDemoUITests: XCTestCase {
     @MainActor
     func testLongDescriptionSurvivesRotationWhileEditing() {
         let app = XCUIApplication()
+        app.launchEnvironment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] = "1"
         app.launch()
         defer { XCUIDevice.shared.orientation = .portrait }
         app.buttons["demo.report-problem"].tap()
@@ -227,6 +229,7 @@ final class CrumbDemoUITests: XCTestCase {
     @MainActor
     func testCreatesLocalReportDraft() {
         let app = XCUIApplication()
+        app.launchEnvironment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] = "1"
         app.launch()
 
         app.buttons["demo.simulate-activity"].tap()
@@ -264,6 +267,7 @@ final class CrumbDemoUITests: XCTestCase {
     @MainActor
     func testRemovingScreenshotFromReviewClearsTheRebuiltReportAndPreservesInput() throws {
         let app = XCUIApplication()
+        app.launchEnvironment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] = "1"
         app.launch()
         XCTAssertEqual(app.staticTexts["demo.delivery-mode"].label, "Local-only mode")
 
@@ -318,14 +322,13 @@ final class CrumbDemoUITests: XCTestCase {
         XCTAssertTrue(description.waitForExistence(timeout: 5))
         description.tap()
         description.typeText("Synthetic submission acceptance\n")
-        let review = app.buttons["crumb.review-draft"]
-        waitUntilEnabled(review)
-        for _ in 0..<4 where !review.isHittable { app.swipeUp() }
-        review.tap()
+        // Default flow: the form sends the report without a review step.
+        XCTAssertFalse(app.buttons["crumb.review-draft"].exists)
         let submit = app.buttons["crumb.submit-report"]
-        XCTAssertTrue(submit.waitForExistence(timeout: 5))
+        waitUntilEnabled(submit)
         for _ in 0..<4 where !submit.isHittable { app.swipeUp() }
         submit.tap()
+        XCTAssertFalse(app.staticTexts["crumb.review-title"].exists)
 
         let dismissed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: submit
@@ -362,6 +365,7 @@ final class CrumbDemoUITests: XCTestCase {
             "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge",
         ]
         app.launchEnvironment["CRUMB_TEST_APPEARANCE"] = "dark"
+        app.launchEnvironment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] = "1"
         app.launch()
 
         app.buttons["demo.report-problem"].tap()
@@ -393,6 +397,7 @@ final class CrumbDemoUITests: XCTestCase {
     func testQualityBudgetsProduceRepeatableMeasurements() {
         let app = XCUIApplication()
         app.launchEnvironment["CRUMB_QUALITY_METRICS"] = "1"
+        app.launchEnvironment["CRUMB_DEMO_REVIEW_BEFORE_SENDING"] = "1"
         app.launch()
 
         let reporter = app.staticTexts["crumb.reporter-title"]

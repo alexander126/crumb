@@ -5,6 +5,18 @@ Semantic Versioning while the public API is released.
 
 ## [Unreleased]
 
+### Changed
+
+- The reporter now sends a report straight from the form. The review step that
+  listed the attached evidence and technical detail is skipped by default, and
+  the Android form no longer shows the collected-context row. The collected
+  evidence, sanitization, and the durable queue are unchanged.
+
+### Added
+
+- `reporter.reviewBeforeSending` (Swift, Kotlin, and React Native; default
+  `false`) restores the review step before a report is sent.
+
 ## [0.0.1-rc.8] - Candidate
 
 See the [rc.8 release notes](docs/releases/0.0.1-rc.8.md). Publication and final
